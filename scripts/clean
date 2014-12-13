@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd $(dirname $0)/..
+
+find . -name __pycache__ -type d -exec rm -r {} +
+find . -iname *.pyc -exec rm -rf {} \;

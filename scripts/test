@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+build_env()
+{
+    pushd $(dirname $0)
+    ./build-env 
+}
+
+teardown_env()
+{
+    popd
+    ./build-env -d
+}
+
+run_tests()
+{
+    pushd $(dirname $0)/../tests/validation
+    tox
+}
+
+if [ -z "${CATTLE_TEST_URL}" ]; then
+    build_env
+    export CATTLE_TEST_URL=http://$(gce-10acre-ranch -c cattle-$(id -un) -i):8080
+    DELETE="true"
+else
+    echo "Using set CATTLE_TEST_URL env var: ${CATTLE_TEST_URL} for tests"
+    DELETE="false"
+fi
+
+if [ "${DELETE}" == "true" ]; then
+    trap "teardown_env" EXIT TERM
+fi
+
+run_tests

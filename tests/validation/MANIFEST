@@ -3,4 +3,3 @@ README.txt
 setup.py
 cattlevalidationtest/core/common_fixtures.py
 cattlevalidationtest/core/test_container.py
-cattlevalidationtest/core/test_vm.py

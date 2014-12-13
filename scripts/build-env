@@ -1,0 +1,84 @@
+#!/bin/bash
+
+set -e
+
+10acre_check()
+{
+    if [ ! $(command -v gce-10acre-ranch) ]; then
+        echo "need gce-10acre-ranch command from cloudnautique/10acre-ranch" 1>&2
+        echo " in order to provision" 1>&2
+        exit 1
+    fi
+}
+
+while getopts "d" opt; do
+    case $opt in
+        d)
+            DESTROY_CLUSTER="true"
+            ;;
+    esac
+done
+
+get_response()
+{
+    local response_code
+
+    set -o pipefail
+
+    response_code=$(curl -I -m 1 -X GET http://${1}:8080 2>/dev/null | \
+    HEAD -1 | cut -d' ' -f2)
+    if [[ $? -ne 0 ]]; then
+        response_code=-1
+    fi
+
+    set +o pipefail
+
+    echo ${response_code}
+}
+
+build_environment()
+{
+    10acre_check
+
+    local cluster_name="cattle-$(id -un)"
+    local response_code
+    local master_ip
+
+    echo "Building cluster ${cluster_name}..."
+    gce-10acre-ranch -b -n 2 -c ${cluster_name}
+
+    echo -n "Waiting for cluster ${cluster_name} "
+    master_ip=$(gce-10acre-ranch -c ${cluster_name} -i)
+
+    set +e
+    for ((i=0;i<30;i++))
+    do
+        response_code=$(get_response ${master_ip})
+
+        if [[ ${response_code} -eq 200 ]]; then
+            break
+        else
+            echo -n "."
+            sleep 10
+        fi
+    done
+    set -e
+
+    if [ $i -lt 30 ]; then
+        exit 0
+    else
+        echo "\nCluster was not created in time" 1>&2
+        exit 1
+    fi
+}
+
+destroy_environment()
+{
+    gce-10acre-ranch -d -c cattle-$(id -un) -q
+}
+
+if [[ ${DESTROY_CLUSTER} == "true" ]]; then
+    destroy_environment
+else
+    build_environment
+fi
