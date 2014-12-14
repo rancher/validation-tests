@@ -45,7 +45,7 @@ build_environment()
     local master_ip
 
     echo "Building cluster ${cluster_name}..."
-    gce-10acre-ranch -b -n 2 -c ${cluster_name}
+    gce-10acre-ranch -b -n 3 -c ${cluster_name}
 
     echo -n "Waiting for cluster ${cluster_name} "
     master_ip=$(gce-10acre-ranch -c ${cluster_name} -i)

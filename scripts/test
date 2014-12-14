@@ -23,6 +23,8 @@ run_tests()
 if [ -z "${CATTLE_TEST_URL}" ]; then
     build_env
     export CATTLE_TEST_URL=http://$(gce-10acre-ranch -c cattle-$(id -un) -i):8080
+    echo "Giving hosts time to register"
+    sleep 30
     DELETE="true"
 else
     echo "Using set CATTLE_TEST_URL env var: ${CATTLE_TEST_URL} for tests"
