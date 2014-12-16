@@ -41,8 +41,9 @@ def test_sibling_pinging(client, one_per_host):
     delete_all(client, instances)
 
 
-def test_dynamic_port(client, test_name):
+def test_dynamic_port(client, test_name, managed_network):
     c = client.create_container(name=test_name,
+                                networkIds=[managed_network.id],
                                 imageUuid=TEST_IMAGE_UUID)
     c = client.wait_success(c)
 
@@ -66,7 +67,7 @@ def test_dynamic_port(client, test_name):
     delete_all(client, [c])
 
 
-def test_linking(client, test_name):
+def test_linking(client, test_name, managed_network):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
 
@@ -75,6 +76,7 @@ def test_linking(client, test_name):
 
     link_server = client.create_container(name=test_name + '-server',
                                           imageUuid=TEST_IMAGE_UUID,
+                                          networkIds=[managed_network.id],
                                           hostname=test_name + '-server',
                                           environment={
                                               'VALUE': random
@@ -82,6 +84,7 @@ def test_linking(client, test_name):
                                           requestedHostId=hosts[2].id)
     link_server2 = client.create_container(name=test_name + '-server2',
                                            imageUuid=TEST_IMAGE_UUID,
+                                           networkIds=[managed_network.id],
                                            hostname=test_name + '-server2',
                                            environment={
                                                'VALUE': random2
@@ -89,6 +92,7 @@ def test_linking(client, test_name):
                                            requestedHostId=hosts[1].id)
     link_client = client.create_container(name=test_name + '-client',
                                           imageUuid=TEST_IMAGE_UUID,
+                                          networkIds=[managed_network.id],
                                           ports=['3000:3000'],
                                           hostname=test_name + '-client1',
                                           instanceLinks={

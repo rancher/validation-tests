@@ -18,8 +18,11 @@ TEST_IMAGE_UUID = 'docker:cattle/test-agent:v7'
 def cleanup(client):
     to_delete = []
     for i in client.list_instance(state='running'):
-        if i is not None and i.name.startswith('test-'):
-            to_delete.append(i)
+        try:
+            if i.name.startswith('test-'):
+                to_delete.append(i)
+        except AttributeError:
+            pass
 
     delete_all(client, to_delete)
 
@@ -61,9 +64,16 @@ def wait_all_success(client, items, timeout=DEFAULT_TIMEOUT):
 
     return result
 
+@pytest.fixture
+def managed_network(client):
+    networks = client.list_network(uuid='managed-docker0')
+    assert len(networks) == 1
+
+    return networks[0]
+
 
 @pytest.fixture
-def one_per_host(client, test_name):
+def one_per_host(client, test_name, managed_network):
     instances = []
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
@@ -71,6 +81,7 @@ def one_per_host(client, test_name):
     for host in hosts:
         c = client.create_container(name=test_name,
                                     ports=['3000:3000'],
+                                    networkIds=managed_network.id,
                                     imageUuid=TEST_IMAGE_UUID,
                                     requestedHostId=host.id)
         instances.append(c)

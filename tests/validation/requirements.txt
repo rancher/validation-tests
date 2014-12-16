@@ -1,5 +1,5 @@
 flake8
 paramiko
-pytest==2.3.5
+pytest
 requests
 cattle
