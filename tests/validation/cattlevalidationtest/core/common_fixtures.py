@@ -64,6 +64,7 @@ def wait_all_success(client, items, timeout=DEFAULT_TIMEOUT):
 
     return result
 
+
 @pytest.fixture
 def managed_network(client):
     networks = client.list_network(uuid='managed-docker0')
@@ -86,7 +87,7 @@ def one_per_host(client, test_name, managed_network):
                                     requestedHostId=host.id)
         instances.append(c)
 
-    instances = wait_all_success(client, instances)
+    instances = wait_all_success(client, instances, timeout=120)
 
     for i in instances:
         ports = i.ports()
