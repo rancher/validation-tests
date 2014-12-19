@@ -71,15 +71,15 @@ def test_linking(client, test_name, managed_network):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
 
-    random = random_str()
-    random2 = random_str()
+    random_val = random_str()
+    random_val2 = random_str()
 
     link_server = client.create_container(name=test_name + '-server',
                                           imageUuid=TEST_IMAGE_UUID,
                                           networkIds=[managed_network.id],
                                           hostname=test_name + '-server',
                                           environment={
-                                              'VALUE': random
+                                              'VALUE': random_val
                                           },
                                           requestedHostId=hosts[2].id)
     link_server2 = client.create_container(name=test_name + '-server2',
@@ -87,7 +87,7 @@ def test_linking(client, test_name, managed_network):
                                            networkIds=[managed_network.id],
                                            hostname=test_name + '-server2',
                                            environment={
-                                               'VALUE': random2
+                                               'VALUE': random_val2
                                            },
                                            requestedHostId=hosts[1].id)
     link_client = client.create_container(name=test_name + '-client',
@@ -103,7 +103,7 @@ def test_linking(client, test_name, managed_network):
     link_client = client.wait_success(link_client)
     link_server = client.wait_success(link_server)
 
-    ping_link(link_client, 'client', var='VALUE', value=random)
+    ping_link(link_client, 'client', var='VALUE', value=random_val)
 
     link_server2 = client.wait_success(link_server2)
 
@@ -111,6 +111,6 @@ def test_linking(client, test_name, managed_network):
     link = client.update(link, targetInstanceId=link_server2.id)
     client.wait_success(link)
 
-    ping_link(link_client, 'client', var='VALUE', value=random2)
+    ping_link(link_client, 'client', var='VALUE', value=random_val2)
 
     delete_all(client, [link_client, link_server, link_server2])
