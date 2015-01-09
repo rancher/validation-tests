@@ -3,6 +3,10 @@
 set -e
 set -x
 
+: ${CATTLE_TEST_AGENT_IMAGE:='docker:cattle/test-agent:v7'}
+
+export CATTLE_TEST_AGENT_IMAGE
+
 cd $(dirname $0)/..
 
 build_env()
