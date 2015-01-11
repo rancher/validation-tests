@@ -10,8 +10,10 @@ log = logging.getLogger()
 
 URL = os.environ.get('CATTLE_TEST_URL', 'fill in')
 
+TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
+                                 'docker:cattle/test-agent:v7')
+
 DEFAULT_TIMEOUT = 45
-TEST_IMAGE_UUID = 'docker:cattle/test-agent:v7'
 
 
 @pytest.fixture(autouse=True)
