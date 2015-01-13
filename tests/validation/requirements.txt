@@ -3,3 +3,4 @@ paramiko
 pytest
 requests
 cattle
+selenium

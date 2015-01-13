@@ -8,7 +8,7 @@ import logging
 
 log = logging.getLogger()
 
-URL = os.environ.get('CATTLE_TEST_URL', 'fill in')
+URL = os.environ.get('CATTLE_TEST_URL', 'http://localhost:8080/v1/schemas')
 
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
@@ -38,9 +38,9 @@ def client():
 
 @pytest.fixture(scope='session')
 def admin_client():
-    from_env(url=URL)
-    assert client.valid()
-    return client
+    admin_client = from_env(url=URL)
+    assert admin_client.valid()
+    return admin_client
 
 
 @pytest.fixture
