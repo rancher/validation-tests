@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)/..
+
+apt-get update
+apt-get install -y python-pip python-dev
+pip install --upgrade pip==6.0.3 tox==1.8.1 virtualenv==12.0.4
