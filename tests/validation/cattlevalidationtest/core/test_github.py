@@ -11,14 +11,15 @@ if_github = pytest.mark.skipif(os.environ.get('API_AUTH_GITHUB'
                                reason='API_AUTH_GITHUB_TEST_USER is not set')
 
 
-@if_github
-def test_github_token_has_access():
+URL = cattle_url()
+BASE_URL = URL[:-1 * len('schemas')]
 
-    URL = os.environ.get('CATTLE_TEST_URL',
-                         'http://localhost:8080/v1/schemas')
 
-    username = os.getenv('API_AUTH_GITHUB_TEST_USER', None)
-    password = os.getenv('API_AUTH_GITHUB_TEST_PASS', None)
+@pytest.fixture(scope='module')
+def github_request_code(user=None, pw=None):
+
+    username = os.getenv('API_AUTH_GITHUB_TEST_USER', user)
+    password = os.getenv('API_AUTH_GITHUB_TEST_PASS', pw)
 
     driver = webdriver.PhantomJS()
     driver.set_window_size(1120, 550)
@@ -44,32 +45,166 @@ def test_github_token_has_access():
     redirect_url = r.headers['location']
     query = urlparse.urlparse(redirect_url)[4]
     query = urlparse.parse_qs(query)
+    driver.quit()
+    return query['code']
 
+
+@pytest.fixture(scope='module')
+def github_request_token(github_request_code, cattle_url):
+    code = github_request_code
+
+    URL = cattle_url
     BASE_URL = URL[:-1 * len('schemas')]
 
-    c = requests.post(BASE_URL + 'token', {'code': query['code']})
+    c = requests.post(BASE_URL + 'token', {'code': code})
 
-    jwt = c.json()['jwt']
+    return c.json()['jwt']
 
+
+@if_github
+def test_github_auth_config_unauth_user(github_request_token):
+    #   switch on auth
     requests.post(BASE_URL + 'githubconfig',
                   data=json.dumps({'enabled': 'true'}))
 
+#   do not set any auth headers
     no_auth = requests.get(URL)
 
+#   test that auth is switched on
     assert no_auth.status_code == 401
 
-    bad_auth = requests.get(URL,
-                            headers={'Authorization':
-                                     'Bearer some_random_string'})
-
-    assert bad_auth.status_code == 401
-
-    schemas = requests.get(URL, headers={'Authorization': 'Bearer ' + jwt})
-
-    assert schemas.status_code == 200
-
+    jwt = github_request_token
+#   switch it back
     requests.post(BASE_URL + 'githubconfig',
                   headers={'Authorization': 'Bearer ' + jwt},
                   data=json.dumps({'enabled': 'false'}))
 
-    driver.quit()
+
+@if_github
+def test_github_auth_config_invalid_user(github_request_token):
+    #   switch on auth
+    requests.post(BASE_URL + 'githubconfig',
+                  data=json.dumps({'enabled': 'true'}))
+
+#   set invalid auth headers
+    bad_auth = requests.get(URL,
+                            headers={'Authorization':
+                                     'Bearer some_random_string'})
+
+#   test that user does not have access
+    assert bad_auth.status_code == 401
+
+    jwt = github_request_token
+#   switch it back
+    requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
+                  data=json.dumps({'enabled': 'false'}))
+
+
+@if_github
+def test_github_auth_config_valid_user(github_request_token):
+    #   switch on auth
+    requests.post(BASE_URL + 'githubconfig',
+                  data=json.dumps({'enabled': 'true'}))
+
+    jwt = github_request_token
+
+#   set valid auth headers
+    schemas = requests.get(URL, headers={'Authorization': 'Bearer ' + jwt})
+
+#   test that user has access
+    assert schemas.status_code == 200
+
+#   switch it back
+    requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
+                  data=json.dumps({'enabled': 'false'}))
+
+
+@if_github
+def test_github_auth_config_api_whitelist_users(github_request_token):
+    #   set whitelisted users
+    requests.post(BASE_URL + 'githubconfig',
+                  data=json.dumps({'allowedUsers':
+                                  ['ranchertest01', 'ranchertest02']}))
+
+#   test that these users were whitelisted
+    r = requests.get(BASE_URL + 'githubconfig')
+
+    users = r.json()['data'][0]['allowedUsers']
+
+    user_count = 2
+
+    assert len(users) == 2
+
+    for user in users:
+        if user == 'ranchertest01' or user == 'ranchertest02':
+            user_count = user_count - 1
+
+    assert user_count == 0
+
+
+@if_github
+def test_github_auth_config_api_whitelist_orgs(github_request_token):
+    #   set whitelisted orgs
+    requests.post(BASE_URL + 'githubconfig',
+                  data=json.dumps({'allowedOrganizations': ['rancherio']}))
+
+#   test that these users were whitelisted
+    r = requests.get(BASE_URL + 'githubconfig')
+
+    users = r.json()['data'][0]['allowedOrganizations']
+
+    user_count = 1
+
+    assert len(users) == 1
+
+    for user in users:
+        if user == 'rancherio':
+            user_count = user_count - 1
+
+    assert user_count == 0
+
+
+@if_github
+def test_github_add_whitelisted_user(github_request_token):
+        #   switch on auth
+    requests.post(BASE_URL + 'githubconfig',
+                  data=json.dumps({'enabled': 'true'}))
+
+    jwt = github_request_token
+
+    #   set whitelisted orgs
+    requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
+                  data=json.dumps({'allowedUsers': ['ranchertest01']}))
+
+    #   test that these users were whitelisted
+    r = requests.get(BASE_URL + 'githubconfig',
+                     headers={'Authorization': 'Bearer ' + jwt})
+
+    users = r.json()['data'][0]['allowedUsers']
+
+    user_count = 1
+
+    assert len(users) == 1
+
+    for user in users:
+        if user == 'ranchertest01':
+            user_count = user_count - 1
+
+    assert user_count == 0
+
+    rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
+
+    if rancherpass is None:
+        assert False
+
+    new_token = github_request_code('ranchertest01', rancherpass)
+
+    assert new_token is not None
+
+#   switch it back
+    requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
+                  data=json.dumps({'enabled': 'false'}))
