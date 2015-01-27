@@ -8,12 +8,16 @@ import logging
 
 log = logging.getLogger()
 
-URL = os.environ.get('CATTLE_TEST_URL', 'http://localhost:8080/v1/schemas')
-
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
 
 DEFAULT_TIMEOUT = 45
+
+
+@pytest.fixture(scope='session')
+def cattle_url():
+    default_url = 'http://localhost:8080/v1/schemas'
+    return os.environ.get('CATTLE_TEST_URL', default_url)
 
 
 @pytest.fixture(autouse=True)
@@ -30,15 +34,15 @@ def cleanup(client):
 
 
 @pytest.fixture(scope='session')
-def client():
-    client = from_env(url=URL)
+def client(cattle_url):
+    client = from_env(url=cattle_url)
     assert client.valid()
     return client
 
 
 @pytest.fixture(scope='session')
-def admin_client():
-    admin_client = from_env(url=URL)
+def admin_client(cattle_url):
+    admin_client = from_env(url=cattle_url)
     assert admin_client.valid()
     return admin_client
 
