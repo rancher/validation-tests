@@ -28,8 +28,9 @@ def github_request_code(user=None, pw=None):
     username = os.getenv('API_AUTH_GITHUB_TEST_USER', user)
     password = os.getenv('API_AUTH_GITHUB_TEST_PASS', pw)
     phantomjs_port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
+    phantomjs_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
 
-    driver = webdriver.PhantomJS(port=phantomjs_port)
+    driver = webdriver.PhantomJS(phantomjs_bin, port=phantomjs_port)
     max_wait = 60
     driver.set_page_load_timeout(max_wait)
     driver.set_script_timeout(max_wait)
