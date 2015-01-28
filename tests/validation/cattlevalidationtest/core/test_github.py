@@ -138,13 +138,17 @@ def test_github_auth_config_valid_user(github_request_token):
 
 @if_github
 def test_github_auth_config_api_whitelist_users(github_request_token):
+    jwt = github_request_token
     #   set whitelisted users
     requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
                   data=json.dumps({'allowedUsers':
                                   ['ranchertest01', 'ranchertest02']}))
 
 #   test that these users were whitelisted
     r = requests.get(BASE_URL + 'githubconfig')
+
+    print r.json()
 
     users = r.json()['data'][0]['allowedUsers']
 
@@ -156,8 +160,10 @@ def test_github_auth_config_api_whitelist_users(github_request_token):
 
 @if_github
 def test_github_auth_config_api_whitelist_orgs(github_request_token):
+    jwt = github_request_token
     #   set whitelisted orgs
     requests.post(BASE_URL + 'githubconfig',
+                  headers={'Authorization': 'Bearer ' + jwt},
                   data=json.dumps({'allowedOrganizations': ['rancherio']}))
 
 #   test that these users were whitelisted
