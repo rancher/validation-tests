@@ -4,5 +4,11 @@ set -e
 cd $(dirname $0)/..
 
 apt-get update
-apt-get install -y python-pip python-dev phantomjs
+apt-get install -y python-pip python-dev tcpdump wget libfreetype6 fontconfig 
 pip install --upgrade pip==6.0.3 tox==1.8.1 virtualenv==12.0.4
+
+cd /tmp
+wget -q https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2
+tar -xjf phantomjs-1.9.8-linux-x86_64.tar.bz2
+cp phantomjs-1.9.8-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
+rm -rf phantomjs-*
