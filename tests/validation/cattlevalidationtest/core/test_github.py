@@ -3,7 +3,7 @@ from common_fixtures import *  # NOQA
 from selenium import webdriver
 from selenium.webdriver.phantomjs.service import Service as PhantomJSService
 from requests.auth import AuthBase
-
+import json
 
 # test the github auth workflow
 
@@ -46,9 +46,16 @@ def github_request_code(user=None, pw=None):
 
     driver.set_window_size(1120, 550)
     client_id = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
+    client_secret = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
 
-    if username is None or password is None or client_id is None:
-        raise Exception('please set username, password and client_id in env')
+    if username is None or password is None or client_id is None \
+       or client_secret is None:
+        raise Exception('please set username,'
+                        'password, client_secret and client_id in env')
+
+    requests.post(BASE_URL+'githubconfig',
+                  json.dumps({'clientId': client_id,
+                              'clientSecret': client_secret}))
 
     urlx = "https://github.com/login/oauth/authorize?client_id=" +\
            client_id + "&scope=read:org&state=random_string"
@@ -74,7 +81,7 @@ def github_request_code(user=None, pw=None):
 @pytest.fixture(scope='module')
 def github_client(cattle_url, github_request_token):
     github_client = from_env(url=cattle_url)
-    assert  github_client.valid()
+    assert github_client.valid()
     jwt = github_request_token
     github_client._auth = GithubAuth(jwt)
     return github_client
@@ -87,7 +94,7 @@ class GithubAuth(AuthBase):
 
     def __call__(self, r):
         # modify and return the request
-        r.headers['Authorization'] = 'Bearer '+ self.jwt
+        r.headers['Authorization'] = 'Bearer ' + self.jwt
         return r
 
 
@@ -154,7 +161,7 @@ def test_github_auth_config_valid_user(github_client, github_request_token):
 def test_github_auth_config_api_whitelist_users(github_client):
 
     github_client.create_githubconfig(allowedUsers=['ranchertest01',
-                                                        'ranchertest02'])
+                                                    'ranchertest02'])
 
 #   test that these users were whitelisted
     r = github_client.list_githubconfig()
@@ -231,8 +238,10 @@ def test_github_projects(github_client, cattle_url):
     new_token = github_request_code('ranchertest01', rancherpass)
     new_token = github_request_token(new_token)
     user_client._auth = GithubAuth(new_token)
+    projects = user_client.list_project()
     try:
-        user_client.create_project(externalIdType='project:github_user')
+        if len(projects) == 0:
+            user_client.create_project(externalIdType='project:github_user')
     except:
         pass
 
