@@ -4,3 +4,4 @@ pytest
 requests
 cattle
 selenium
+websocket-client==0.23.0
