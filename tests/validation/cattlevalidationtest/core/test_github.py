@@ -88,13 +88,16 @@ def github_client(cattle_url, github_request_token):
 
 
 class GithubAuth(AuthBase):
-    def __init__(self, jwt):
+    def __init__(self, jwt, prj_id=None):
         # setup any auth-related data here
         self.jwt = jwt
+        self.prj_id = prj_id
 
     def __call__(self, r):
         # modify and return the request
         r.headers['Authorization'] = 'Bearer ' + self.jwt
+        if self.prj_id is not None:
+            r.headers['X-API-Project-Id'] = self.prj_id
         return r
 
 
@@ -217,36 +220,121 @@ def test_github_add_whitelisted_user(github_client):
 
 @if_github
 def test_github_projects(github_client, cattle_url):
-    user_client = from_env(url=cattle_url)
-    switch_on_auth(github_client)
-
-    #   set whitelisted orgs
-    github_client.create_githubconfig(allowedUsers=['ranchertest01'])
-
-    #   test that these users were whitelisted
-    r = github_client.list_githubconfig()
-
-    users = r[0]['allowedUsers']
-
-    assert 'ranchertest01' in users
-
-    rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
-
-    if rancherpass is None:
-        assert False
-
-    new_token = github_request_code('ranchertest01', rancherpass)
-    new_token = github_request_token(new_token)
-    user_client._auth = GithubAuth(new_token)
-    projects = user_client.list_project()
     try:
+        user_client = from_env(url=cattle_url)
+        switch_on_auth(github_client)
+
+        #   set whitelisted orgs
+        github_client.create_githubconfig(allowedUsers=['ranchertest01'])
+
+        #   test that these users were whitelisted
+        r = github_client.list_githubconfig()
+
+        users = r[0]['allowedUsers']
+
+        assert 'ranchertest01' in users
+
+        rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
+
+        if rancherpass is None:
+            assert False
+
+        new_token = github_request_code('ranchertest01', rancherpass)
+        new_token = github_request_token(new_token)
+        user_client._auth = GithubAuth(new_token)
+        projects = user_client.list_project()
+        try:
+            if len(projects) == 0:
+                uc = user_client
+                uc.create_project(externalIdType='project:github_user')
+                assert uc.externalId == 'ranchertest01'
+        except:
+            pass
+
+        projects = user_client.list_project()
+
+        assert len(projects) == 1
+        switch_off_auth(github_client)
+    except Exception as e:
+        switch_off_auth(github_client)
+        raise e
+
+
+@if_github
+def test_github_prj_team_id_consistency(github_client):
+    try:
+        switch_on_auth(github_client)
+
+        c = github_client.create_project(externalId="1129756",
+                                         externalIdType="project:github_team")
+
+        assert c.externalId == '1129756'
+
+        projects = github_client.list_project()
+
+        for project in projects:
+            if project.externalIdType == 'project:github_team':
+                assert project.externalId.isdigit()
+
+        switch_off_auth(github_client)
+    except Exception as e:
+        switch_off_auth(github_client)
+        raise e
+
+
+@if_github
+def test_github_prj_org_name_consistency(github_client):
+    try:
+        switch_on_auth(github_client)
+
+        c = github_client.create_project(externalId="rancherio",
+                                         externalIdType="project:github_org")
+
+        assert c.externalId == 'rancherio'
+
+        projects = github_client.list_project()
+
+        for project in projects:
+            if project.externalIdType == 'project:github_org':
+                try:
+                    project.externalId.isdigit()
+                    assert False
+                except:
+                    pass
+
+        switch_off_auth(github_client)
+    except Exception as e:
+        switch_off_auth(github_client)
+        raise e
+
+
+@if_github
+def test_github_prj_view(github_client, cattle_url):
+    try:
+        pseudo_github_client = from_env(url=cattle_url)
+        switch_on_auth(github_client)
+
+        projects = github_client.list_project()
+
         if len(projects) == 0:
-            user_client.create_project(externalIdType='project:github_user')
-    except:
-        pass
+            github_client.create_project(externalId="rancherio",
+                                         externalIdType="project:github_org")
 
-    projects = user_client.list_project()
+        original_apiKey_len = len(github_client.list_apiKey())
 
-    assert len(projects) == 1
+        prj_id = projects[0].id
 
-    switch_off_auth(github_client)
+        new_token = github_request_code()
+        new_token = github_request_token(new_token)
+        pseudo_github_client._auth = GithubAuth(new_token, prj_id)
+
+        if len(pseudo_github_client.list_apiKey()) == 0:
+            pseudo_github_client.create_apiKey()
+
+        assert len(pseudo_github_client.list_apiKey()) == 1
+        assert len(github_client.list_apiKey()) == original_apiKey_len
+
+        switch_off_auth(github_client)
+    except Exception as e:
+        switch_off_auth(github_client)
+        raise e
