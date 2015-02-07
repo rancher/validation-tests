@@ -1,7 +1,6 @@
 from common_fixtures import *  # NOQA
 import websocket as ws
 import pytest
-import time
 
 
 def get_logs(admin_client):
@@ -13,11 +12,11 @@ def get_logs(admin_client):
                                       command=cmd)
     c = admin_client.wait_success(c)
     logs = c.logs()
-    return logs,inLog,c
+    return logs, inLog, c
 
 
 def test_logs_token(admin_client):
-    logs, inLog,c = get_logs(admin_client)
+    logs, inLog, c = get_logs(admin_client)
     conn = ws.create_connection(logs.url + '?token='+logs.token)
     result = conn.recv()
     assert result is not None
@@ -27,7 +26,7 @@ def test_logs_token(admin_client):
 
 
 def test_logs_no_token(admin_client):
-    logs,_ ,c = get_logs(admin_client)
+    logs, _, c = get_logs(admin_client)
     with pytest.raises(Exception) as excinfo:
             ws.create_connection(logs.url)
     assert 'Handshake status 401' in str(excinfo.value)
@@ -35,7 +34,7 @@ def test_logs_no_token(admin_client):
 
 
 def test_host_api_garbage_token(admin_client):
-    logs,_ ,c = get_logs(admin_client)
+    logs, _, c = get_logs(admin_client)
     with pytest.raises(Exception) as excinfo:
         ws.create_connection(logs.url+'?token=random.garbage.token')
     assert 'Handshake status 401' in str(excinfo.value)
