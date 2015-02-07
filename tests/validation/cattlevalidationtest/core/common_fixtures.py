@@ -20,7 +20,7 @@ def cattle_url():
     return os.environ.get('CATTLE_TEST_URL', default_url)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='session')
 def cleanup(client):
     to_delete = []
     for i in client.list_instance(state='running'):
