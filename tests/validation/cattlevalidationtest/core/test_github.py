@@ -3,9 +3,13 @@ from common_fixtures import *  # NOQA
 from selenium import webdriver
 from selenium.webdriver.phantomjs.service import Service as PhantomJSService
 from requests.auth import AuthBase
+from cattle import ApiError
 import json
 
 # test the github auth workflow
+USER_SCOPE = 'project:github_user'
+TEAM_SCOPE = 'project:github_team'
+ORG_SCOPE = 'project:github_org'
 
 
 class NewService(PhantomJSService):
@@ -78,12 +82,26 @@ def github_request_code(user=None, pw=None):
     return query['code']
 
 
+def delete_by_id(self, type, id):
+    url = self.schema.types[type].links.collection
+    if url.endswith('/'):
+        url = url + id
+    else:
+        url = '/'.join([url, id])
+    return self._delete(url)
+
+
 @pytest.fixture(scope='module')
-def github_client(cattle_url, github_request_token):
+def github_client(request, cattle_url, github_request_token):
     github_client = from_env(url=cattle_url)
+    github_client.delete_by_id = delete_by_id
     assert github_client.valid()
     jwt = github_request_token
     github_client._auth = GithubAuth(jwt)
+
+    def fin():
+        github_client.create_githubconfig(enabled=False)
+    request.addfinalizer(fin)
     return github_client
 
 
@@ -220,121 +238,140 @@ def test_github_add_whitelisted_user(github_client):
 
 @if_github
 def test_github_projects(github_client, cattle_url):
+    user_client = from_env(url=cattle_url)
+    switch_on_auth(github_client)
+
+    #   set whitelisted orgs
+    github_client.create_githubconfig(allowedUsers=['ranchertest01'])
+
+    #   test that these users were whitelisted
+    r = github_client.list_githubconfig()
+
+    users = r[0]['allowedUsers']
+
+    assert 'ranchertest01' in users
+
+    rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
+
+    if rancherpass is None:
+        assert False
+
+    new_token = github_request_code('ranchertest01', rancherpass)
+    new_token = github_request_token(new_token)
+    user_client._auth = GithubAuth(new_token)
+    projects = user_client.list_project()
     try:
-        user_client = from_env(url=cattle_url)
-        switch_on_auth(github_client)
+        if len(projects) == 0:
+            uc = user_client
+            uc.create_project(externalIdType=USER_SCOPE)
+            assert uc.externalId == 'ranchertest01'
+    except:
+        pass
 
-        #   set whitelisted orgs
-        github_client.create_githubconfig(allowedUsers=['ranchertest01'])
+    projects = user_client.list_project()
 
-        #   test that these users were whitelisted
-        r = github_client.list_githubconfig()
-
-        users = r[0]['allowedUsers']
-
-        assert 'ranchertest01' in users
-
-        rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
-
-        if rancherpass is None:
-            assert False
-
-        new_token = github_request_code('ranchertest01', rancherpass)
-        new_token = github_request_token(new_token)
-        user_client._auth = GithubAuth(new_token)
-        projects = user_client.list_project()
-        try:
-            if len(projects) == 0:
-                uc = user_client
-                uc.create_project(externalIdType='project:github_user')
-                assert uc.externalId == 'ranchertest01'
-        except:
-            pass
-
-        projects = user_client.list_project()
-
-        assert len(projects) == 1
-        switch_off_auth(github_client)
-    except Exception as e:
-        switch_off_auth(github_client)
-        raise e
+    assert len(projects) == 1
+    switch_off_auth(github_client)
 
 
 @if_github
 def test_github_prj_team_id_consistency(github_client):
-    try:
-        switch_on_auth(github_client)
+    switch_on_auth(github_client)
 
-        c = github_client.create_project(externalId="1129756",
-                                         externalIdType="project:github_team")
+    c = github_client.create_project(externalId="1129756",
+                                     externalIdType=TEAM_SCOPE)
 
-        assert c.externalId == '1129756'
+    assert c.externalId == '1129756'
 
-        projects = github_client.list_project()
+    projects = github_client.list_project()
 
-        for project in projects:
-            if project.externalIdType == 'project:github_team':
-                assert project.externalId.isdigit()
+    for project in projects:
+        if project.externalIdType == TEAM_SCOPE:
+            assert project.externalId.isdigit()
 
-        switch_off_auth(github_client)
-    except Exception as e:
-        switch_off_auth(github_client)
-        raise e
+    switch_off_auth(github_client)
 
 
 @if_github
 def test_github_prj_org_name_consistency(github_client):
-    try:
-        switch_on_auth(github_client)
+    switch_on_auth(github_client)
 
-        c = github_client.create_project(externalId="rancherio",
-                                         externalIdType="project:github_org")
+    c = github_client.create_project(externalId="rancherio",
+                                     externalIdType=ORG_SCOPE)
 
-        assert c.externalId == 'rancherio'
+    assert c.externalId == 'rancherio'
 
-        projects = github_client.list_project()
+    projects = github_client.list_project()
 
-        for project in projects:
-            if project.externalIdType == 'project:github_org':
-                try:
-                    project.externalId.isdigit()
-                    assert False
-                except:
-                    pass
+    for project in projects:
+        if project.externalIdType == ORG_SCOPE:
+            try:
+                project.externalId.isdigit()
+                assert False
+            except:
+                pass
 
-        switch_off_auth(github_client)
-    except Exception as e:
-        switch_off_auth(github_client)
-        raise e
+    switch_off_auth(github_client)
 
 
 @if_github
 def test_github_prj_view(github_client, cattle_url):
+    pseudo_github_client = from_env(url=cattle_url)
+    switch_on_auth(github_client)
+
+    projects = github_client.list_project()
+
+    if len(projects) == 0:
+        github_client.create_project(externalId="rancherio",
+                                     externalIdType=ORG_SCOPE)
+
+    original_apiKey_len = len(github_client.list_apiKey())
+
+    prj_id = projects[0].id
+
+    new_token = github_request_code()
+    new_token = github_request_token(new_token)
+    pseudo_github_client._auth = GithubAuth(new_token, prj_id)
+
+    if len(pseudo_github_client.list_apiKey()) == 0:
+        pseudo_github_client.create_apiKey()
+
+    assert len(pseudo_github_client.list_apiKey()) == 1
+    assert len(github_client.list_apiKey()) == original_apiKey_len
+
+    switch_off_auth(github_client)
+
+
+@if_github
+def test_project_get_id(github_client, random_str):
+    switch_on_auth(github_client)
+
+    project = github_client.create_project(name=random_str,
+                                           externalId="rancherio",
+                                           externalIdType=ORG_SCOPE)
+
+    created_proj = github_client.by_id_project(id=project.id)
+    assert created_proj.id == project.id
+    assert created_proj.externalIdType == project.externalIdType
+    assert created_proj.externalId == project.externalId
+    assert created_proj.name == project.name
+    assert created_proj.description == project.description
+    switch_off_auth(github_client)
+
+
+@if_github
+def test_project_delete(github_client, random_str):
+    switch_on_auth(github_client)
+
+    project = github_client.create_project(name=random_str,
+                                           externalId="rancherio",
+                                           externalIdType=ORG_SCOPE)
+
+    github_client.delete_by_id(github_client, 'project', project.id)
+
     try:
-        pseudo_github_client = from_env(url=cattle_url)
-        switch_on_auth(github_client)
-
-        projects = github_client.list_project()
-
-        if len(projects) == 0:
-            github_client.create_project(externalId="rancherio",
-                                         externalIdType="project:github_org")
-
-        original_apiKey_len = len(github_client.list_apiKey())
-
-        prj_id = projects[0].id
-
-        new_token = github_request_code()
-        new_token = github_request_token(new_token)
-        pseudo_github_client._auth = GithubAuth(new_token, prj_id)
-
-        if len(pseudo_github_client.list_apiKey()) == 0:
-            pseudo_github_client.create_apiKey()
-
-        assert len(pseudo_github_client.list_apiKey()) == 1
-        assert len(github_client.list_apiKey()) == original_apiKey_len
-
-        switch_off_auth(github_client)
-    except Exception as e:
-        switch_off_auth(github_client)
-        raise e
+        github_client.by_id_project(id=project.id)
+        assert False
+    except ApiError:
+        pass
+    switch_off_auth(github_client)
