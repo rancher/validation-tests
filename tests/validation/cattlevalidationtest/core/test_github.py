@@ -3,7 +3,6 @@ from common_fixtures import *  # NOQA
 from selenium import webdriver
 from selenium.webdriver.phantomjs.service import Service as PhantomJSService
 from requests.auth import AuthBase
-from cattle import ApiError
 import json
 
 # test the github auth workflow
@@ -356,6 +355,8 @@ def test_project_get_id(github_client, random_str):
     assert created_proj.externalId == project.externalId
     assert created_proj.name == project.name
     assert created_proj.description == project.description
+    assert project.kind == 'project'
+    assert project.type == 'project'
     switch_off_auth(github_client)
 
 
@@ -367,11 +368,35 @@ def test_project_delete(github_client, random_str):
                                            externalId="rancherio",
                                            externalIdType=ORG_SCOPE)
 
+    project = github_client.wait_success(project)
+
+    assert project.state == 'active'
+
     github_client.delete_by_id(github_client, 'project', project.id)
 
-    try:
-        github_client.by_id_project(id=project.id)
-        assert False
-    except ApiError:
-        pass
+    deleted_proj = github_client.by_id_project(id=project.id)
+
+    deleted_proj = github_client.wait_success(deleted_proj)
+
+    assert deleted_proj.state == 'removed'
+
+    switch_off_auth(github_client)
+
+
+@if_github
+def test_project_deactive_delete(github_client, random_str):
+    switch_on_auth(github_client)
+    project = github_client.create_project(name=random_str,
+                                           externalId="rancherio",
+                                           externalIdType=ORG_SCOPE)
+
+    created_proj = github_client.by_id_project(id=project.id)
+    created_proj = github_client.wait_success(created_proj)
+    assert created_proj.state == 'active'
+    deactivated_proj = github_client.wait_success(created_proj.deactivate())
+    assert deactivated_proj.state == 'inactive'
+    github_client.delete_by_id(github_client, 'project', created_proj.id)
+    deleted_proj = github_client.by_id_project(id=project.id)
+    deleted_proj = github_client.wait_success(deleted_proj)
+    assert deleted_proj.state == 'removed'
     switch_off_auth(github_client)
