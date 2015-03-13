@@ -1,5 +1,6 @@
 from common_fixtures import *  # NOQA
 import requests
+import websocket as ws
 
 
 def test_sibling_pinging(client, one_per_host):
@@ -114,3 +115,42 @@ def test_linking(client, test_name, managed_network):
     ping_link(link_client, 'client', var='VALUE', value=random_val2)
 
     delete_all(client, [link_client, link_server, link_server2])
+
+
+def create_container(admin_client, net):
+    cmd = '/bin/bash -c "sleep 5; ip addr show eth0"'
+    c = admin_client.create_container(imageUuid=TEST_IMAGE_UUID,
+                                      networkIds=[net.id],
+                                      command=cmd)
+    c = admin_client.wait_success(c)
+    logs = c.logs()
+
+    return logs, c, c.primaryIpAddress
+
+
+def cleanup(container):
+        try:
+            container.stop(remove=True, timeout=0)
+        except:
+            # We've tried our best!
+            pass
+
+
+def test_ip_inject(admin_client, managed_network, request):
+    logs, c, ip = create_container(admin_client, managed_network)
+    request.addfinalizer(lambda: cleanup(c))
+    conn = ws.create_connection(logs.url + '?token='+logs.token)
+
+    count = 0
+    found_ip = False
+    while count <= 100:
+        count += 1
+        try:
+            result = conn.recv()
+            if ip in result:
+                found_ip = True
+                break
+        except ws.WebSocketConnectionClosedException:
+            break
+
+    assert found_ip
