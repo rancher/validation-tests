@@ -5,13 +5,22 @@ import requests
 import os
 import time
 import logging
+import paramiko
+
 
 log = logging.getLogger()
 
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
 
+SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
+                                     'docker:rancher/ssh-host-container:' +
+                                     'v0.1.0')
 DEFAULT_TIMEOUT = 45
+
+PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
+HOST_SSH_TEST_ACCOUNT = "ranchertest"
+HOST_SSH_PUBLIC_PORT = 2222
 
 
 @pytest.fixture(scope='session')
@@ -74,6 +83,14 @@ def wait_all_success(client, items, timeout=DEFAULT_TIMEOUT):
 @pytest.fixture
 def managed_network(client):
     networks = client.list_network(uuid='managed-docker0')
+    assert len(networks) == 1
+
+    return networks[0]
+
+
+@pytest.fixture
+def unmanaged_network(client):
+    networks = client.list_network(uuid='unmanaged')
     assert len(networks) == 1
 
     return networks[0]
@@ -167,3 +184,65 @@ def ping_link(src, link_name, var=None, value=None):
             time.sleep(1)
 
     assert from_link == value
+
+
+def generate_RSA(bits=2048):
+    '''
+    Generate an RSA keypair
+    '''
+    from Crypto.PublicKey import RSA
+    new_key = RSA.generate(bits)
+    public_key = new_key.publickey().exportKey('OpenSSH')
+    private_key = new_key.exportKey()
+    return private_key, public_key
+
+
+@pytest.fixture(scope='session')
+def host_ssh_containers(request, client):
+
+    keys = generate_RSA()
+    host_key = keys[0]
+    os.system("echo '" + host_key + "' >" + PRIVATE_KEY_FILENAME)
+
+    hosts = client.list_host(kind='docker', removed_null=True)
+
+    managed_network = client.list_network(uuid='managed-docker0')[0]
+
+    ssh_containers = []
+    for host in hosts:
+        env_var = {"SSH_KEY": keys[1]}
+        docker_vol_value = ["/usr/bin/docker:/usr/bin/docker",
+                            "/var/run/docker.sock:/var/run/docker.sock"
+                            ]
+        c = client.create_container(name="host_ssh_container",
+                                    networkIds=[managed_network.id],
+                                    imageUuid=SSH_HOST_IMAGE_UUID,
+                                    requestedHostId=host.id,
+                                    dataVolumes=docker_vol_value,
+                                    environment=env_var,
+                                    ports=[str(HOST_SSH_PUBLIC_PORT)+":22"]
+                                    )
+        ssh_containers.append(c)
+
+    for c in ssh_containers:
+        c = client.wait_success(c, 180)
+        assert c.state == "running"
+
+    def fin():
+
+        for c in ssh_containers:
+            client.delete(c)
+        os.system("rm " + PRIVATE_KEY_FILENAME)
+
+    request.addfinalizer(fin)
+
+
+def get_ssh_to_host_ssh_container(host):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    ssh.connect(host.ipAddresses()[0].address, username=HOST_SSH_TEST_ACCOUNT,
+                key_filename=PRIVATE_KEY_FILENAME, port=HOST_SSH_PUBLIC_PORT)
+
+    return ssh
