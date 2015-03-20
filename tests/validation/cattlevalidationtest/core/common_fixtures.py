@@ -6,7 +6,7 @@ import os
 import time
 import logging
 import paramiko
-
+import inspect
 
 log = logging.getLogger()
 
@@ -246,3 +246,24 @@ def get_ssh_to_host_ssh_container(host):
                 key_filename=PRIVATE_KEY_FILENAME, port=HOST_SSH_PUBLIC_PORT)
 
     return ssh
+
+
+@pytest.fixture
+def wait_for_condition(client, resource, check_function, fail_handler=None,
+                       timeout=180):
+    start = time.time()
+    resource = client.reload(resource)
+    while not check_function(resource):
+        if time.time() - start > timeout:
+            exceptionMsg = 'Timeout waiting for ' + resource.kind + \
+                ' to satisfy condition: ' + \
+                inspect.getsource(check_function)
+            if (fail_handler):
+                exceptionMsg = exceptionMsg + fail_handler(resource)
+            raise Exception(exceptionMsg)
+
+        time.sleep(.5)
+        resource = client.reload(resource)
+
+    return resource
+
