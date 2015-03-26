@@ -23,6 +23,11 @@ git clone git@github.com:rancherio/validation-tests.git
 cd validation-tests
 ./scripts/test
 ```
+## Contact
+For bugs, questions, comments, corrections, suggestions, etc., open an issue in
+ [rancherio/rancher](//github.com/rancherio/rancher/issues) with a title starting with `[Validation-Tests] `.
+
+Or just [click here](//github.com/rancherio/rancher/issues/new?title=%5BValidation-Tests%5D%20) to create a new issue.
 
 # License
 Copyright (c) 2014-2015 [Rancher Labs, Inc.](http://rancher.com)
