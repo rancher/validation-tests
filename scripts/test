@@ -10,6 +10,12 @@ export CATTLE_TEST_AGENT_IMAGE PHANTOMJS_BIN
 
 cd $(dirname $0)/..
 
+if [ -d '/scratch' ]; then
+    rm -rf /scratch/*
+    rsync -a --delete ./ /scratch
+    cd /scratch
+fi
+
 build_env()
 {
     ./scripts/build-env 
