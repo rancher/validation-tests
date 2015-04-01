@@ -1,0 +1,13 @@
+#!/bin/bash
+
+cd $(dirname $0)/..
+
+./scripts/bootstrap
+
+if [ -d /scratch ]; then
+    rsync --delete -a ./ /scratch
+    cd /scratch
+fi
+
+cd tests/validation
+tox -e flake8
