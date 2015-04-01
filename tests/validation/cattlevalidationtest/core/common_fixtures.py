@@ -44,16 +44,16 @@ def cleanup(client):
 
 def _admin_client():
     return from_env(url=cattle_url(),
-                           cache=False,
-                           access_key='admin',
-                           secret_key='adminpass')
+                    cache=False,
+                    access_key='admin',
+                    secret_key='adminpass')
 
 
 def _client_for_user(name, accounts):
     return from_env(url=cattle_url(),
-                           cache=False,
-                           access_key=accounts[name][0],
-                           secret_key=accounts[name][1])
+                    cache=False,
+                    access_key=accounts[name][0],
+                    secret_key=accounts[name][1])
 
 
 def create_user(admin_client, user_name, kind=None):
@@ -113,6 +113,7 @@ def create_type_by_uuid(admin_client, type, uuid, activate=True, validate=True,
 
     return obj
 
+
 @pytest.fixture(scope='session')
 def accounts():
     result = {}
@@ -142,6 +143,7 @@ def admin_client(cattle_url):
     admin_client = from_env(url=cattle_url)
     assert admin_client.valid()
     return admin_client
+
 
 @pytest.fixture(scope='session')
 def super_client(request, accounts):
@@ -359,4 +361,3 @@ def wait_for_condition(client, resource, check_function, fail_handler=None,
         resource = client.reload(resource)
 
     return resource
-
