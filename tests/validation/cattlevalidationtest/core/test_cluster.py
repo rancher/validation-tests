@@ -1,7 +1,8 @@
 from common_fixtures import *  # NOQA
 
 
-def test_cluster_add_remove_host(client, test_name, managed_network, super_client):
+def test_cluster_add_remove_host(client, test_name, managed_network,
+                                 super_client):
     socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                       'docker:sonchang/socat-test')
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -105,16 +106,18 @@ def test_cluster_add_remove_host(client, test_name, managed_network, super_clien
         host_deployed_to = test_container_found.hosts()
         assert host_deployed_to[0].kind == 'docker'
 
-        nic = super_client.list_container(uuid=test_container.uuid)[0].nics()[0]
+        nic = super_client.list_container(
+            uuid=test_container.uuid)[0].nics()[0]
         assert nic.vnetId is not None
         assert nic.subnetId is not None
 
-        # check primaryIpAddress is using the managed network (10.x.x.x) instead
-        # of using the docker IP (172.x.x.x)
+        # check primaryIpAddress is using the managed network (10.x.x.x)
+        # instead of using the docker IP (172.x.x.x)
         # not a great check but better than nothing
         primary_ip_address = test_container_found.data.fields.primaryIpAddress
         assert primary_ip_address.startswith('10.')
-        assert len(client.list_ip_address(address=primary_ip_address).data) == 1
+        assert len(
+            client.list_ip_address(address=primary_ip_address).data) == 1
 
     finally:
         if (test_container is not None):
