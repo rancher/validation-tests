@@ -1,5 +1,6 @@
 from common_fixtures import *  # NOQA
 import traceback
+import logging
 
 DEFAULT_TIMEOUT = 450
 
@@ -16,9 +17,7 @@ default_region = "nyc3"
 
 
 # Digital Ocean Error Messages
-error_msg_auth_failure = "Error creating machine: " \
-                         "GET https://api.digitalocean.com/v2/regions:" \
-                         " 401 Unable to authenticate you."
+error_msg_auth_failure = "401"
 
 error_msg_invalid_region = "Error creating machine: " \
                            "digitalocean requires a valid region"
@@ -27,6 +26,18 @@ error_msg_invalid_region = "Error creating machine: " \
 if_machine_digocean = pytest.mark.skipif(
     os.environ.get('DIGITALOCEAN_KEY') is None,
     reason='DIGITALOCEAN_KEY is not set')
+
+# Get logger
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def register_host(admin_client):
+    test_url = cattle_url()
+    start = test_url.index("//") + 2
+    end = test_url.index("/", start)
+    api_host = test_url[start:end]
+    admin_client.create_setting(name="api.host", value=api_host)
 
 
 @if_machine_digocean
@@ -203,17 +214,13 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values):
     wait_for_host_destroy_in_digital_ocean(host.ipAddresses()[0].address)
 
 
-def wait_for_host(client, machine, timeout=DEFAULT_TIMEOUT):
-    start = time.time()
-    time_elapsed = 0
-    machine = client.reload(machine)
-    while len(machine.hosts()) < 1:
-        time.sleep(1)
-        machine = client.reload(machine)
-        time_elapsed = time.time() - start
-        if time_elapsed > timeout:
-            print str(time_elapsed) + " seconds"
-            raise Exception('Timeout waiting for host to be created.')
+def wait_for_host(client, machine):
+    wait_for_condition(client,
+                       machine,
+                       lambda x: len(x.hosts()) == 1,
+                       lambda x: 'Number of hosts associated with machine ' +
+                                 str(len(x.hosts())),
+                       DEFAULT_TIMEOUT)
 
     host = machine.hosts()[0]
     host = wait_for_condition(client,
@@ -221,7 +228,6 @@ def wait_for_host(client, machine, timeout=DEFAULT_TIMEOUT):
                               lambda x: x.state == 'active',
                               lambda x: 'Host state is ' + x.state
                               )
-
     return machine
 
 
@@ -259,8 +265,9 @@ def delete_host_in_digital_ocean(name):
                 r = requests.delete(url, headers=headers)
                 r.close()
     except Exception:
-        print "Error encountered when trying to delete machine - " + name
-        print traceback.format_exc()
+        error_msg = "Error encountered when trying to delete machine - " + name
+        logger.error(msg=error_msg)
+        logger.error(msg=traceback.format_exc())
 
 
 def wait_for_host_destroy_in_digital_ocean(ipaddress, timeout=300):
@@ -273,5 +280,7 @@ def wait_for_host_destroy_in_digital_ocean(ipaddress, timeout=300):
         host = check_host_in_digital_ocean(ipaddress)
         time_elapsed = time.time() - start
         if time_elapsed > timeout:
-            print str(time_elapsed) + " seconds"
-            raise Exception('Timeout waiting for host to be created.')
+            time_elapsed_msg = "Timeout waiting for host to be created " \
+                               "- str(time_elapsed)" + " seconds"
+            logger.error(msg=time_elapsed_msg)
+            raise Exception(time_elapsed_msg)
