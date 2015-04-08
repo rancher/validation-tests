@@ -1,13 +1,18 @@
 from common_fixtures import *  # NOQA
-from docker import Client, tls
+from docker import Client
+
+CONTAINER_APPEAR_TIMEOUT_MSG = 'Timed out waiting for container ' \
+                               'to appear. Name: [%s].'
 
 TEST_IMAGE = 'ibuildthecloud/helloworld'
+
+socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
+                                  'docker:sonchang/socat-test')
 
 
 def _native_doc_check():
     return os.environ.get('DOCKER_HOST') is None or os.environ.get(
         'DOCKER_TEST') == 'false'
-
 
 if_native_docker = pytest.mark.skipif(_native_doc_check(),
                                       reason='Environment not configured for '
@@ -15,27 +20,41 @@ if_native_docker = pytest.mark.skipif(_native_doc_check(),
 
 
 @pytest.fixture(scope='module')
-def docker_client():
-    host = os.getenv('DOCKER_HOST')
-    cert_path = os.getenv('DOCKER_CERT_PATH')
-    tls_verify = os.getenv('DOCKER_TLS_VERIFY')
-    api_version = os.getenv('DOCKER_API_VERSION', '1.15')
+def docker_client(client, unmanaged_network, request):
+    # When these tests run in the CI environment, the hosts don't expose the
+    # docker daemon over tcp, so we need to create a container that binds to
+    # the docker socket and exposes it on a port
+    hosts = client.list_host(kind='docker', removed_null=True)
+    assert len(hosts) >= 1
+    host = hosts[0]
+    socat_container = client.create_container(
+        name='socat-%s' % random_str(),
+        networkIds=[unmanaged_network.id],
+        imageUuid=socat_test_image,
+        ports='2375',
+        stdinOpen=False,
+        tty=False,
+        publishAllPorts=True,
+        dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
+        requestedHostId=host.id)
+
+    def remove_socat():
+        client.delete(socat_container)
+
+    request.addfinalizer(remove_socat)
+
+    wait_for_condition(
+        client, socat_container,
+        lambda x: x.state == 'running',
+        lambda x: 'State is: ' + x.state)
+
+    socat_container = client.reload(socat_container)
+    ip = host.ipAddresses()[0].address
+    port = socat_container.ports()[0].publicPort
 
     params = {}
-    if host:
-        params['base_url'] = (host.replace('tcp://', 'https://')
-                              if tls_verify else host)
-    if host and tls_verify and cert_path:
-        params['tls'] = tls.TLSConfig(
-            client_cert=(os.path.join(cert_path, 'cert.pem'),
-                         os.path.join(cert_path, 'key.pem')),
-            ca_cert=os.path.join(cert_path, 'ca.pem'),
-            verify=True,
-            assert_hostname=False)
-
-    if not params:
-        raise Exception("Can't configure docker client. No DOCKER_HOST set.")
-
+    params['base_url'] = 'tcp://%s:%s' % (ip, port)
+    api_version = os.getenv('DOCKER_API_VERSION', '1.15')
     params['version'] = api_version
 
     return Client(**params)
@@ -61,7 +80,7 @@ def test_native_unmanaged_network(docker_client, admin_client, pull_images):
         containers = admin_client.list_container(name=name)
         return len(containers) > 0
 
-    wait_for(check)
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
     r_containers = admin_client.list_container(name=name)
     assert len(r_containers) == 1
@@ -88,7 +107,7 @@ def test_native_managed_network(docker_client, admin_client, super_client,
         containers = admin_client.list_container(name=name)
         return len(containers) > 0
 
-    wait_for(check)
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
     r_containers = admin_client.list_container(name=name)
     assert len(r_containers) == 1
@@ -135,7 +154,7 @@ def test_native_not_started(docker_client, admin_client, super_client,
         containers = admin_client.list_container(name=name)
         return len(containers) > 0
 
-    wait_for(check)
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
     r_containers = admin_client.list_container(name=name)
     assert len(r_containers) == 1
@@ -150,7 +169,8 @@ def test_native_not_started(docker_client, admin_client, super_client,
         c = admin_client.by_id_container(c_id)
         return c.state == 'stopped'
 
-    wait_for(stopped_check)
+    wait_for(stopped_check,
+             'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
     nics = super_client.reload(c).nics()
     assert len(nics) == 1
@@ -168,7 +188,7 @@ def test_native_removed(docker_client, admin_client, pull_images):
         containers = admin_client.list_container(name=name)
         return len(containers) > 0
 
-    wait_for(check)
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
     r_containers = admin_client.list_container(name=name)
     assert len(r_containers) == 1

@@ -183,7 +183,7 @@ def managed_network(client):
     return networks[0]
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def unmanaged_network(client):
     networks = client.list_network(uuid='unmanaged')
     assert len(networks) == 1
@@ -363,12 +363,15 @@ def wait_for_condition(client, resource, check_function, fail_handler=None,
     return resource
 
 
-def wait_for(callback, timeout=DEFAULT_TIMEOUT):
+def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
     start = time.time()
     ret = callback()
     while ret is None or ret is False:
         time.sleep(.5)
         if time.time() - start > timeout:
-            raise Exception('Timeout waiting for condition')
+            if timeout_message:
+                raise Exception(timeout_message)
+            else:
+                raise Exception('Timeout waiting for condition')
         ret = callback()
     return ret
