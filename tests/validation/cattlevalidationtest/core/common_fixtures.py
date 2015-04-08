@@ -361,3 +361,14 @@ def wait_for_condition(client, resource, check_function, fail_handler=None,
         resource = client.reload(resource)
 
     return resource
+
+
+def wait_for(callback, timeout=DEFAULT_TIMEOUT):
+    start = time.time()
+    ret = callback()
+    while ret is None or ret is False:
+        time.sleep(.5)
+        if time.time() - start > timeout:
+            raise Exception('Timeout waiting for condition')
+        ret = callback()
+    return ret
