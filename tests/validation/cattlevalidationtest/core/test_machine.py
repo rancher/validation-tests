@@ -83,7 +83,7 @@ def test_digital_ocean_machine_accesstoken(client):
 
 @if_machine_digocean
 def test_digital_ocean_machine_parallel(client):
-    create_args = {"name": random_str(),
+    create_args = {"name": None,
                    "digitaloceanConfig": {"accessToken": access_key,
                                           "image": image_name,
                                           "region": region,
@@ -262,8 +262,10 @@ def delete_host_in_digital_ocean(name):
                 url = 'https://api.digitalocean.com/v2/droplets/' + \
                       str(droplet["id"])
                 headers = {'Authorization': "Bearer " + access_key}
-                r = requests.delete(url, headers=headers)
-                r.close()
+                try:
+                    r = requests.delete(url, headers=headers)
+                finally:
+                    r.close()
     except Exception:
         error_msg = "Error encountered when trying to delete machine - " + name
         logger.error(msg=error_msg)
@@ -276,7 +278,7 @@ def wait_for_host_destroy_in_digital_ocean(ipaddress, timeout=300):
     host = check_host_in_digital_ocean(ipaddress)
     while host is not None:
         assert host["locked"] is True
-        time.sleep(1)
+        time.sleep(2)
         host = check_host_in_digital_ocean(ipaddress)
         time_elapsed = time.time() - start
         if time_elapsed > timeout:
