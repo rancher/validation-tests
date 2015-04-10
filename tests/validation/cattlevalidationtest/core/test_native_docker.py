@@ -196,3 +196,41 @@ def test_native_removed(docker_client, admin_client, pull_images):
     rc = admin_client.wait_success(rc)
 
     assert rc.externalId == d_container['Id']
+
+
+@if_native_docker
+def test_native_volumes(docker_client, admin_client, pull_images):
+    name = 'native-%s' % random_str()
+    d_container = docker_client.create_container(TEST_IMAGE,
+                                                 name=name,
+                                                 volumes=['/foo',
+                                                          '/host/var'])
+    docker_client.start(d_container,
+                        binds={'/var': {'bind': '/host/var'}})
+
+    def check():
+        containers = admin_client.list_container(name=name)
+        return len(containers) > 0
+
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+
+    r_containers = admin_client.list_container(name=name)
+    assert len(r_containers) == 1
+    c = r_containers[0]
+    c = admin_client.wait_success(c)
+
+    assert c.externalId == d_container['Id']
+    assert c.state == 'running'
+    mounts = c.mounts()
+    assert len(mounts) == 2
+
+    mount = mounts[0]
+    assert mount.path == '/foo'
+    volume = mount.volume()
+    assert not volume.isHostPath
+
+    mount = mounts[1]
+    assert mount.path == '/host/var'
+    volume = mount.volume()
+    assert volume.isHostPath
+    assert volume.uri == 'file:///var'
