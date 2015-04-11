@@ -1,14 +1,11 @@
-import urlparse
 from common_fixtures import *  # NOQA
 from selenium import webdriver
 from selenium.webdriver.phantomjs.service import Service as PhantomJSService
 from requests.auth import AuthBase
-import json
-
 # test the github auth workflow
-USER_SCOPE = 'project:github_user'
-TEAM_SCOPE = 'project:github_team'
-ORG_SCOPE = 'project:github_org'
+USER_SCOPE = 'github_user'
+TEAM_SCOPE = 'github_team'
+ORG_SCOPE = 'github_org'
 
 
 class NewService(PhantomJSService):
@@ -18,67 +15,114 @@ webdriver.phantomjs.webdriver.Service = NewService
 
 
 if_github = pytest.mark.skipif(os.environ.get('API_AUTH_GITHUB'
-                               '_TEST_USER') is None,
-                               reason='API_AUTH_GITHUB_TEST_USER is not set')
+                               '_CLIENT_SECRET') is None,
+                               reason='API_AUTH_GITHUB'
+                                      '_CLIENT_SECRET is not set')
 
 BASE_URL = cattle_url() + '/v1/'
 URL = BASE_URL + 'schemas'
 
 
+@pytest.fixture(scope='session', autouse=True)
+def config():
+    needed_vars = [
+        'API_AUTH_GITHUB_TEST_USER',
+        'API_AUTH_GITHUB_TEST_PASS',
+        'API_AUTH_GITHUB_CLIENT_ID',
+        'API_AUTH_GITHUB_CLIENT_SECRET',
+        'API_AUTH_RANCHER_TEST_PASS',
+
+    ]
+    for a in needed_vars:
+        if os.getenv(a, None) is None:
+            raise Exception('Please set ' + a + ' in the environment')
+    config = {}
+    config['username'] = os.getenv('API_AUTH_GITHUB_TEST_USER', None)
+    config['password'] = os.getenv('API_AUTH_GITHUB_TEST_PASS', None)
+    config['phantomjs_port'] = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
+    config['phantomjs_bin'] = os.getenv('PHANTOMJS_BIN',
+                                        '/usr/local/bin/phantomjs')
+    assert config['phantomjs_bin'] is not None
+    config['client_id'] = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
+    config['client_secret'] = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
+    config['users'] = {}
+    config['users']['1'] = {
+        'password': os.getenv('API_AUTH_RANCHER_TEST_PASS', None),
+        'username': os.getenv('API_AUTH_RANCHER_TEST_USER_1', 'ranchertest01')
+    }
+    config['users']['2'] = {
+        'password': os.getenv('API_AUTH_RANCHER_TEST_PASS_2', None),
+        'username': os.getenv('API_AUTH_RANCHER_TEST_USER_2', 'ranchertest02')
+    }
+    return config
+
+
 @pytest.fixture(scope='module')
-def github_request_code(user=None, pw=None):
-
-    username = os.getenv('API_AUTH_GITHUB_TEST_USER', None)
-    password = os.getenv('API_AUTH_GITHUB_TEST_PASS', None)
-    phantomjs_port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
-    phantomjs_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
-
+def github_request_code(config, cattle_url, admin_client, request, user=None):
+    def fin():
+            admin_client.create_githubconfig(enabled=False)
+    request.addfinalizer(fin)
+    username = config['username']
+    password = config['password']
     if user is not None:
-        username = user
+        username = user['username']
+        password = user['password']
 
-    if pw is not None:
-        password = pw
-
-    driver = webdriver.PhantomJS(phantomjs_bin, port=phantomjs_port)
+    driver = webdriver.PhantomJS(config['phantomjs_bin'],
+                                 port=config['phantomjs_port'])
     max_wait = 60
     driver.set_page_load_timeout(max_wait)
     driver.set_script_timeout(max_wait)
-
+    driver.implicitly_wait(10)
     # undo monkey patching
     webdriver.phantomjs.webdriver.Service = PhantomJSService
 
     driver.set_window_size(1120, 550)
-    client_id = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
-    client_secret = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
-
-    if username is None or password is None or client_id is None \
-       or client_secret is None:
-        raise Exception('please set username,'
-                        'password, client_secret and client_id in env')
-
-    requests.post(BASE_URL+'githubconfig',
-                  json.dumps({'clientId': client_id,
-                              'clientSecret': client_secret}))
-
-    urlx = "https://github.com/login/oauth/authorize?client_id=" +\
-           client_id + "&scope=read:org&state=random_string"
+    admin_client.create_githubconfig(enabled=True, accessMode='unrestricted',
+                                     clientId=config['client_id'],
+                                     clientSecret=config['client_secret'])
+    urlx = "https://github.com/login/oauth/authorize?response_type=code&client_id=" +\
+           config['client_id'] + "&scope=read:org"
     driver.get(urlx)
     driver.find_element_by_id('login_field').send_keys(username)
     driver.find_element_by_id('password').send_keys(password)
     driver.find_element_by_name('commit').submit()
+    try:
+        driver.find_element_by_class_name('btn-primary').click()
+    except:
+        pass
+    driver.get('https://github.com')
     cookie_dict = dict(driver.get_cookie('_gh_sess'))
     cookie_dict = {'_gh_sess': cookie_dict['value']}
     cookie_dict['user_session'] = driver.get_cookie('user_session')['value']
-    r = None
-    try:
-        r = requests.get(urlx, cookies=cookie_dict, allow_redirects=False)
-    except Exception as e:
-        print e
+    r = requests.get(urlx, cookies=cookie_dict, allow_redirects=False)
     redirect_url = r.headers['location']
-    query = urlparse.urlparse(redirect_url)[4]
-    query = urlparse.parse_qs(query)
+    code = redirect_url.rsplit('=')[1]
     driver.quit()
-    return query['code']
+    admin_client.create_githubconfig(enabled=False)
+    return code
+
+
+@pytest.fixture(scope='module')
+def github_request_token(github_request_code):
+    code = github_request_code
+
+    c = requests.post(BASE_URL + 'token', {'code': code})
+    return c.json()['jwt']
+
+
+@pytest.fixture(scope='module')
+def github_client(request, cattle_url, github_request_token, admin_client):
+    github_client = from_env(url=cattle_url)
+    github_client.delete_by_id = delete_by_id
+    assert github_client.valid()
+    jwt = github_request_token
+    github_client._auth = GithubAuth(jwt, 'USER')
+
+    def fin():
+        admin_client.create_githubconfig(enabled=False)
+    request.addfinalizer(fin)
+    return github_client
 
 
 def delete_by_id(self, type, id):
@@ -90,18 +134,36 @@ def delete_by_id(self, type, id):
     return self._delete(url)
 
 
-@pytest.fixture(scope='module')
-def github_client(request, cattle_url, github_request_token):
-    github_client = from_env(url=cattle_url)
-    github_client.delete_by_id = delete_by_id
-    assert github_client.valid()
-    jwt = github_request_token
-    github_client._auth = GithubAuth(jwt)
+def _create_member(name='rancherio', role='member', type=ORG_SCOPE):
+    return {
+        'role': role,
+        'externalId': name,
+        'externalIdType': type
+    }
 
-    def fin():
-        github_client.create_githubconfig(enabled=False)
-    request.addfinalizer(fin)
-    return github_client
+
+def diff_members(members, got_members):
+    assert len(members) == len(got_members)
+    members_a = set([])
+    members_b = set([])
+    for member in members:
+        members_a.add(member['externalId'] + '  ' + member['externalIdType']
+                      + '  ' + member['role'])
+    for member in got_members:
+        members_b.add(member['externalId'] + '  ' + member['externalIdType']
+                      + '  ' + member['role'])
+    assert members_a == members_b
+
+
+def get_plain_members(members):
+    plain_members = []
+    for member in members.data:
+        plain_members.append({
+            'role': member.role,
+            'externalId': member.externalId,
+            'externalIdType': member.externalIdType
+        })
+    return plain_members
 
 
 class GithubAuth(AuthBase):
@@ -118,38 +180,32 @@ class GithubAuth(AuthBase):
         return r
 
 
-@pytest.fixture(scope='module')
-def github_request_token(github_request_code):
-    code = github_request_code
+def switch_on_auth(admin_client, request, config):
+    admin_client.create_githubconfig(enabled=True, accessMode='restricted',
+                                     clientId=config['client_id'],
+                                     clientSecret=config['client_secret'])
 
-    c = requests.post(BASE_URL + 'token', {'code': code})
+    def fin():
+        admin_client.create_githubconfig(enabled=False)
 
-    return c.json()['jwt']
-
-
-def switch_on_auth(github_client):
-    github_client.create_githubconfig(enabled=True)
-
-
-def switch_off_auth(github_client):
-    github_client.create_githubconfig(enabled=False)
+    request.addfinalizer(fin)
 
 
 @if_github
-def test_github_auth_config_unauth_user(github_client):
-    switch_on_auth(github_client)
+def test_github_auth_config_unauth_user(github_client, request, admin_client,
+                                        config):
+    switch_on_auth(admin_client, request, config)
 #   do not set any auth headers
     no_auth = requests.get(URL)
 
 #   test that auth is switched on
     assert no_auth.status_code == 401
 
-    switch_off_auth(github_client)
-
 
 @if_github
-def test_github_auth_config_invalid_user(github_client):
-    switch_on_auth(github_client)
+def test_github_auth_config_invalid_user(github_client, request,
+                                         admin_client, config):
+    switch_on_auth(admin_client, request, config)
 
 #   set invalid auth headers
     bad_auth = requests.get(URL,
@@ -159,13 +215,11 @@ def test_github_auth_config_invalid_user(github_client):
 #   test that user does not have access
     assert bad_auth.status_code == 401
 
-    switch_off_auth(github_client)
-
 
 @if_github
-def test_github_auth_config_valid_user(github_client, github_request_token):
-    switch_on_auth(github_client)
-
+def test_github_auth_config_valid_user(github_client, github_request_token,
+                                       admin_client, request, config):
+    switch_on_auth(admin_client, request, config)
     jwt = github_request_token
 
 #   set valid auth headers
@@ -174,14 +228,15 @@ def test_github_auth_config_valid_user(github_client, github_request_token):
 #   test that user has access
     assert schemas.status_code == 200
 
-    switch_off_auth(github_client)
 
-
-@if_github
-def test_github_auth_config_api_whitelist_users(github_client):
-
-    github_client.create_githubconfig(allowedUsers=['ranchertest01',
-                                                    'ranchertest02'])
+@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
+                                 "r orgs in tests right now.")
+def test_github_auth_config_api_whitelist_users(admin_client, github_client,
+                                                config):
+    github_client.create_githubconfig(allowedUsers=[
+        config['users']['1']['username'],
+        config['users']['2']['username']
+    ])
 
 #   test that these users were whitelisted
     r = github_client.list_githubconfig()
@@ -190,13 +245,16 @@ def test_github_auth_config_api_whitelist_users(github_client):
 
     assert len(users) == 2
 
-    assert 'ranchertest01' in users
+    assert config['users']['1']['username'] in users
+    assert config['users']['2']['username'] in users
     assert 'ranchertest02' in users
 
 
-@if_github
-def test_github_auth_config_api_whitelist_orgs(github_client):
-
+@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
+                                 "r orgs in tests right now.")
+def test_github_auth_config_api_whitelist_orgs(admin_client, request,
+                                               github_client, config):
+    switch_on_auth(admin_client, request, config)
     github_client.create_githubconfig(allowedOrganizations=['rancherio'])
 
 #   test that these users were whitelisted
@@ -209,194 +267,84 @@ def test_github_auth_config_api_whitelist_orgs(github_client):
     assert 'rancherio' in orgs
 
 
-@if_github
-def test_github_add_whitelisted_user(github_client):
-    switch_on_auth(github_client)
-
+@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
+                                 "r orgs in tests right now.")
+def test_github_add_whitelisted_user(admin_client, config, request,
+                                     github_client):
+    switch_on_auth(admin_client, request, config)
     #   set whitelisted orgs
-    github_client.create_githubconfig(allowedUsers=['ranchertest01'])
+    github_client.create_githubconfig(allowedUsers=[
+        config['users']['1']['username']
+    ])
 
     #   test that these users were whitelisted
     r = github_client.list_githubconfig()
 
     users = r[0]['allowedUsers']
 
-    assert 'ranchertest01' in users
+    assert config['users']['1']['username'] in users
 
-    rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
-
-    if rancherpass is None:
-        assert False
-
-    new_token = github_request_code('ranchertest01', rancherpass)
+    new_token = github_request_code(config, config['users']['1'])
 
     assert new_token is not None
 
-    switch_off_auth(github_client)
 
-
-@if_github
-def test_github_projects(github_client, cattle_url):
+@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
+                                 "r orgs in tests right now.")
+def test_github_projects(github_client, cattle_url, config, request,
+                         admin_client):
     user_client = from_env(url=cattle_url)
-    switch_on_auth(github_client)
+    switch_on_auth(admin_client, request, config)
 
     #   set whitelisted orgs
-    github_client.create_githubconfig(allowedUsers=['ranchertest01'])
-
+    github_client.create_githubconfig(allowedUsers=[
+        config['users']['1']['username']
+    ])
     #   test that these users were whitelisted
     r = github_client.list_githubconfig()
 
     users = r[0]['allowedUsers']
 
-    assert 'ranchertest01' in users
+    assert config['users']['1']['username'] in users
 
-    rancherpass = os.getenv('API_AUTH_RANCHER_TEST_PASS', None)
-
-    if rancherpass is None:
-        assert False
-
-    new_token = github_request_code('ranchertest01', rancherpass)
+    new_token = github_request_code(config, cattle_url, admin_client, request,
+                                    user=config['users']['1'])
     new_token = github_request_token(new_token)
-    user_client._auth = GithubAuth(new_token)
-    projects = user_client.list_project()
-    try:
-        if len(projects) == 0:
-            uc = user_client
-            uc.create_project(externalIdType=USER_SCOPE)
-            assert uc.externalId == 'ranchertest01'
-    except:
-        pass
-
-    projects = user_client.list_project()
-
-    assert len(projects) == 1
-    switch_off_auth(github_client)
-
-
-@if_github
-def test_github_prj_team_id_consistency(github_client):
-    switch_on_auth(github_client)
-
-    c = github_client.create_project(externalId="1129756",
-                                     externalIdType=TEAM_SCOPE)
-
-    assert c.externalId == '1129756'
-
-    projects = github_client.list_project()
-
-    for project in projects:
-        if project.externalIdType == TEAM_SCOPE:
-            assert project.externalId.isdigit()
-
-    switch_off_auth(github_client)
-
-
-@if_github
-def test_github_prj_org_name_consistency(github_client):
-    switch_on_auth(github_client)
-
-    c = github_client.create_project(externalId="rancherio",
-                                     externalIdType=ORG_SCOPE)
-
-    assert c.externalId == 'rancherio'
-
-    projects = github_client.list_project()
-
-    for project in projects:
-        if project.externalIdType == ORG_SCOPE:
-            try:
-                project.externalId.isdigit()
-                assert False
-            except:
-                pass
-
-    switch_off_auth(github_client)
-
-
-@if_github
-def test_github_prj_view(github_client, cattle_url):
-    pseudo_github_client = from_env(url=cattle_url)
-    switch_on_auth(github_client)
-
-    projects = github_client.list_project()
-
-    if len(projects) == 0:
-        github_client.create_project(externalId="rancherio",
-                                     externalIdType=ORG_SCOPE)
-
-    original_apiKey_len = len(github_client.list_apiKey())
-
-    prj_id = projects[0].id
-
-    new_token = github_request_code()
-    new_token = github_request_token(new_token)
-    pseudo_github_client._auth = GithubAuth(new_token, prj_id)
-
-    if len(pseudo_github_client.list_apiKey()) == 0:
-        pseudo_github_client.create_apiKey()
-
-    assert len(pseudo_github_client.list_apiKey()) == 1
-    assert len(github_client.list_apiKey()) == original_apiKey_len
-
-    switch_off_auth(github_client)
-
-
-@if_github
-def test_project_get_id(github_client, random_str):
-    switch_on_auth(github_client)
-
-    project = github_client.create_project(name=random_str,
-                                           externalId="rancherio",
-                                           externalIdType=ORG_SCOPE)
-
-    created_proj = github_client.by_id_project(id=project.id)
-    assert created_proj.id == project.id
-    assert created_proj.externalIdType == project.externalIdType
-    assert created_proj.externalId == project.externalId
-    assert created_proj.name == project.name
-    assert created_proj.description == project.description
-    assert project.kind == 'project'
-    assert project.type == 'project'
-    switch_off_auth(github_client)
-
-
-@if_github
-def test_project_delete(github_client, random_str):
-    switch_on_auth(github_client)
-
-    project = github_client.create_project(name=random_str,
-                                           externalId="rancherio",
-                                           externalIdType=ORG_SCOPE)
-
+    user_client._auth = GithubAuth(new_token, "user")
+    members = [_create_member(
+        name=config['users']['1']['username'],
+        type=USER_SCOPE,
+        role='owner'
+    ),  _create_member()]
+    project = user_client.create_project(members=members)
+    assert len(project.projectMembers()) == 2
+    diff_members(get_plain_members(project.projectMembers()), members)
     project = github_client.wait_success(project)
-
-    assert project.state == 'active'
-
-    github_client.delete_by_id(github_client, 'project', project.id)
-
-    deleted_proj = github_client.by_id_project(id=project.id)
-
-    deleted_proj = github_client.wait_success(deleted_proj)
-
-    assert deleted_proj.state == 'removed'
-
-    switch_off_auth(github_client)
+    project = github_client.wait_success(project.deactivate())
+    project = github_client.wait_success(project.remove())
+    project = github_client.wait_success(project.purge())
+    project = user_client.by_id('project', project.id)
+    assert project.state == 'purged'
 
 
 @if_github
-def test_project_deactive_delete(github_client, random_str):
-    switch_on_auth(github_client)
-    project = github_client.create_project(name=random_str,
-                                           externalId="rancherio",
-                                           externalIdType=ORG_SCOPE)
+def test_github_id_name(github_client, config, cattle_url, request,
+                        admin_client):
+    user_client = from_env(url=cattle_url)
+    switch_on_auth(admin_client, request, config)
+    new_token = github_request_code(config, cattle_url, admin_client, request,
+                                    user=config['users']['1'])
+    new_token = github_request_token(new_token)
+    user_client._auth = GithubAuth(new_token, "user")
+    sent_members = [_create_member(
+        name=config['users']['1']['username'],
+        type=USER_SCOPE,
+        role='owner'
+    ),
+        _create_member()
+    ]
+    project = user_client.create_project(members=sent_members)
 
-    created_proj = github_client.by_id_project(id=project.id)
-    created_proj = github_client.wait_success(created_proj)
-    assert created_proj.state == 'active'
-    deactivated_proj = github_client.wait_success(created_proj.deactivate())
-    assert deactivated_proj.state == 'inactive'
-    github_client.delete_by_id(github_client, 'project', created_proj.id)
-    deleted_proj = github_client.by_id_project(id=project.id)
-    deleted_proj = github_client.wait_success(deleted_proj)
-    assert deleted_proj.state == 'removed'
-    switch_off_auth(github_client)
+    members = get_plain_members(project.projectMembers())
+    assert len(members) == 2
+    diff_members(members, sent_members)
