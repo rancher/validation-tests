@@ -1,5 +1,8 @@
 from common_fixtures import *  # NOQA
 from requests.auth import AuthBase
+from selenium import webdriver
+from test_github import URL
+from common_fixtures import _client_for_user
 
 
 if_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
@@ -20,6 +23,42 @@ class LdapAuth(AuthBase):
         return r
 
 
+def create_ldap_client(username=os.getenv('LDAP_USER1', 'devUserA'),
+                       password=os.getenv('LDAP_USER1_PASSWORD', 'Password1'),
+                       project_id=None):
+    client = _client_for_user('user', accounts())
+    client.delete_by_id = delete_by_id
+    assert client.valid()
+    jwt = get_authed_token(username=username, password=password)['jwt']
+    client._access_key = None
+    client._secret_key = None
+
+    client._auth = LdapAuth(jwt, prj_id=project_id)
+    client.reload_schema()
+    assert client.valid()
+
+    identities = client.list_identity()
+    assert len(identities) > 0
+    is_ldap_user = False
+    for identity in identities:
+        if (identity.externalIdType == 'ldap_user'):
+            is_ldap_user = True
+    assert is_ldap_user
+    return client
+
+
+def get_authed_token(username=os.getenv('LDAP_USER1', 'devUserA'),
+                     password=os.getenv('LDAP_USER1_PASSWORD', 'Password1')):
+    token = requests.post(base_url() + 'token', {
+        'code': username + ':' + password
+    })
+    token = token.json()
+    assert token['type'] != 'error'
+    assert token['user'] == username
+    assert token['userIdentity']['login'] == username
+    return token
+
+
 def load_config():
     config = {
         "accessMode": "unrestricted",
@@ -32,7 +71,7 @@ def load_config():
                                            'sAMAccountName'),
         'loginDomain': os.environ.get('API_AUTH_LDAP_LOGIN_NAME', 'rancher'),
         'port': os.environ.get('API_AUTH_LDAP_PORT', 389),
-        'enabled': False,
+        'enabled': True,
         'server': os.environ.get('API_AUTH_LDAP_SERVER', 'ad.rancher.io'),
         'serviceAccountPassword': os.environ.get('API_AUTH_LDAP_'
                                                  'SERVICE_ACCOUNT_PASSWORD',
@@ -59,7 +98,7 @@ def load_config():
     return config
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def ldap_config(admin_client, request):
     config = load_config()
     admin_client.create_ldapconfig(config)
@@ -71,7 +110,61 @@ def ldap_config(admin_client, request):
 
 
 @if_ldap
-def test_ldap_search_get_user(admin_client):
+def test_turn_on_ldap_ui(admin_client):
+    config = load_config()
+    config['enabled'] = None
+    admin_client.create_ldapconfig(config)
+
+    port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
+    phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
+    driver = webdriver.PhantomJS(phantom_bin, port=port)
+    driver.delete_all_cookies()
+    max_wait = 60
+    driver.set_page_load_timeout(max_wait)
+    driver.set_script_timeout(max_wait)
+    driver.implicitly_wait(10)
+    driver.set_window_size(1120, 550)
+    driver.get('{}logout'.format(base_url()[:-3]))
+    url = '{}admin/access/ldap'.format(base_url()[:-3])
+    driver.get(url)
+    inputs = driver.find_elements_by_class_name('ember-text-field')
+    config = [
+        os.environ.get('API_AUTH_LDAP_SERVER', 'ad.rancher.io'),
+        os.environ.get('API_AUTH_LDAP_PORT', 389),
+        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_USERNAME','cattle'),
+        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
+        os.environ.get('API_AUTH_LDAP_DOMAIN', "dc=rancher,dc=io"),
+        os.environ.get('API_AUTH_LDAP_LOGIN_NAME', 'rancher'),
+        os.environ.get('API_AUTH_LDAP_USER_OBJECT_CLASS', 'person'),
+        os.environ.get('API_AUTH_LDAP_USER_LOGIN_FIELD', 'sAMAccountName'),
+        os.environ.get('API_AUTH_LDAP_USER_NAME_FIELD', 'name'),
+        os.environ.get('API_AUTH_LDAP_USER_SEARCH_FIELD', 'name'),
+        os.environ.get('API_AUTH_LDAP_USER_ENABLED_ATTRIBUTE',
+                       'userAccountControl'),
+        os.environ.get('API_AUTH_LDAP_USER_DISABLED_BIT_MASK','2'),
+        os.environ.get('API_AUTH_LDAP_GROUP_OBJECT_CLASS', 'group'),
+        os.environ.get('API_AUTH_LDAP_GROUP_NAME_FIELD', 'name'),
+        os.environ.get('API_AUTH_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
+        os.getenv('LDAP_USER1', 'devUserA'),
+        os.getenv('LDAP_USER1_PASSWORD', 'Password1')
+    ]
+
+    for i in range(0, len(inputs)):
+        inputs[i].clear()
+        inputs[i].send_keys(config[i])
+
+    driver.find_element_by_class_name('btn-primary').click()
+    try:
+        driver.find_element_by_class_name('btn-primary').click()
+    except:
+        pass
+    time.sleep(10)
+    no_auth = requests.get(URL)
+    assert no_auth.status_code == 401
+
+
+@if_ldap
+def test_ldap_search_get_user(admin_client, ldap_config):
     search_user = os.getenv('LDAP_USER1', 'devUserA')
     search_user_name = os.getenv('LDAP_USER_NAME', 'Dev A. User')
     user = admin_client.list_identity(name=search_user_name)[0]
@@ -86,7 +179,7 @@ def test_ldap_search_get_user(admin_client):
 
 
 @if_ldap
-def test_ldap_search_get_group(admin_client):
+def test_ldap_search_get_group(admin_client, ldap_config):
     search_group = os.getenv('LDAP_GROUP', 'qualityAssurance')
     group = admin_client.list_identity(name=search_group)[0]
     group_copy = admin_client.by_id('identity', group.id)
@@ -97,36 +190,13 @@ def test_ldap_search_get_group(admin_client):
     assert group.profileUrl == group_copy.profileUrl
 
 
-def ldap_client(username, password):
-    token = requests.post(base_url() + 'token', {
-        'code': username + ':' + password,
-        'authProvider': 'ldapconfig'
-    })
-    token = token.json()
-    assert token['type'] != 'error'
-    token = token['jwt']
-    ldap_client = from_env(url=cattle_url())
-    ldap_client.valid()
-    ldap_client._auth = LdapAuth(token)
-    identities = ldap_client.list_identity()
-    assert len(identities) > 0
-    non_rancher = False
-    for identity in identities:
-        if (identity.externalIdType == 'ldap_user'):
-            non_rancher = True
-    assert non_rancher
-    return ldap_client
+@if_ldap
+def test_ldap_login(admin_client, cattle_url, ldap_config):
+    create_ldap_client()
 
 
 @if_ldap
-def test_ldap_login(admin_client, cattle_url):
-    username = os.getenv('LDAP_USER1', 'devUserA')
-    password = os.getenv('LDAP_USER1_PASSWORD', 'Password1')
-    ldap_client(username, password)
-
-
-@if_ldap
-def test_ldap_incorrect_login():
+def test_ldap_incorrect_login(ldap_config):
     username = os.getenv('LDAP_USER1', 'devUserA')
     token = requests.post(base_url() + 'token',
                           {
@@ -140,7 +210,7 @@ def test_ldap_incorrect_login():
 
 
 @if_ldap
-def test_ldap_unauthorized_login():
+def test_ldap_unauthorized_login(ldap_config):
     username = os.environ.get('API_AUTH_LDAP_'
                               'SERVICE_ACCOUNT_PASSWORD',
                               'Password1')
@@ -159,23 +229,14 @@ def test_ldap_unauthorized_login():
 
 
 @if_ldap
-def test_ldap_project_members():
-    username = os.getenv('LDAP_USER1', 'devUserA')
-    password = os.getenv('LDAP_USER1_PASSWORD', 'Password1')
-    user1_client = ldap_client(username, password)
-    user1_identity = None
-    for obj in user1_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
-            user1_identity = obj
-            break
+def test_ldap_project_members(ldap_config):
+    user1_client = create_ldap_client()
+    user1_identity = get_authed_token()['userIdentity']
     username = os.getenv('LDAP_USER2', 'devUserB')
     password = os.getenv('LDAP_USER2_PASSWORD', 'Password1')
-    user2_client = ldap_client(username, password)
-    user2_identity = None
-    for obj in user1_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
-            user2_identity = obj
-            break
+    user2_client = create_ldap_client(username=username, password=password)
+    user2_identity = get_authed_token(username=username,
+                                      password=password)['userIdentity']
     group = os.getenv('LDAP_GROUP', 'qualityAssurance')
     group = user1_client.list_identity(name=group)[0]
     project = user1_client.create_project(members=[
@@ -193,22 +254,16 @@ def test_ldap_project_members():
 
 def idToMember(identity, role):
     return {
-        'externalId': identity.externalId,
-        'externalIdType': identity.externalIdType,
+        'externalId': identity['externalId'],
+        'externalIdType': identity['externalIdType'],
         'role': role
     }
 
 
 @if_ldap
-def test_ldap_project_create():
-    username = os.getenv('LDAP_USER1', 'devUserA')
-    password = os.getenv('LDAP_USER1_password', 'Password1')
-    user1_client = ldap_client(username, password)
-    identity = None
-    for obj in user1_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
-            identity = obj
-            break
+def test_ldap_project_create(ldap_config):
+    user1_client = create_ldap_client()
+    identity = get_authed_token()['userIdentity']
     members = [idToMember(identity, 'owner')]
     project = user1_client.create_project(members=members)
     project = user1_client.wait_success(project)

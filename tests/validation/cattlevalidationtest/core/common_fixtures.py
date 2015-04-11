@@ -278,6 +278,15 @@ def delete_all(client, items):
     wait_all_success(client, items, timeout=180)
 
 
+def delete_by_id(self, type, id):
+    url = self.schema.types[type].links.collection
+    if url.endswith('/'):
+        url = url + id
+    else:
+        url = '/'.join([url, id])
+    return self._delete(url)
+
+
 def get_port_content(port, path, params={}):
     assert port.publicPort is not None
     assert port.publicIpAddressId is not None
@@ -1885,7 +1894,10 @@ def base_url():
     if (base_url.endswith('/v1/schemas')):
         base_url = base_url[:-7]
     elif (not base_url.endswith('/v1/')):
-        base_url = base_url + '/v1/'
+        if (not base_url.endswith('/')):
+            base_url = base_url + '/v1/'
+        else:
+            base_url = base_url + 'v1/'
     return base_url
 
 
