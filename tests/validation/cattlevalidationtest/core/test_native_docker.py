@@ -10,15 +10,6 @@ socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                   'docker:sonchang/socat-test')
 
 
-def _native_doc_check():
-    return os.environ.get('DOCKER_HOST') is None or os.environ.get(
-        'DOCKER_TEST') == 'false'
-
-if_native_docker = pytest.mark.skipif(_native_doc_check(),
-                                      reason='Environment not configured for '
-                                             'native docker tests.')
-
-
 @pytest.fixture(scope='module')
 def docker_client(client, unmanaged_network, request):
     # When these tests run in the CI environment, the hosts don't expose the
@@ -68,7 +59,6 @@ def pull_images(docker_client):
         docker_client.pull(image[0], image[1])
 
 
-@if_native_docker
 def test_native_unmanaged_network(docker_client, admin_client, pull_images):
     name = 'native-%s' % random_str()
     d_container = docker_client.create_container(TEST_IMAGE,
@@ -92,7 +82,6 @@ def test_native_unmanaged_network(docker_client, admin_client, pull_images):
     assert c.primaryIpAddress == inspect['NetworkSettings']['IPAddress']
 
 
-@if_native_docker
 def test_native_managed_network(docker_client, admin_client, super_client,
                                 pull_images):
     name = 'native-%s' % random_str()
@@ -112,7 +101,7 @@ def test_native_managed_network(docker_client, admin_client, super_client,
     r_containers = admin_client.list_container(name=name)
     assert len(r_containers) == 1
     c = r_containers[0]
-    c = admin_client.wait_success(c)
+    c = admin_client.wait_success(c, timeout=180)
 
     assert c.externalId == d_container['Id']
     assert c.state == 'running'
@@ -141,7 +130,6 @@ def test_native_managed_network(docker_client, admin_client, super_client,
     assert c.state == 'purged'
 
 
-@if_native_docker
 def test_native_not_started(docker_client, admin_client, super_client,
                             pull_images):
     name = 'native-%s' % random_str()
@@ -177,7 +165,6 @@ def test_native_not_started(docker_client, admin_client, super_client,
     assert c.primaryIpAddress == nics.data[0].ipAddresses().data[0].address
 
 
-@if_native_docker
 def test_native_removed(docker_client, admin_client, pull_images):
     name = 'native-%s' % random_str()
     d_container = docker_client.create_container(TEST_IMAGE,
@@ -198,7 +185,6 @@ def test_native_removed(docker_client, admin_client, pull_images):
     assert rc.externalId == d_container['Id']
 
 
-@if_native_docker
 def test_native_volumes(docker_client, admin_client, pull_images):
     name = 'native-%s' % random_str()
     d_container = docker_client.create_container(TEST_IMAGE,
