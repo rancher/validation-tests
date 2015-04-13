@@ -8,7 +8,7 @@ DEFAULT_TIMEOUT = 450
 access_key = os.environ.get('DIGITALOCEAN_KEY')
 image_name = "ubuntu-14-10-x64"
 region = "sfo1"
-size = "2gb"
+size = "1gb"
 
 # Digital Ocean default configurations
 default_size = "512mb"
@@ -19,8 +19,7 @@ default_region = "nyc3"
 # Digital Ocean Error Messages
 error_msg_auth_failure = "401"
 
-error_msg_invalid_region = "Error creating machine: " \
-                           "digitalocean requires a valid region"
+error_msg_invalid_region = "digitalocean requires a valid region"
 
 
 if_machine_digocean = pytest.mark.skipif(
@@ -35,8 +34,7 @@ logger = logging.getLogger(__name__)
 def register_host(admin_client):
     test_url = cattle_url()
     start = test_url.index("//") + 2
-    end = test_url.index("/", start)
-    api_host = test_url[start:end]
+    api_host = test_url[start:]
     admin_client.create_setting(name="api.host", value=api_host)
 
 
@@ -84,10 +82,7 @@ def test_digital_ocean_machine_accesstoken(client):
 @if_machine_digocean
 def test_digital_ocean_machine_parallel(client):
     create_args = {"name": None,
-                   "digitaloceanConfig": {"accessToken": access_key,
-                                          "image": image_name,
-                                          "region": region,
-                                          "size": size
+                   "digitaloceanConfig": {"accessToken": access_key
                                           }
                    }
     machines = []
