@@ -8,7 +8,7 @@ DEFAULT_TIMEOUT = 450
 access_key = os.environ.get('DIGITALOCEAN_KEY')
 image_name = "ubuntu-14-10-x64"
 region = "sfo1"
-size = "2gb"
+size = "1gb"
 
 # Digital Ocean default configurations
 default_size = "512mb"
@@ -29,6 +29,8 @@ if_machine_digocean = pytest.mark.skipif(
 
 # Get logger
 logger = logging.getLogger(__name__)
+ch = logging.StreamHandler()
+logger.addHandler(ch)
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -84,10 +86,7 @@ def test_digital_ocean_machine_accesstoken(client):
 @if_machine_digocean
 def test_digital_ocean_machine_parallel(client):
     create_args = {"name": None,
-                   "digitaloceanConfig": {"accessToken": access_key,
-                                          "image": image_name,
-                                          "region": region,
-                                          "size": size
+                   "digitaloceanConfig": {"accessToken": access_key
                                           }
                    }
     machines = []
