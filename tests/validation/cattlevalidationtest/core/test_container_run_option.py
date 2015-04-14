@@ -66,7 +66,7 @@ def test_container_run_with_options_1(client, test_name, managed_network,
     con_vol = client.wait_success(con_vol)
     assert con_vol.state == "running"
 
-    docker_vol_from_value = con_vol.uuid
+    docker_vol_from_value = con_vol.externalId
 
     # Create container with different docker options and validate the option
     # testing with docker inspect command
