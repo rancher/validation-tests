@@ -8,6 +8,7 @@ import logging
 import paramiko
 import inspect
 
+logging.basicConfig()
 log = logging.getLogger()
 
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
