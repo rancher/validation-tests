@@ -87,7 +87,9 @@ def test_cluster_add_remove_host(client, test_name, managed_network,
             name=test_name + "-cl-deployed",
             networkIds=[managed_network.id],
             imageUuid='docker:ubuntu',
-            requestedHostId=cluster.id)
+            requestedHostId=cluster.id,
+            tty=True,
+            stdinOpen=True)
         wait_for_condition(
             client, test_container,
             lambda x: x.state == 'running',
