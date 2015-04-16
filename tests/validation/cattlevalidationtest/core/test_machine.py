@@ -2,7 +2,7 @@ from common_fixtures import *  # NOQA
 import traceback
 import logging
 
-DEFAULT_TIMEOUT = 450
+DEFAULT_TIMEOUT = 900
 
 # Digital Ocean configurations
 access_key = os.environ.get('DIGITALOCEAN_KEY')
@@ -23,7 +23,7 @@ error_msg_invalid_region = "digitalocean requires a valid region"
 
 
 if_machine_digocean = pytest.mark.skipif(
-    os.environ.get('DIGITALOCEAN_KEY') is None,
+    not os.environ.get('DIGITALOCEAN_KEY'),
     reason='DIGITALOCEAN_KEY is not set')
 
 # Get logger
