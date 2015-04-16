@@ -4,7 +4,7 @@ import traceback
 
 from common_fixtures import *  # NOQA
 
-DEFAULT_TIMEOUT = 450
+DEFAULT_TIMEOUT = 900
 
 access_key = os.environ.get('AMAZON_ACCESSKEY')
 secret_key = os.environ.get('AMAZON_SECRETKEY')
