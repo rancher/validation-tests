@@ -60,163 +60,194 @@ def pull_images(docker_client):
 
 
 def test_native_unmanaged_network(docker_client, admin_client, pull_images):
-    name = 'native-%s' % random_str()
-    d_container = docker_client.create_container(TEST_IMAGE,
-                                                 name=name)
-    docker_client.start(d_container)
-    inspect = docker_client.inspect_container(d_container)
+    container = None
+    try:
+        name = 'native-%s' % random_str()
+        d_container = docker_client.create_container(TEST_IMAGE,
+                                                     name=name)
+        docker_client.start(d_container)
+        inspect = docker_client.inspect_container(d_container)
 
-    def check():
-        containers = admin_client.list_container(name=name)
-        return len(containers) > 0
+        def check():
+            containers = admin_client.list_container(name=name)
+            return len(containers) > 0
 
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+        wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
-    r_containers = admin_client.list_container(name=name)
-    assert len(r_containers) == 1
-    c = r_containers[0]
-    c = admin_client.wait_success(c)
+        r_containers = admin_client.list_container(name=name)
+        assert len(r_containers) == 1
+        container = r_containers[0]
+        container = admin_client.wait_success(container)
 
-    assert c.externalId == d_container['Id']
-    assert c.state == 'running'
-    assert c.primaryIpAddress == inspect['NetworkSettings']['IPAddress']
+        assert container.externalId == d_container['Id']
+        assert container.state == 'running'
+        assert container.primaryIpAddress == inspect['NetworkSettings'][
+            'IPAddress']
+    finally:
+        cleanup_container(admin_client, container)
 
 
 def test_native_managed_network(docker_client, admin_client, super_client,
                                 pull_images):
-    name = 'native-%s' % random_str()
-    d_container = docker_client.create_container(TEST_IMAGE,
-                                                 name=name,
-                                                 environment=[
-                                                     'RANCHER_NETWORK=true'])
-    docker_client.start(d_container)
-    inspect = docker_client.inspect_container(d_container)
+    container = None
+    try:
+        name = 'native-%s' % random_str()
+        d_container = docker_client. \
+            create_container(TEST_IMAGE,
+                             name=name,
+                             environment=['RANCHER_NETWORK=true'])
+        docker_client.start(d_container)
+        inspect = docker_client.inspect_container(d_container)
 
-    def check():
-        containers = admin_client.list_container(name=name)
-        return len(containers) > 0
+        def check():
+            containers = admin_client.list_container(name=name)
+            return len(containers) > 0
 
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+        wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
-    r_containers = admin_client.list_container(name=name)
-    assert len(r_containers) == 1
-    c = r_containers[0]
-    c = admin_client.wait_success(c, timeout=180)
+        r_containers = admin_client.list_container(name=name)
+        assert len(r_containers) == 1
+        container = r_containers[0]
+        container = admin_client.wait_success(container, timeout=180)
 
-    assert c.externalId == d_container['Id']
-    assert c.state == 'running'
-    assert c.primaryIpAddress != inspect['NetworkSettings']['IPAddress']
-    nics = super_client.reload(c).nics()
-    assert len(nics) == 1
-    assert c.primaryIpAddress == nics.data[0].ipAddresses().data[0].address
+        assert container.externalId == d_container['Id']
+        assert container.state == 'running'
+        assert container.primaryIpAddress != inspect['NetworkSettings'][
+            'IPAddress']
+        nics = super_client.reload(container).nics()
+        assert len(nics) == 1
+        assert container.primaryIpAddress == nics.data[0].ipAddresses().data[
+            0].address
 
-    # Let's test more of the life cycle
-    c = admin_client.wait_success(c.stop(timeout=0))
-    assert c.state == 'stopped'
+        # Let's test more of the life cycle
+        container = admin_client.wait_success(container.stop(timeout=0))
+        assert container.state == 'stopped'
 
-    c = admin_client.wait_success(c.start(timeout=0))
-    assert c.state == 'running'
+        container = admin_client.wait_success(container.start(timeout=0))
+        assert container.state == 'running'
 
-    c = admin_client.wait_success(c.restart(timeout=0))
-    assert c.state == 'running'
+        container = admin_client.wait_success(container.restart(timeout=0))
+        assert container.state == 'running'
 
-    c = admin_client.wait_success(c.stop(timeout=0))
-    assert c.state == 'stopped'
+        container = admin_client.wait_success(container.stop(timeout=0))
+        assert container.state == 'stopped'
 
-    c = admin_client.wait_success(c.remove(timeout=0))
-    assert c.state == 'removed'
+        container = admin_client.wait_success(container.remove(timeout=0))
+        assert container.state == 'removed'
 
-    c = admin_client.wait_success(c.purge(timeout=0))
-    assert c.state == 'purged'
+        container = admin_client.wait_success(container.purge(timeout=0))
+        assert container.state == 'purged'
+    finally:
+        cleanup_container(admin_client, container)
 
 
 def test_native_not_started(docker_client, admin_client, super_client,
                             pull_images):
-    name = 'native-%s' % random_str()
-    d_container = docker_client.create_container(TEST_IMAGE,
-                                                 name=name,
-                                                 environment=[
-                                                     'RANCHER_NETWORK=true'])
+    container = None
+    try:
+        name = 'native-%s' % random_str()
+        d_container = docker_client. \
+            create_container(TEST_IMAGE, name=name,
+                             environment=['RANCHER_NETWORK=true'])
 
-    def check():
-        containers = admin_client.list_container(name=name)
-        return len(containers) > 0
+        def check():
+            containers = admin_client.list_container(name=name)
+            return len(containers) > 0
 
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+        wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
-    r_containers = admin_client.list_container(name=name)
-    assert len(r_containers) == 1
-    c = r_containers[0]
-    c = admin_client.wait_success(c)
-    c_id = c.id
+        r_containers = admin_client.list_container(name=name)
+        assert len(r_containers) == 1
+        container = r_containers[0]
+        container = admin_client.wait_success(container)
+        c_id = container.id
 
-    assert c.externalId == d_container['Id']
-    assert c.state == 'running'
+        assert container.externalId == d_container['Id']
+        assert container.state == 'running'
 
-    def stopped_check():
-        c = admin_client.by_id_container(c_id)
-        return c.state == 'stopped'
+        def stopped_check():
+            c = admin_client.by_id_container(c_id)
+            return c.state == 'stopped'
 
-    wait_for(stopped_check,
-             'Timeout waiting for container to stop. Id: [%s]' % c_id)
+        wait_for(stopped_check,
+                 'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
-    nics = super_client.reload(c).nics()
-    assert len(nics) == 1
-    assert c.primaryIpAddress == nics.data[0].ipAddresses().data[0].address
+        nics = super_client.reload(container).nics()
+        assert len(nics) == 1
+        assert container.primaryIpAddress == nics.data[0].ipAddresses().data[
+            0].address
+    finally:
+        cleanup_container(admin_client, container)
 
 
 def test_native_removed(docker_client, admin_client, pull_images):
-    name = 'native-%s' % random_str()
-    d_container = docker_client.create_container(TEST_IMAGE,
-                                                 name=name)
-    docker_client.remove_container(d_container)
+    container = None
+    try:
+        name = 'native-%s' % random_str()
+        d_container = docker_client.create_container(TEST_IMAGE,
+                                                     name=name)
+        docker_client.remove_container(d_container)
 
-    def check():
-        containers = admin_client.list_container(name=name)
-        return len(containers) > 0
+        def check():
+            containers = admin_client.list_container(name=name)
+            return len(containers) > 0
 
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+        wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
-    r_containers = admin_client.list_container(name=name)
-    assert len(r_containers) == 1
-    rc = r_containers[0]
-    rc = admin_client.wait_success(rc)
+        r_containers = admin_client.list_container(name=name)
+        assert len(r_containers) == 1
+        container = r_containers[0]
+        container = admin_client.wait_success(container)
 
-    assert rc.externalId == d_container['Id']
+        assert container.externalId == d_container['Id']
+    finally:
+        cleanup_container(admin_client, container)
 
 
 def test_native_volumes(docker_client, admin_client, pull_images):
-    name = 'native-%s' % random_str()
-    d_container = docker_client.create_container(TEST_IMAGE,
-                                                 name=name,
-                                                 volumes=['/foo',
-                                                          '/host/var'])
-    docker_client.start(d_container,
-                        binds={'/var': {'bind': '/host/var'}})
+    container = None
+    try:
+        name = 'native-%s' % random_str()
+        d_container = docker_client.create_container(TEST_IMAGE,
+                                                     name=name,
+                                                     volumes=['/foo',
+                                                              '/host/var'])
+        docker_client.start(d_container,
+                            binds={'/var': {'bind': '/host/var'}})
 
-    def check():
-        containers = admin_client.list_container(name=name)
-        return len(containers) > 0
+        def check():
+            containers = admin_client.list_container(name=name)
+            return len(containers) > 0
 
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+        wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
 
-    r_containers = admin_client.list_container(name=name)
-    assert len(r_containers) == 1
-    c = r_containers[0]
-    c = admin_client.wait_success(c)
+        r_containers = admin_client.list_container(name=name)
+        assert len(r_containers) == 1
+        container = r_containers[0]
+        container = admin_client.wait_success(container)
 
-    assert c.externalId == d_container['Id']
-    assert c.state == 'running'
-    mounts = c.mounts()
-    assert len(mounts) == 2
+        assert container.externalId == d_container['Id']
+        assert container.state == 'running'
+        mounts = container.mounts()
+        assert len(mounts) == 2
 
-    mount = mounts[0]
-    assert mount.path == '/foo'
-    volume = mount.volume()
-    assert not volume.isHostPath
+        mount = mounts[0]
+        assert mount.path == '/foo'
+        volume = mount.volume()
+        assert not volume.isHostPath
 
-    mount = mounts[1]
-    assert mount.path == '/host/var'
-    volume = mount.volume()
-    assert volume.isHostPath
-    assert volume.uri == 'file:///var'
+        mount = mounts[1]
+        assert mount.path == '/host/var'
+        volume = mount.volume()
+        assert volume.isHostPath
+        assert volume.uri == 'file:///var'
+    finally:
+        cleanup_container(admin_client, container)
+
+
+def cleanup_container(admin_client, container):
+    try:
+        if container:
+            admin_client.delete(container)
+    except:
+        pass
