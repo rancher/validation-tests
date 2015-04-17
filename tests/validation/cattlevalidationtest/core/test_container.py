@@ -1,6 +1,7 @@
 from common_fixtures import *  # NOQA
 import requests
 import websocket as ws
+import base64
 
 
 def test_sibling_pinging(client, one_per_host):
@@ -38,7 +39,6 @@ def test_sibling_pinging(client, one_per_host):
             assert other_hostname == test_hostname
 
     assert count == len(instances) * (len(instances) - 1)
-
     delete_all(client, instances)
 
 
@@ -117,30 +117,26 @@ def test_linking(client, test_name, managed_network):
     delete_all(client, [link_client, link_server, link_server2])
 
 
-def create_container(admin_client, net):
-    cmd = '/bin/bash -c "sleep 5; ip addr show eth0"'
-    c = admin_client.create_container(imageUuid=TEST_IMAGE_UUID,
-                                      networkIds=[net.id],
-                                      command=cmd)
-    c = admin_client.wait_success(c)
-    logs = c.logs()
+def test_ip_inject(client, managed_network, test_name):
+    cleanup_items = []
+    try:
+        cmd = '/bin/bash -c "sleep 5; ip addr show eth0"'
+        container = client.create_container(name=test_name,
+                                            imageUuid=TEST_IMAGE_UUID,
+                                            networkIds=[managed_network.id],
+                                            command=cmd)
+        cleanup_items.append(container)
+        container = client.wait_success(container)
 
-    return logs, c, c.primaryIpAddress
-
-
-def cleanup(container):
-        try:
-            container.stop(remove=True, timeout=0)
-        except:
-            # We've tried our best!
-            pass
+        assert_ip_inject(container)
+    finally:
+        delete_all(client, cleanup_items)
 
 
-def test_ip_inject(admin_client, managed_network, request):
-    logs, c, ip = create_container(admin_client, managed_network)
-    request.addfinalizer(lambda: cleanup(c))
-    conn = ws.create_connection(logs.url + '?token='+logs.token)
-
+def assert_ip_inject(container):
+    ip = container.primaryIpAddress
+    logs = container.logs()
+    conn = ws.create_connection(logs.url + '?token=' + logs.token)
     count = 0
     found_ip = False
     while count <= 100:
@@ -152,5 +148,61 @@ def test_ip_inject(admin_client, managed_network, request):
                 break
         except ws.WebSocketConnectionClosedException:
             break
-
     assert found_ip
+
+
+def test_container_execute(client, managed_network, test_name):
+    cleanup_items = []
+    try:
+        container = client.create_container(name=test_name,
+                                            imageUuid=TEST_IMAGE_UUID,
+                                            networkIds=[managed_network.id],
+                                            attachStdin=True,
+                                            attachStdout=True,
+                                            tty=True,
+                                            command='/bin/bash')
+        cleanup_items.append(container)
+        container = client.wait_success(container)
+        test_msg = 'EXEC_WORKS'
+        assert_execute(container, test_msg)
+    finally:
+        delete_all(client, cleanup_items)
+
+
+def assert_execute(container, test_msg):
+    execute = container.execute(attachStdin=True,
+                                attachStdout=True,
+                                command=['/bin/bash', '-c',
+                                         'echo ' + test_msg],
+                                tty=True)
+    conn = ws.create_connection(execute.url + '?token=' + execute.token,
+                                timeout=10)
+    stuff = conn.recv()
+    result = base64.b64decode(stuff)
+    assert test_msg == result.rstrip()
+
+
+def test_container_stats(client, managed_network, test_name):
+    cleanup_items = []
+    try:
+        container = client.create_container(name=test_name,
+                                            imageUuid=TEST_IMAGE_UUID,
+                                            networkIds=[managed_network.id],
+                                            attachStdin=True,
+                                            attachStdout=True,
+                                            tty=True,
+                                            command='/bin/bash')
+        cleanup_items.append(container)
+        container = client.wait_success(container)
+
+        assert_stats(container)
+    finally:
+        delete_all(client, cleanup_items)
+
+
+def assert_stats(container):
+    stats = container.stats()
+    conn = ws.create_connection(stats.url + '?token=' + stats.token,
+                                timeout=10)
+    result = conn.recv()
+    assert 'per_cpu_usage' in result
