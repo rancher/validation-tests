@@ -1,3 +1,4 @@
+import gdapi
 from cattle import from_env
 import pytest
 import random
@@ -23,6 +24,9 @@ PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
 
+ADMIN_HEADERS = dict(gdapi.HEADERS)
+ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
+
 
 @pytest.fixture(scope='session')
 def cattle_url():
@@ -46,6 +50,7 @@ def cleanup(client):
 def _admin_client():
     return from_env(url=cattle_url(),
                     cache=False,
+                    headers=ADMIN_HEADERS,
                     access_key='admin',
                     secret_key='adminpass')
 
@@ -55,6 +60,37 @@ def _client_for_user(name, accounts):
                     cache=False,
                     access_key=accounts[name][0],
                     secret_key=accounts[name][1])
+
+
+def client_for_project(project):
+    access_key = random_str()
+    secret_key = random_str()
+    admin_client = _admin_client()
+    active_cred = None
+    assert project is not None
+    assert project.kind == 'project'
+    account = project
+    for cred in account.credentials():
+        if cred.kind == 'apiKey' and cred.publicValue == access_key\
+                and cred.secretValue == secret_key:
+            active_cred = cred
+            break
+
+    if active_cred is None:
+        active_cred = admin_client.create_api_key({
+            'accountId': account.id,
+            'publicValue': access_key,
+            'secretValue': secret_key
+        })
+
+    active_cred = wait_success(admin_client, active_cred)
+    if active_cred.state != 'active':
+        wait_success(admin_client, active_cred.activate())
+
+    return from_env(url=cattle_url(),
+                    cache=False,
+                    access_key=access_key,
+                    secret_key=secret_key)
 
 
 def create_user(admin_client, user_name, kind=None):
@@ -133,15 +169,16 @@ def accounts():
 
 
 @pytest.fixture(scope='session')
-def client(cattle_url):
-    client = from_env(url=cattle_url)
+def client(admin_client):
+    client = client_for_project(
+        admin_client.list_project(uuid="adminProject")[0])
     assert client.valid()
     return client
 
 
 @pytest.fixture(scope='session')
-def admin_client(cattle_url):
-    admin_client = from_env(url=cattle_url)
+def admin_client():
+    admin_client = _admin_client()
     assert admin_client.valid()
     return admin_client
 
