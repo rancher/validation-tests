@@ -1,8 +1,8 @@
 flake8
 paramiko
 pytest
-requests
-cattle
+requests==2.6.0
+cattle==0.4.0
 selenium
 websocket-client==0.23.0
 docker-py
