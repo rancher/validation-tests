@@ -56,9 +56,7 @@ def docker_client(client, unmanaged_network, request):
 @pytest.fixture(scope='module')
 def pull_images(docker_client):
     image = (NATIVE_TEST_IMAGE, 'latest')
-    images = docker_client.images(image[0])
-    if not images:
-        docker_client.pull(image[0], image[1])
+    docker_client.pull(image[0], image[1])
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -169,27 +167,44 @@ def test_native_volumes(docker_client, client, native_name, pull_images):
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name,
                                                  volumes=['/foo',
-                                                          '/host/var'])
+                                                          '/host/var',
+                                                          '/host/tmpreadonly'])
     docker_client.start(d_container,
-                        binds={'/var': {'bind': '/host/var'}})
+                        binds={'/var': {'bind': '/host/var'},
+                               '/tmp1': {'bind': '/host/tmpreadonly',
+                                         'ro': True}})
 
     container = wait_on_rancher_container(client, native_name)
 
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
     mounts = container.mounts()
-    assert len(mounts) == 2
+    assert len(mounts) == 3
 
-    mount = mounts[0]
-    assert mount.path == '/foo'
-    volume = mount.volume()
+    foo_mount, var_mount, tmp_mount = None, None, None
+    for m in mounts:
+        if m.path == '/foo':
+            foo_mount = m
+        elif m.path == '/host/var':
+            var_mount = m
+        elif m.path == '/host/tmpreadonly':
+            tmp_mount = m
+
+    assert foo_mount.path == '/foo'
+    volume = foo_mount.volume()
     assert not volume.isHostPath
 
-    mount = mounts[1]
-    assert mount.path == '/host/var'
-    volume = mount.volume()
+    assert var_mount.path == '/host/var'
+    assert var_mount.permissions == 'rw'
+    volume = var_mount.volume()
     assert volume.isHostPath
     assert volume.uri == 'file:///var'
+
+    assert tmp_mount.path == '/host/tmpreadonly'
+    assert tmp_mount.permissions == 'ro'
+    volume = tmp_mount.volume()
+    assert volume.isHostPath
+    assert volume.uri == 'file:///tmp1'
 
 
 def test_native_logs(client, docker_client, native_name, pull_images):
@@ -287,3 +302,65 @@ def wait_on_rancher_container(client, name, timeout=None):
         kwargs['timeout'] = timeout
     container = client.wait_success(container, **kwargs)
     return container
+
+
+def test_native_fields(docker_client, client, pull_images):
+    name = 'native-%s' % random_str()
+    d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
+                                                 name=name,
+                                                 hostname='hostname1',
+                                                 domainname='domainname1',
+                                                 user='root',
+                                                 mem_limit='4m',
+                                                 cpu_shares=1024,
+                                                 cpuset='0,3',
+                                                 tty=True,
+                                                 stdin_open=True,
+                                                 working_dir='/root',
+                                                 environment={'FOO': 'BA'},
+                                                 command='sleep 1 2 3 4 5',
+                                                 entrypoint=['/bin/sh',
+                                                             '-c'])
+
+    docker_client.start(d_container, privileged=True,
+                        publish_all_ports=True,
+                        lxc_conf={'lxc.utsname': 'docker'},
+                        dns=['1.2.3.4'], dns_search=['search.dns.com'],
+                        cap_add=['SYSLOG'], cap_drop=['KILL', 'LEASE'],
+                        restart_policy={'MaximumRetryCount': 5,
+                                        'Name': 'on-failure'},
+                        devices=['/dev/null:/dev/xnull:rw'])
+
+    def check():
+        containers = client.list_container(name=name)
+        return len(containers) > 0
+
+    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
+
+    r_containers = client.list_container(name=name)
+    assert len(r_containers) == 1
+    container = r_containers[0]
+    container = client.wait_success(container)
+    assert container.hostname == 'hostname1'
+    assert container.domainName == 'domainname1'
+    assert container.user == 'root'
+    assert container.memory == 4194304
+    assert container.cpuShares == 1024
+    assert container.cpuSet == '0,3'
+    assert container.tty is True
+    assert container.stdinOpen is True
+    assert container.imageUuid == 'docker:' + NATIVE_TEST_IMAGE
+    assert container.directory == '/root'
+    assert container.environment['FOO'] == 'BA'
+    assert container.command == ['sleep', '1', '2', '3', '4', '5']
+    assert container.entryPoint == ['/bin/sh', '-c']
+    assert container.privileged is True
+    assert container.publishAllPorts is True
+    assert container.lxcConf == {'lxc.utsname': 'docker'}
+    assert container.dns == ['1.2.3.4']
+    assert container.dnsSearch == ['search.dns.com']
+    assert container.capAdd == ['SYSLOG']
+    assert container.capDrop == ['KILL', 'LEASE']
+    assert container.restartPolicy == {'name': 'on-failure',
+                                       'maximumRetryCount': 5}
+    assert container.devices == ['/dev/null:/dev/xnull:rw']
