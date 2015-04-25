@@ -1,8 +1,8 @@
 from common_fixtures import *  # NOQA
 
 
-def test_cluster_add_remove_host(client, test_name, managed_network,
-                                 super_client):
+def test_cluster_add_remove_host(admin_client, client, test_name,
+                                 managed_network, super_client):
     socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                       'docker:sonchang/socat-test')
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -116,6 +116,7 @@ def test_cluster_add_remove_host(client, test_name, managed_network,
         # check primaryIpAddress is using the managed network (10.x.x.x)
         # instead of using the docker IP (172.x.x.x)
         # not a great check but better than nothing
+        test_container_found = admin_client.reload(test_container_found)
         primary_ip_address = test_container_found.data.fields.primaryIpAddress
         assert primary_ip_address.startswith('10.')
         assert len(

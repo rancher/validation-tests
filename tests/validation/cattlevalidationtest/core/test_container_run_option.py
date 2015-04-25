@@ -6,7 +6,7 @@ TEST_IMAGE_UUID = 'docker:' + TEST_IMAGE
 
 
 def check_docker_param_values(s, con, configs):
-    container_id = con.data.dockerContainer.Id
+    container_id = con.externalId
 
     for config in configs:
 
@@ -33,6 +33,7 @@ def test_container_run_with_options_1(client, test_name, managed_network,
                                       host_ssh_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True)
+    assert len(hosts) > 0
     host = hosts[0]
 
     volume_in_host = "/test/container"

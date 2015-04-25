@@ -68,7 +68,7 @@ def test_dynamic_port(client, test_name, managed_network):
     delete_all(client, [c])
 
 
-def test_linking(client, test_name, managed_network):
+def test_linking(admin_client, client, test_name, managed_network):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
 
@@ -102,7 +102,9 @@ def test_linking(client, test_name, managed_network):
                                           requestedHostId=hosts[0].id)
 
     link_client = client.wait_success(link_client)
+    link_client = admin_client.reload(link_client)
     link_server = client.wait_success(link_server)
+    link_server = admin_client.reload(link_server)
 
     ping_link(link_client, 'client', var='VALUE', value=random_val)
 

@@ -3,8 +3,8 @@ import websocket as ws
 import pytest
 
 
-def test_host_api_token(admin_client):
-    hosts = admin_client.list_host(kind='docker', removed_null=True)
+def test_host_api_token(client):
+    hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
     # valid token and a url to the websocket
@@ -15,8 +15,8 @@ def test_host_api_token(admin_client):
     assert result.startswith('{')
 
 
-def test_host_api_no_token(admin_client):
-    hosts = admin_client.list_host(kind='docker', removed_null=True)
+def test_host_api_no_token(client):
+    hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
     # Pass No token
@@ -26,8 +26,8 @@ def test_host_api_no_token(admin_client):
     assert 'Handshake status 401' in str(excinfo.value)
 
 
-def test_host_api_garbage_token(admin_client):
-    hosts = admin_client.list_host(kind='docker', removed_null=True)
+def test_host_api_garbage_token(client):
+    hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
     # pass garbage token
