@@ -62,16 +62,16 @@ def pull_images(docker_client):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def native_cleanup(admin_client, request):
+def native_cleanup(client, request):
     def fin():
-        containers = admin_client.list_container()
+        containers = client.list_container()
         for c in containers:
-            if c.name.startswith('native-'):
-                try:
-                    admin_client.delete(c)
-                except:
-                    # Tried our best
-                    pass
+            try:
+                if c.name.startswith('native-'):
+                    client.delete(c)
+            except:
+                # Tried our best
+                pass
 
     request.addfinalizer(fin)
 
@@ -81,14 +81,14 @@ def native_name(random_str):
     return 'native-' + random_str
 
 
-def test_native_unmanaged_network(docker_client, admin_client, native_name,
+def test_native_unmanaged_network(docker_client, client, native_name,
                                   pull_images):
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name)
     docker_client.start(d_container)
     inspect = docker_client.inspect_container(d_container)
 
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
@@ -96,8 +96,8 @@ def test_native_unmanaged_network(docker_client, admin_client, native_name,
         'IPAddress']
 
 
-def test_native_managed_network(docker_client, admin_client, super_client,
-                                native_name, pull_images):
+def test_native_managed_network(docker_client, client, native_name,
+                                pull_images):
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
@@ -105,73 +105,67 @@ def test_native_managed_network(docker_client, admin_client, super_client,
     docker_client.start(d_container)
     inspect = docker_client.inspect_container(d_container)
 
-    container = wait_on_rancher_container(admin_client, native_name,
+    container = wait_on_rancher_container(client, native_name,
                                           timeout=180)
 
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
     assert container.primaryIpAddress != inspect['NetworkSettings'][
         'IPAddress']
-    nics = super_client.reload(container).nics()
-    assert len(nics) == 1
-    assert container.primaryIpAddress == nics.data[0].ipAddresses().data[
-        0].address
 
     # Let's test more of the life cycle
-    container = admin_client.wait_success(container.stop(timeout=0))
+    container = client.wait_success(container.stop(timeout=0))
     assert container.state == 'stopped'
 
-    container = admin_client.wait_success(container.start(timeout=0))
+    container = client.wait_success(container.start(timeout=0))
     assert container.state == 'running'
 
-    container = admin_client.wait_success(container.restart(timeout=0))
+    container = client.wait_success(container.restart(timeout=0))
     assert container.state == 'running'
 
-    container = admin_client.wait_success(container.stop(timeout=0))
+    container = client.wait_success(container.stop(timeout=0))
     assert container.state == 'stopped'
 
-    container = admin_client.wait_success(container.remove(timeout=0))
+    container = client.wait_success(container.remove(timeout=0))
     assert container.state == 'removed'
 
-    container = admin_client.wait_success(container.purge(timeout=0))
+    container = client.wait_success(container.purge(timeout=0))
     assert container.state == 'purged'
 
 
-def test_native_not_started(docker_client, admin_client, super_client,
-                            native_name, pull_images):
+def test_native_not_started(docker_client, client, native_name, pull_images):
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE, name=native_name,
                          environment=['RANCHER_NETWORK=true'])
 
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
+    inspect = docker_client.inspect_container(d_container)
 
     c_id = container.id
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
 
     def stopped_check():
-        c = admin_client.by_id_container(c_id)
+        c = client.by_id_container(c_id)
         return c.state == 'stopped'
 
     wait_for(stopped_check,
              'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
-    nics = super_client.reload(container).nics()
-    assert len(nics) == 1
-    assert container.primaryIpAddress == nics.data[0].ipAddresses().data[
-        0].address
+    assert container.primaryIpAddress != inspect['NetworkSettings'][
+        'IPAddress']
 
 
-def test_native_removed(docker_client, admin_client, native_name, pull_images):
+def test_native_removed(docker_client, client, native_name, pull_images):
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name)
     docker_client.remove_container(d_container)
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert container.externalId == d_container['Id']
 
 
-def test_native_volumes(docker_client, admin_client, native_name, pull_images):
+def test_native_volumes(docker_client, client, native_name, pull_images):
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name,
                                                  volumes=['/foo',
@@ -179,7 +173,7 @@ def test_native_volumes(docker_client, admin_client, native_name, pull_images):
     docker_client.start(d_container,
                         binds={'/var': {'bind': '/host/var'}})
 
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
@@ -198,7 +192,7 @@ def test_native_volumes(docker_client, admin_client, native_name, pull_images):
     assert volume.uri == 'file:///var'
 
 
-def test_native_logs(admin_client, docker_client, native_name, pull_images):
+def test_native_logs(client, docker_client, native_name, pull_images):
     image = TEST_IMAGE_UUID.replace('docker:', '')
     test_msg = 'LOGS_WORK'
     d_container = docker_client. \
@@ -209,13 +203,13 @@ def test_native_logs(admin_client, docker_client, native_name, pull_images):
                          detach=True,
                          command=['/bin/bash', '-c', 'echo ' + test_msg])
     docker_client.start(d_container)
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     found_msg = search_logs(container, test_msg)
     assert found_msg
 
 
-def test_native_exec(admin_client, docker_client, native_name, pull_images):
+def test_native_exec(client, docker_client, native_name, pull_images):
     test_msg = 'EXEC_WORKS'
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
@@ -225,12 +219,12 @@ def test_native_exec(admin_client, docker_client, native_name, pull_images):
                          detach=True,
                          command=['/bin/bash'])
     docker_client.start(d_container)
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert_execute(container, test_msg)
 
 
-def test_native_ip_inject(admin_client, docker_client, native_name,
+def test_native_ip_inject(client, docker_client, native_name,
                           pull_images):
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
@@ -242,12 +236,12 @@ def test_native_ip_inject(admin_client, docker_client, native_name,
                          command=['/bin/bash', '-c', 'sleep 10; '
                                                      'ip addr show eth0'])
     docker_client.start(d_container)
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert_ip_inject(container)
 
 
-def test_native_container_stats(admin_client, docker_client, native_name,
+def test_native_container_stats(client, docker_client, native_name,
                                 pull_images):
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
@@ -257,7 +251,7 @@ def test_native_container_stats(admin_client, docker_client, native_name,
                          detach=True,
                          command=['/bin/bash'])
     docker_client.start(d_container)
-    container = wait_on_rancher_container(admin_client, native_name)
+    container = wait_on_rancher_container(client, native_name)
 
     assert_stats(container)
 
@@ -279,18 +273,18 @@ def search_logs(container, test_msg):
     return found_msg
 
 
-def wait_on_rancher_container(admin_client, name, timeout=None):
+def wait_on_rancher_container(client, name, timeout=None):
     def check():
-        containers = admin_client.list_container(name=name)
+        containers = client.list_container(name=name)
         return len(containers) > 0
 
     wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
-    r_containers = admin_client.list_container(name=name)
+    r_containers = client.list_container(name=name)
     assert len(r_containers) == 1
     container = r_containers[0]
 
     kwargs = {}
     if timeout:
         kwargs['timeout'] = timeout
-    container = admin_client.wait_success(container, **kwargs)
+    container = client.wait_success(container, **kwargs)
     return container
