@@ -193,10 +193,9 @@ def test_native_volumes(docker_client, client, native_name, pull_images):
 
 
 def test_native_logs(client, docker_client, native_name, pull_images):
-    image = TEST_IMAGE_UUID.replace('docker:', '')
     test_msg = 'LOGS_WORK'
     d_container = docker_client. \
-        create_container(image,
+        create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
                          tty=True,
                          stdin_open=True,
