@@ -313,7 +313,7 @@ def test_native_fields(docker_client, client, pull_images):
                                                  user='root',
                                                  mem_limit='4m',
                                                  cpu_shares=1024,
-                                                 cpuset='0,3',
+                                                 cpuset='0',
                                                  tty=True,
                                                  stdin_open=True,
                                                  working_dir='/root',
@@ -346,7 +346,7 @@ def test_native_fields(docker_client, client, pull_images):
     assert container.user == 'root'
     assert container.memory == 4194304
     assert container.cpuShares == 1024
-    assert container.cpuSet == '0,3'
+    assert container.cpuSet == '0'
     assert container.tty is True
     assert container.stdinOpen is True
     assert container.imageUuid == 'docker:' + NATIVE_TEST_IMAGE
