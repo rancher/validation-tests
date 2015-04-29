@@ -122,7 +122,7 @@ def test_linking(admin_client, client, test_name, managed_network):
 def test_ip_inject(client, managed_network, test_name):
     cleanup_items = []
     try:
-        cmd = '/bin/bash -c "sleep 5; ip addr show eth0"'
+        cmd = ['/bin/bash', '-c', 'sleep 5; ip addr show eth0']
         container = client.create_container(name=test_name,
                                             imageUuid=TEST_IMAGE_UUID,
                                             networkIds=[managed_network.id],
