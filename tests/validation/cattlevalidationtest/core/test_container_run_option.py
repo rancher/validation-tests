@@ -53,8 +53,7 @@ def test_container_run_with_options_1(client, test_name, managed_network,
     memory_swap = 16000000
     cpu_set = "0"
     cpu_shares = 400
-    command = "sleep"
-    command_args = "450"
+    command = ["sleep", "450"]
 
     # Create a container to link the data volume of the container for
     # validate dataVolumesFrom
@@ -95,8 +94,7 @@ def test_container_run_with_options_1(client, test_name, managed_network,
                                 cpuSet=cpu_set,
                                 cpuShares=cpu_shares,
                                 restartPolicy=restart_policy,
-                                command=command,
-                                commandArgs=[command_args]
+                                command=command
                                 )
 
     c = client.wait_success(c)
@@ -189,12 +187,7 @@ def test_container_run_with_options_1(client, test_name, managed_network,
                     "result": False})
 
     configs.append({"docker_param_name": "Config.Cmd",
-                    "docker_param_value": command,
-                    "docker_value": None,
-                    "result": False})
-
-    configs.append({"docker_param_name": "Args",
-                   "docker_param_value": command_args,
+                    "docker_param_value": command[0] + " " + command[1],
                     "docker_value": None,
                     "result": False})
 
