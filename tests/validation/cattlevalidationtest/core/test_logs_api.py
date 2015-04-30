@@ -21,7 +21,7 @@ def test_logs_token(client):
     assert result is not None
     assert in_log in result
 
-    c.stop(remove=True, timeout=0)
+    delete_all(client, [c])
 
 
 def test_logs_no_token(client):
@@ -29,7 +29,7 @@ def test_logs_no_token(client):
     with pytest.raises(Exception) as excinfo:
             ws.create_connection(logs.url)
     assert 'Handshake status 401' in str(excinfo.value)
-    c.stop(remove=True, timeout=0)
+    delete_all(client, [c])
 
 
 def test_host_api_garbage_token(client):
@@ -37,4 +37,4 @@ def test_host_api_garbage_token(client):
     with pytest.raises(Exception) as excinfo:
         ws.create_connection(logs.url+'?token=random.garbage.token')
     assert 'Handshake status 401' in str(excinfo.value)
-    c.stop(remove=True, timeout=0)
+    delete_all(client, [c])
