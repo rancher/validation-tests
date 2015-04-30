@@ -8,3 +8,6 @@ cattlevalidationtest/core/test_container_run_option.py
 cattlevalidationtest/core/test_github.py
 cattlevalidationtest/core/test_host_api.py
 cattlevalidationtest/core/test_logs_api.py
+cattlevalidationtest/core/test_machine.py
+cattlevalidationtest/core/test_machine_amazon.py
+cattlevalidationtest/core/test_native_docker.py

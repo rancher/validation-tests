@@ -20,6 +20,10 @@ SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
                                      'v0.1.0')
 DEFAULT_TIMEOUT = 45
 
+ADMIN_HEADERS = dict(gdapi.HEADERS)
+ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
+
+
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
@@ -35,16 +39,16 @@ def cattle_url():
 
 
 @pytest.fixture(autouse=True, scope='session')
-def cleanup(client):
+def cleanup():
     to_delete = []
-    for i in client.list_instance(state='running'):
+    for i in _admin_client().list_instance(state='running'):
         try:
             if i.name.startswith('test-'):
                 to_delete.append(i)
         except AttributeError:
             pass
 
-    delete_all(client, to_delete)
+    delete_all(_admin_client(), to_delete)
 
 
 def _admin_client():
@@ -60,37 +64,6 @@ def _client_for_user(name, accounts):
                     cache=False,
                     access_key=accounts[name][0],
                     secret_key=accounts[name][1])
-
-
-def client_for_project(project):
-    access_key = random_str()
-    secret_key = random_str()
-    admin_client = _admin_client()
-    active_cred = None
-    assert project is not None
-    assert project.kind == 'project'
-    account = project
-    for cred in account.credentials():
-        if cred.kind == 'apiKey' and cred.publicValue == access_key\
-                and cred.secretValue == secret_key:
-            active_cred = cred
-            break
-
-    if active_cred is None:
-        active_cred = admin_client.create_api_key({
-            'accountId': account.id,
-            'publicValue': access_key,
-            'secretValue': secret_key
-        })
-
-    active_cred = wait_success(admin_client, active_cred)
-    if active_cred.state != 'active':
-        wait_success(admin_client, active_cred.activate())
-
-    return from_env(url=cattle_url(),
-                    cache=False,
-                    access_key=access_key,
-                    secret_key=secret_key)
 
 
 def create_user(admin_client, user_name, kind=None):
@@ -121,6 +94,40 @@ def create_user(admin_client, user_name, kind=None):
         wait_success(admin_client, active_cred.activate())
 
     return [user_name, password, account]
+
+
+def acc_id(client):
+    obj = client.list_api_key()[0]
+    return obj.account().id
+
+
+def client_for_project(project):
+    access_key = random_str()
+    secret_key = random_str()
+    admin_client = _admin_client()
+    active_cred = None
+    account = project
+    for cred in account.credentials():
+        if cred.kind == 'apiKey' and cred.publicValue == access_key\
+                and cred.secretValue == secret_key:
+            active_cred = cred
+            break
+
+    if active_cred is None:
+        active_cred = admin_client.create_api_key({
+            'accountId': account.id,
+            'publicValue': access_key,
+            'secretValue': secret_key
+        })
+
+    active_cred = wait_success(admin_client, active_cred)
+    if active_cred.state != 'active':
+        wait_success(admin_client, active_cred.activate())
+
+    return from_env(url=cattle_url(),
+                    cache=False,
+                    access_key=access_key,
+                    secret_key=secret_key)
 
 
 def wait_success(client, obj, timeout=DEFAULT_TIMEOUT):
