@@ -94,6 +94,31 @@ def test_native_unmanaged_network(docker_client, client, native_name,
         'IPAddress']
 
 
+def test_native_lifecycyle(docker_client, client, native_name, pull_images):
+    d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
+                                                 name=native_name)
+    docker_client.start(d_container)
+
+    container = wait_on_rancher_container(client, native_name)
+    c_id = container.id
+    assert container.state == 'running'
+
+    docker_client.stop(d_container)
+    wait_for_state(client, 'stopped', c_id)
+
+    docker_client.start(d_container)
+    wait_for_state(client, 'running', c_id)
+
+    docker_client.kill(d_container)
+    wait_for_state(client, 'stopped', c_id)
+
+    docker_client.start(d_container)
+    wait_for_state(client, 'running', c_id)
+
+    docker_client.remove_container(d_container, force=True)
+    wait_for_state(client, 'removed', c_id)
+
+
 def test_native_managed_network(docker_client, client, native_name,
                                 pull_images):
     d_container = docker_client. \
@@ -131,6 +156,15 @@ def test_native_managed_network(docker_client, client, native_name,
     assert container.state == 'purged'
 
 
+def wait_for_state(client, expected_state, c_id):
+    def stopped_check():
+        c = client.by_id_container(c_id)
+        return c.state == expected_state
+
+    wait_for(stopped_check,
+             'Timeout waiting for container to stop. Id: [%s]' % c_id)
+
+
 def test_native_not_started(docker_client, client, native_name, pull_images):
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE, name=native_name,
@@ -143,12 +177,7 @@ def test_native_not_started(docker_client, client, native_name, pull_images):
     assert container.externalId == d_container['Id']
     assert container.state == 'running'
 
-    def stopped_check():
-        c = client.by_id_container(c_id)
-        return c.state == 'stopped'
-
-    wait_for(stopped_check,
-             'Timeout waiting for container to stop. Id: [%s]' % c_id)
+    wait_for_state(client, 'stopped', c_id)
 
     assert container.primaryIpAddress != inspect['NetworkSettings'][
         'IPAddress']
