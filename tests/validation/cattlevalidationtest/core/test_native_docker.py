@@ -1,5 +1,4 @@
 from common_fixtures import *  # NOQA
-from docker import Client
 import websocket as ws
 from test_container import assert_execute, assert_stats, assert_ip_inject
 
@@ -8,53 +7,18 @@ CONTAINER_APPEAR_TIMEOUT_MSG = 'Timed out waiting for container ' \
 
 NATIVE_TEST_IMAGE = 'cattle/test-agent'
 
-socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                  'docker:rancher/socat-docker')
-
 
 @pytest.fixture(scope='module')
-def docker_client(client, unmanaged_network, request):
-    # When these tests run in the CI environment, the hosts don't expose the
-    # docker daemon over tcp, so we need to create a container that binds to
-    # the docker socket and exposes it on a port
+def host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) >= 1
     host = hosts[0]
-    socat_container = client.create_container(
-        name='socat-%s' % random_str(),
-        networkIds=[unmanaged_network.id],
-        imageUuid=socat_test_image,
-        ports='2375',
-        stdinOpen=False,
-        tty=False,
-        publishAllPorts=True,
-        dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
-        requestedHostId=host.id)
-
-    def remove_socat():
-        client.delete(socat_container)
-
-    request.addfinalizer(remove_socat)
-
-    wait_for_condition(
-        client, socat_container,
-        lambda x: x.state == 'running',
-        lambda x: 'State is: ' + x.state)
-
-    socat_container = client.reload(socat_container)
-    ip = host.ipAddresses()[0].address
-    port = socat_container.ports()[0].publicPort
-
-    params = {}
-    params['base_url'] = 'tcp://%s:%s' % (ip, port)
-    api_version = os.getenv('DOCKER_API_VERSION', '1.15')
-    params['version'] = api_version
-
-    return Client(**params)
+    return host
 
 
 @pytest.fixture(scope='module')
-def pull_images(docker_client):
+def pull_images(client, socat_containers):
+    docker_client = get_docker_client(host(client))
     image = (NATIVE_TEST_IMAGE, 'latest')
     docker_client.pull(image[0], image[1])
 
@@ -79,8 +43,9 @@ def native_name(random_str):
     return 'native-' + random_str
 
 
-def test_native_unmanaged_network(docker_client, client, native_name,
+def test_native_unmanaged_network(socat_containers, client, native_name,
                                   pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name)
     docker_client.start(d_container)
@@ -94,7 +59,9 @@ def test_native_unmanaged_network(docker_client, client, native_name,
         'IPAddress']
 
 
-def test_native_lifecycyle(docker_client, client, native_name, pull_images):
+def test_native_lifecycyle(socat_containers, client,
+                           native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name)
     docker_client.start(d_container)
@@ -119,8 +86,9 @@ def test_native_lifecycyle(docker_client, client, native_name, pull_images):
     wait_for_state(client, 'removed', c_id)
 
 
-def test_native_managed_network(docker_client, client, native_name,
+def test_native_managed_network(socat_containers, client, native_name,
                                 pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
@@ -165,7 +133,9 @@ def wait_for_state(client, expected_state, c_id):
              'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
 
-def test_native_not_started(docker_client, client, native_name, pull_images):
+def test_native_not_started(socat_containers, client,
+                            native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE, name=native_name,
                          environment=['RANCHER_NETWORK=true'])
@@ -183,7 +153,8 @@ def test_native_not_started(docker_client, client, native_name, pull_images):
         'IPAddress']
 
 
-def test_native_removed(docker_client, client, native_name, pull_images):
+def test_native_removed(socat_containers, client, native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name)
     docker_client.remove_container(d_container)
@@ -192,7 +163,8 @@ def test_native_removed(docker_client, client, native_name, pull_images):
     assert container.externalId == d_container['Id']
 
 
-def test_native_volumes(docker_client, client, native_name, pull_images):
+def test_native_volumes(socat_containers, client, native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=native_name,
                                                  volumes=['/foo',
@@ -236,7 +208,8 @@ def test_native_volumes(docker_client, client, native_name, pull_images):
     assert volume.uri == 'file:///tmp1'
 
 
-def test_native_logs(client, docker_client, native_name, pull_images):
+def test_native_logs(client, socat_containers, native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     test_msg = 'LOGS_WORK'
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
@@ -252,7 +225,8 @@ def test_native_logs(client, docker_client, native_name, pull_images):
     assert found_msg
 
 
-def test_native_exec(client, docker_client, native_name, pull_images):
+def test_native_exec(client, socat_containers, native_name, pull_images):
+    docker_client = get_docker_client(host(client))
     test_msg = 'EXEC_WORKS'
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
@@ -267,8 +241,9 @@ def test_native_exec(client, docker_client, native_name, pull_images):
     assert_execute(container, test_msg)
 
 
-def test_native_ip_inject(client, docker_client, native_name,
+def test_native_ip_inject(client, socat_containers, native_name,
                           pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
@@ -284,8 +259,9 @@ def test_native_ip_inject(client, docker_client, native_name,
     assert_ip_inject(container)
 
 
-def test_native_container_stats(client, docker_client, native_name,
+def test_native_container_stats(client, socat_containers, native_name,
                                 pull_images):
+    docker_client = get_docker_client(host(client))
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
@@ -333,7 +309,8 @@ def wait_on_rancher_container(client, name, timeout=None):
     return container
 
 
-def test_native_fields(docker_client, client, pull_images):
+def test_native_fields(socat_containers, client, pull_images):
+    docker_client = get_docker_client(host(client))
     name = 'native-%s' % random_str()
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                  name=name,
