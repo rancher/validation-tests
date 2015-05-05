@@ -2,47 +2,15 @@ from common_fixtures import *  # NOQA
 
 
 def test_cluster_add_remove_host(admin_client, client, test_name,
-                                 managed_network, super_client):
-    socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                      'docker:rancher/socat-docker')
+                                 managed_network, super_client,
+                                 socat_containers):
+
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
-
-    socat_container1 = None
-    socat_container2 = None
     cluster = None
     test_container = None
 
     try:
-        # push out socat so swarm works
-        socat_container1 = client.create_container(
-            name=test_name + '-socat',
-            networkIds=[managed_network.id],
-            imageUuid=socat_test_image,
-            ports='2375:2375/tcp',
-            stdinOpen=False,
-            tty=False,
-            dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
-            requestedHostId=hosts[0].id)
-        wait_for_condition(
-            client, socat_container1,
-            lambda x: x.state == 'running',
-            lambda x: 'State is: ' + x.state)
-
-        socat_container2 = client.create_container(
-            name=test_name + '-socat',
-            networkIds=[managed_network.id],
-            imageUuid=socat_test_image,
-            ports='2375:2375/tcp',
-            stdinOpen=False,
-            tty=False,
-            dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
-            requestedHostId=hosts[1].id)
-        wait_for_condition(
-            client, socat_container2,
-            lambda x: x.state == 'running',
-            lambda x: 'State is: ' + x.state)
-
         cluster = client.create_cluster(name=test_name + '-cluster',
                                         port=9000)
         cluster = wait_for_condition(
@@ -134,9 +102,3 @@ def test_cluster_add_remove_host(admin_client, client, test_name,
                     lambda x: x.state == 'inactive',
                     lambda x: 'State is: ' + x.state)
             client.delete(cluster)
-
-        if (socat_container1 is not None):
-            client.delete(socat_container1)
-
-        if (socat_container2 is not None):
-            client.delete(socat_container2)

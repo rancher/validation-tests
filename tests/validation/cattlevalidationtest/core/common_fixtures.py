@@ -8,6 +8,7 @@ import time
 import logging
 import paramiko
 import inspect
+from docker import Client
 
 logging.basicConfig()
 log = logging.getLogger()
@@ -18,6 +19,10 @@ TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
 SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
                                      'docker:rancher/ssh-host-container:' +
                                      'v0.1.0')
+
+SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
+                                  'docker:rancher/socat-docker:v0.2.0')
+
 DEFAULT_TIMEOUT = 45
 
 ADMIN_HEADERS = dict(gdapi.HEADERS)
@@ -30,6 +35,7 @@ HOST_SSH_PUBLIC_PORT = 2222
 
 ADMIN_HEADERS = dict(gdapi.HEADERS)
 ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
+socat_container_list = []
 
 
 @pytest.fixture(scope='session')
@@ -420,3 +426,51 @@ def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
                 raise Exception('Timeout waiting for condition')
         ret = callback()
     return ret
+
+
+@pytest.fixture(scope='session')
+def socat_containers(client, request):
+    # When these tests run in the CI environment, the hosts don't expose the
+    # docker daemon over tcp, so we need to create a container that binds to
+    # the docker socket and exposes it on a port
+
+    if len(socat_container_list) != 0:
+        return
+    hosts = client.list_host(kind='docker', removed_null=True)
+    managed_network = client.list_network(uuid='managed-docker0')[0]
+
+    for host in hosts:
+        socat_container = client.create_container(
+            name='socat-%s' % random_str(),
+            networkIds=[managed_network.id],
+            imageUuid=SOCAT_IMAGE_UUID,
+            ports='2375:2375/tcp',
+            stdinOpen=False,
+            tty=False,
+            publishAllPorts=True,
+            dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
+            requestedHostId=host.id)
+        socat_container_list.append(socat_container)
+
+    for socat_container in socat_container_list:
+        wait_for_condition(
+            client, socat_container,
+            lambda x: x.state == 'running',
+            lambda x: 'State is: ' + x.state)
+
+    def remove_socat():
+        delete_all(client, socat_container_list)
+
+    request.addfinalizer(remove_socat)
+
+
+def get_docker_client(host):
+    ip = host.ipAddresses()[0].address
+    port = '2375'
+
+    params = {}
+    params['base_url'] = 'tcp://%s:%s' % (ip, port)
+    api_version = os.getenv('DOCKER_API_VERSION', '1.15')
+    params['version'] = api_version
+
+    return Client(**params)
