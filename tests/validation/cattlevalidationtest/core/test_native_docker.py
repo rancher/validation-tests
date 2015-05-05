@@ -9,7 +9,7 @@ CONTAINER_APPEAR_TIMEOUT_MSG = 'Timed out waiting for container ' \
 NATIVE_TEST_IMAGE = 'cattle/test-agent'
 
 socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                  'docker:sonchang/socat-test')
+                                  'docker:rancher/socat-docker')
 
 
 @pytest.fixture(scope='module')

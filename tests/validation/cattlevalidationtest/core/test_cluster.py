@@ -4,7 +4,7 @@ from common_fixtures import *  # NOQA
 def test_cluster_add_remove_host(admin_client, client, test_name,
                                  managed_network, super_client):
     socat_test_image = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                      'docker:sonchang/socat-test')
+                                      'docker:rancher/socat-docker')
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
 
