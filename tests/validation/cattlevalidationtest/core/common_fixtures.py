@@ -480,7 +480,7 @@ def get_docker_client(host):
 
     params = {}
     params['base_url'] = 'tcp://%s:%s' % (ip, port)
-    api_version = os.getenv('DOCKER_API_VERSION', '1.15')
+    api_version = os.getenv('DOCKER_API_VERSION', '1.18')
     params['version'] = api_version
 
     return Client(**params)
