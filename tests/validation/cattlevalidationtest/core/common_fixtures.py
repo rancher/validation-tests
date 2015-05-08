@@ -58,11 +58,13 @@ def cleanup():
 
 
 def _admin_client():
+    access_key = os.environ.get("CATTLE_ACCESS_KEY", 'admin')
+    secret_key = os.environ.get("CATTLE_SECRET_KEY", 'adminpass')
     return from_env(url=cattle_url(),
                     cache=False,
                     headers=ADMIN_HEADERS,
-                    access_key='admin',
-                    secret_key='adminpass')
+                    access_key=access_key,
+                    secret_key=secret_key)
 
 
 def _client_for_user(name, accounts):
