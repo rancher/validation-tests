@@ -619,7 +619,12 @@ def test_lb_container_lifecycle_delete_purge(client, managed_network):
                                                  instanceId=con1.id)
 
     assert len(target_maps) == 1
-    assert target_maps[0].state == "removed"
+    target_map = target_maps[0]
+    target_map = wait_for_condition(client, target_map,
+                                    lambda x: x.state == 'removed',
+                                    lambda x: 'State is: ' + x.state)
+
+    assert target_map.state == "removed"
 
     delete_all(client, [lb])
 
