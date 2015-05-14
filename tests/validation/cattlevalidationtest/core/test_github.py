@@ -117,7 +117,7 @@ def github_client(request, cattle_url, github_request_token, admin_client):
     github_client.delete_by_id = delete_by_id
     assert github_client.valid()
     jwt = github_request_token
-    github_client._auth = GithubAuth(jwt, 'USER')
+    github_client._auth = GithubAuth(jwt)
 
     def fin():
         admin_client.create_githubconfig(enabled=False)
@@ -186,13 +186,18 @@ def switch_on_auth(admin_client, request, config):
                                      clientSecret=config['client_secret'])
 
     def fin():
-        admin_client.create_githubconfig(enabled=False)
+        admin_client.create_githubconfig(enabled=False,
+                                         accessMode='restricted',
+                                         allowedUsers=[],
+                                         allowedOrganizations=[],
+                                         clientId='',
+                                         clientSecret='')
 
     request.addfinalizer(fin)
 
 
 @if_github
-def test_github_auth_config_unauth_user(github_client, request, admin_client,
+def test_github_auth_config_unauth_user(request, admin_client,
                                         config):
     switch_on_auth(admin_client, request, config)
 #   do not set any auth headers
@@ -203,7 +208,7 @@ def test_github_auth_config_unauth_user(github_client, request, admin_client,
 
 
 @if_github
-def test_github_auth_config_invalid_user(github_client, request,
+def test_github_auth_config_invalid_user(request,
                                          admin_client, config):
     switch_on_auth(admin_client, request, config)
 
@@ -217,7 +222,7 @@ def test_github_auth_config_invalid_user(github_client, request,
 
 
 @if_github
-def test_github_auth_config_valid_user(github_client, github_request_token,
+def test_github_auth_config_valid_user(github_request_token,
                                        admin_client, request, config):
     switch_on_auth(admin_client, request, config)
     jwt = github_request_token
@@ -229,9 +234,8 @@ def test_github_auth_config_valid_user(github_client, github_request_token,
     assert schemas.status_code == 200
 
 
-@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
-                                 "r orgs in tests right now.")
-def test_github_auth_config_api_whitelist_users(admin_client, github_client,
+@if_github
+def test_github_auth_config_api_whitelist_users(github_client,
                                                 config):
     github_client.create_githubconfig(allowedUsers=[
         config['users']['1']['username'],
@@ -250,8 +254,7 @@ def test_github_auth_config_api_whitelist_users(admin_client, github_client,
     assert 'ranchertest02' in users
 
 
-@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
-                                 "r orgs in tests right now.")
+@if_github
 def test_github_auth_config_api_whitelist_orgs(admin_client, request,
                                                github_client, config):
     switch_on_auth(admin_client, request, config)
@@ -267,8 +270,7 @@ def test_github_auth_config_api_whitelist_orgs(admin_client, request,
     assert 'rancherio' in orgs
 
 
-@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
-                                 "r orgs in tests right now.")
+@if_github
 def test_github_add_whitelisted_user(admin_client, config, request,
                                      github_client):
     switch_on_auth(admin_client, request, config)
@@ -284,24 +286,25 @@ def test_github_add_whitelisted_user(admin_client, config, request,
 
     assert config['users']['1']['username'] in users
 
-    new_token = github_request_code(config, config['users']['1'])
+    new_token = github_request_code(config, cattle_url, admin_client, request,
+                                    user=config['users']['1'])
+
+    new_token = github_request_token(new_token)
 
     assert new_token is not None
 
 
-@pytest.mark.skipif(True, reason="Can't create githubconfigs with users o"
-                                 "r orgs in tests right now.")
+@if_github
 def test_github_projects(github_client, cattle_url, config, request,
                          admin_client):
     user_client = from_env(url=cattle_url)
     switch_on_auth(admin_client, request, config)
 
-    #   set whitelisted orgs
-    github_client.create_githubconfig(allowedUsers=[
+    admin_client.create_githubconfig(allowedUsers=[
         config['users']['1']['username']
     ])
-    #   test that these users were whitelisted
-    r = github_client.list_githubconfig()
+    #   test that the users is whitelisted
+    r = admin_client.list_githubconfig()
 
     users = r[0]['allowedUsers']
 
@@ -310,7 +313,7 @@ def test_github_projects(github_client, cattle_url, config, request,
     new_token = github_request_code(config, cattle_url, admin_client, request,
                                     user=config['users']['1'])
     new_token = github_request_token(new_token)
-    user_client._auth = GithubAuth(new_token, "user")
+    user_client._auth = GithubAuth(new_token)
     members = [_create_member(
         name=config['users']['1']['username'],
         type=USER_SCOPE,
@@ -319,10 +322,10 @@ def test_github_projects(github_client, cattle_url, config, request,
     project = user_client.create_project(members=members)
     assert len(project.projectMembers()) == 2
     diff_members(get_plain_members(project.projectMembers()), members)
-    project = github_client.wait_success(project)
-    project = github_client.wait_success(project.deactivate())
-    project = github_client.wait_success(project.remove())
-    project = github_client.wait_success(project.purge())
+    project = user_client.wait_success(project)
+    project = user_client.wait_success(project.deactivate())
+    project = user_client.wait_success(project.remove())
+    project = user_client.wait_success(project.purge())
     project = user_client.by_id('project', project.id)
     assert project.state == 'purged'
 
@@ -332,10 +335,13 @@ def test_github_id_name(github_client, config, cattle_url, request,
                         admin_client):
     user_client = from_env(url=cattle_url)
     switch_on_auth(admin_client, request, config)
+    admin_client.create_githubconfig(allowedUsers=[
+        config['users']['1']['username']
+    ])
     new_token = github_request_code(config, cattle_url, admin_client, request,
                                     user=config['users']['1'])
     new_token = github_request_token(new_token)
-    user_client._auth = GithubAuth(new_token, "user")
+    user_client._auth = GithubAuth(new_token)
     sent_members = [_create_member(
         name=config['users']['1']['username'],
         type=USER_SCOPE,
