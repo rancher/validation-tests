@@ -1039,6 +1039,7 @@ def test_lb_with_source(client, managed_network):
 
 
 def check_round_robin_access(container_names, host, port):
+    wait_until_lb_is_active(host, port)
     con_hostname = container_names[:]
     con_hostname_ordered = []
 
@@ -1091,6 +1092,7 @@ def check_access(host, port, expected_response):
 
 
 def check_for_appcookie_policy(container_names, host, port, cookie_name):
+    wait_until_lb_is_active(host, port)
 
     con_hostname = container_names[:]
     url = "http://" + host.ipAddresses()[0].address + \
@@ -1112,7 +1114,7 @@ def check_for_appcookie_policy(container_names, host, port, cookie_name):
 
 
 def check_for_lbcookie_policy(container_names, host, port):
-
+    wait_until_lb_is_active(host, port)
     con_hostname = container_names[:]
     url = "http://" + host.ipAddresses()[0].address + \
           ":" + port + "/name.html"
@@ -1133,6 +1135,8 @@ def check_for_lbcookie_policy(container_names, host, port):
 
 
 def check_for_stickiness(container_names, host, port):
+    wait_until_lb_is_active(host, port)
+
     con_hostname = container_names[:]
     url = "http://" + host.ipAddresses()[0].address + \
           ":" + port + "/name.html"
@@ -1218,3 +1222,24 @@ def validate_remove_host(client, host, lb):
         client, host_map,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
+
+
+def wait_until_lb_is_active(host, port, timeout=30):
+    start = time.time()
+    while check_for_no_access(host, port):
+        time.sleep(.5)
+        print "No access yet"
+        if time.time() - start > timeout:
+            assert 'Timed out waiting for LB to become active'
+    return
+
+
+def check_for_no_access(host, port):
+    try:
+        url = "http://" + host.ipAddresses()[0].address + ":" +\
+              port + "/name.html"
+        requests.get(url)
+        return False
+    except requests.ConnectionError:
+        logger.info("Connection Error - " + url)
+        return True
