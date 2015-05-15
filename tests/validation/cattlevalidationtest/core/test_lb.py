@@ -1230,7 +1230,7 @@ def wait_until_lb_is_active(host, port, timeout=30):
         time.sleep(.5)
         print "No access yet"
         if time.time() - start > timeout:
-            assert 'Timed out waiting for LB to become active'
+            raise Exception('Timed out waiting for LB to become active')
     return
 
 
