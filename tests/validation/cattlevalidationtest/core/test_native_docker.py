@@ -133,36 +133,6 @@ def wait_for_state(client, expected_state, c_id):
              'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
 
-def test_native_not_started(socat_containers, client,
-                            native_name, pull_images):
-    docker_client = get_docker_client(host(client))
-    d_container = docker_client. \
-        create_container(NATIVE_TEST_IMAGE, name=native_name,
-                         environment=['RANCHER_NETWORK=true'])
-
-    container = wait_on_rancher_container(client, native_name)
-    inspect = docker_client.inspect_container(d_container)
-
-    c_id = container.id
-    assert container.externalId == d_container['Id']
-    assert container.state == 'running'
-
-    wait_for_state(client, 'stopped', c_id)
-
-    assert container.primaryIpAddress != inspect['NetworkSettings'][
-        'IPAddress']
-
-
-def test_native_removed(socat_containers, client, native_name, pull_images):
-    docker_client = get_docker_client(host(client))
-    d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
-                                                 name=native_name)
-    docker_client.remove_container(d_container)
-    container = wait_on_rancher_container(client, native_name)
-
-    assert container.externalId == d_container['Id']
-
-
 def test_native_volumes(socat_containers, client, native_name, pull_images):
     docker_client = get_docker_client(host(client))
     d_container = docker_client.create_container(NATIVE_TEST_IMAGE,
