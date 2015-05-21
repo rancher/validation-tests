@@ -294,9 +294,8 @@ def test_native_fields(socat_containers, client, pull_images):
                                                  stdin_open=True,
                                                  working_dir='/root',
                                                  environment={'FOO': 'BA'},
-                                                 command='sleep 1 2 3 4 5',
-                                                 entrypoint=['/bin/sh',
-                                                             '-c'])
+                                                 command=['-c', 'sleep 3'],
+                                                 entrypoint=['/bin/sh'])
 
     docker_client.start(d_container, privileged=True,
                         publish_all_ports=True,
@@ -328,8 +327,8 @@ def test_native_fields(socat_containers, client, pull_images):
     assert container.imageUuid == 'docker:' + NATIVE_TEST_IMAGE
     assert container.directory == '/root'
     assert container.environment['FOO'] == 'BA'
-    assert container.command == ['sleep', '1', '2', '3', '4', '5']
-    assert container.entryPoint == ['/bin/sh', '-c']
+    assert container.command == ['-c', 'sleep 3']
+    assert container.entryPoint == ['/bin/sh']
     assert container.privileged is True
     assert container.publishAllPorts is True
     assert container.lxcConf == {'lxc.utsname': 'docker'}
