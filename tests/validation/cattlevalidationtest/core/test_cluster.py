@@ -2,7 +2,7 @@ from common_fixtures import *  # NOQA
 
 
 def test_cluster_add_remove_host(admin_client, client, test_name,
-                                 managed_network, super_client,
+                                 super_client,
                                  socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -53,7 +53,7 @@ def test_cluster_add_remove_host(admin_client, client, test_name,
         # deploy container to cluster
         test_container = client.create_container(
             name=test_name + "-cl-deployed",
-            networkIds=[managed_network.id],
+            networkMode=MANAGED_NETWORK,
             imageUuid='docker:ubuntu',
             requestedHostId=cluster.id,
             tty=True,
