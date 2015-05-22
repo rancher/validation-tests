@@ -6,7 +6,7 @@ TEST_IMAGE_UUID = 'docker:' + TEST_IMAGE
 
 
 def test_container_run_with_options_1(client, test_name,
-                                      managed_network, socat_containers):
+                                      socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -35,7 +35,7 @@ def test_container_run_with_options_1(client, test_name,
     # validate dataVolumesFrom
 
     con_vol = client.create_container(name=test_name + "-forvolume",
-                                      networkIds=[managed_network.id],
+                                      networkMode=MANAGED_NETWORK,
                                       imageUuid=TEST_IMAGE_UUID,
                                       requestedHostId=host.id
                                       )
@@ -48,7 +48,7 @@ def test_container_run_with_options_1(client, test_name,
     # testing with docker inspect command
 
     c = client.create_container(name=test_name,
-                                networkIds=[managed_network.id],
+                                networkMode=MANAGED_NETWORK,
                                 imageUuid=TEST_IMAGE_UUID,
                                 requestedHostId=host.id,
                                 dataVolumes=docker_vol_value,
@@ -104,7 +104,7 @@ def test_container_run_with_options_1(client, test_name,
     delete_all(client, [con_vol, c])
 
 
-def test_container_run_with_options_2(client, test_name, unmanaged_network,
+def test_container_run_with_options_2(client, test_name,
                                       socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -112,7 +112,7 @@ def test_container_run_with_options_2(client, test_name, unmanaged_network,
     host = hosts[0]
 
     c = client.create_container(name=test_name,
-                                networkIds=[unmanaged_network.id],
+                                networkMode=UNMANAGED_NETWORK,
                                 imageUuid=TEST_IMAGE_UUID,
                                 requestedHostId=host.id,
                                 publishAllPorts=True,

@@ -42,9 +42,9 @@ def test_sibling_pinging(client, one_per_host):
     delete_all(client, instances)
 
 
-def test_dynamic_port(client, test_name, managed_network):
+def test_dynamic_port(client, test_name):
     c = client.create_container(name=test_name,
-                                networkIds=[managed_network.id],
+                                networkMode=MANAGED_NETWORK,
                                 imageUuid=TEST_IMAGE_UUID)
     c = client.wait_success(c)
 
@@ -68,7 +68,7 @@ def test_dynamic_port(client, test_name, managed_network):
     delete_all(client, [c])
 
 
-def test_linking(admin_client, client, test_name, managed_network):
+def test_linking(admin_client, client, test_name):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
 
@@ -77,7 +77,7 @@ def test_linking(admin_client, client, test_name, managed_network):
 
     link_server = client.create_container(name=test_name + '-server',
                                           imageUuid=TEST_IMAGE_UUID,
-                                          networkIds=[managed_network.id],
+                                          networkMode=MANAGED_NETWORK,
                                           hostname=test_name + '-server',
                                           environment={
                                               'VALUE': random_val
@@ -85,7 +85,7 @@ def test_linking(admin_client, client, test_name, managed_network):
                                           requestedHostId=hosts[2].id)
     link_server2 = client.create_container(name=test_name + '-server2',
                                            imageUuid=TEST_IMAGE_UUID,
-                                           networkIds=[managed_network.id],
+                                           networkMode=MANAGED_NETWORK,
                                            hostname=test_name + '-server2',
                                            environment={
                                                'VALUE': random_val2
@@ -93,7 +93,7 @@ def test_linking(admin_client, client, test_name, managed_network):
                                            requestedHostId=hosts[1].id)
     link_client = client.create_container(name=test_name + '-client',
                                           imageUuid=TEST_IMAGE_UUID,
-                                          networkIds=[managed_network.id],
+                                          networkMode=MANAGED_NETWORK,
                                           ports=['3000:3000'],
                                           hostname=test_name + '-client1',
                                           instanceLinks={
@@ -119,13 +119,13 @@ def test_linking(admin_client, client, test_name, managed_network):
     delete_all(client, [link_client, link_server, link_server2])
 
 
-def test_ip_inject(client, managed_network, test_name):
+def test_ip_inject(client, test_name):
     cleanup_items = []
     try:
         cmd = ['/bin/bash', '-c', 'sleep 5; ip addr show eth0']
         container = client.create_container(name=test_name,
                                             imageUuid=TEST_IMAGE_UUID,
-                                            networkIds=[managed_network.id],
+                                            networkMode=MANAGED_NETWORK,
                                             command=cmd)
         cleanup_items.append(container)
         container = client.wait_success(container)
@@ -153,12 +153,12 @@ def assert_ip_inject(container):
     assert found_ip
 
 
-def test_container_execute(client, managed_network, test_name):
+def test_container_execute(client, test_name):
     cleanup_items = []
     try:
         container = client.create_container(name=test_name,
                                             imageUuid=TEST_IMAGE_UUID,
-                                            networkIds=[managed_network.id],
+                                            networkMode=MANAGED_NETWORK,
                                             attachStdin=True,
                                             attachStdout=True,
                                             tty=True,
@@ -184,12 +184,12 @@ def assert_execute(container, test_msg):
     assert test_msg == result.rstrip()
 
 
-def test_container_stats(client, managed_network, test_name):
+def test_container_stats(client, test_name):
     cleanup_items = []
     try:
         container = client.create_container(name=test_name,
                                             imageUuid=TEST_IMAGE_UUID,
-                                            networkIds=[managed_network.id],
+                                            networkMode=MANAGED_NETWORK,
                                             attachStdin=True,
                                             attachStdout=True,
                                             tty=True,

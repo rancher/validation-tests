@@ -13,12 +13,11 @@ def lb_targets(request, client):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
     assert len(hosts) > 1, "Need at least 2 hosts for executing Lb test cases"
-    managed_network = client.list_network(uuid='managed-docker0')[0]
 
     for n in range(0, 2):
         con_name = "con-" + str(n) + "-" + random_str()
         con1 = client.create_container(name=con_name,
-                                       networkIds=[managed_network.id],
+                                       networkMode=MANAGED_NETWORK,
                                        imageUuid=LB_IMAGE_UUID,
                                        environment={'CONTAINER_NAME':
                                                     CONTAINER_HOST_NAMES[n]
@@ -61,15 +60,14 @@ def lb_targets(request, client):
     request.addfinalizer(fin)
 
 
-def create_lb_for_container_lifecycle(client, managed_network, host, port):
+def create_lb_for_container_lifecycle(client, host, port):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
@@ -87,7 +85,7 @@ def create_lb_for_container_lifecycle(client, managed_network, host, port):
     return lb, con1
 
 
-def create_lb_with_one_listener_one_host_two_targets(client, managed_network,
+def create_lb_with_one_listener_one_host_two_targets(client,
                                                      host, port,
                                                      lb_config=None,
                                                      lb_config_params=None,
@@ -170,7 +168,7 @@ def create_lb_with_one_listener_one_host_two_targets(client, managed_network,
     return lb, lb_config
 
 
-def test_lb_with_targets(client, managed_network):
+def test_lb_with_targets(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
@@ -180,14 +178,12 @@ def test_lb_with_targets(client, managed_network):
     logger.info("Create LB for 2 targets on port - " + port)
 
     lb, lb_config = \
-        create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
-                                                         host, "8081")
+        create_lb_with_one_listener_one_host_two_targets(client, host, "8081")
 
     delete_all(client, [lb])
 
 
-def test_lb_add_host_target_in_parallel(client, managed_network):
+def test_lb_add_host_target_in_parallel(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -234,7 +230,7 @@ def test_lb_add_host_target_in_parallel(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_add_target(client, managed_network):
+def test_lb_add_target(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
@@ -245,11 +241,10 @@ def test_lb_add_target(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
@@ -271,7 +266,7 @@ def test_lb_add_target(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_remove_target(client, managed_network):
+def test_lb_remove_target(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
@@ -282,11 +277,10 @@ def test_lb_remove_target(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
@@ -320,7 +314,7 @@ def test_lb_remove_target(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_add_listener(client, managed_network):
+def test_lb_add_listener(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
@@ -331,10 +325,7 @@ def test_lb_add_listener(client, managed_network):
     logger.info("Create LB for 2 targets on port - " + port1)
 
     lb, lb_config = \
-        create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
-                                                         host,
-                                                         port1)
+        create_lb_with_one_listener_one_host_two_targets(client, host, port1)
 
     # Create Listener
 
@@ -361,7 +352,7 @@ def test_lb_add_listener(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_remove_listener(client, managed_network):
+def test_lb_remove_listener(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
@@ -373,7 +364,6 @@ def test_lb_remove_listener(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port1)
 
     # Create Listener
@@ -413,7 +403,7 @@ def test_lb_remove_listener(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_add_host(client, managed_network):
+def test_lb_add_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
 
@@ -425,7 +415,6 @@ def test_lb_add_host(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     # Add host to existing LB
@@ -441,7 +430,7 @@ def test_lb_add_host(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_remove_host(client, managed_network):
+def test_lb_remove_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
 
@@ -453,7 +442,6 @@ def test_lb_remove_host(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host,  port)
 
     # Add host to LB
@@ -491,7 +479,7 @@ def test_lb_remove_host(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_container_lifecycle_stop_start(client, managed_network):
+def test_lb_container_lifecycle_stop_start(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -501,8 +489,7 @@ def test_lb_container_lifecycle_stop_start(client, managed_network):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, managed_network,
-                                                 host, port)
+    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
     # Stop container
 
     con1 = client.wait_success(con1.stop())
@@ -527,7 +514,7 @@ def test_lb_container_lifecycle_stop_start(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_container_lifecycle_restart(client, managed_network):
+def test_lb_container_lifecycle_restart(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -536,8 +523,7 @@ def test_lb_container_lifecycle_restart(client, managed_network):
 
     logger.info("Create LB for 3 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, managed_network,
-                                                 host, port)
+    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
     # Restart Container
     con1 = client.wait_success(con1.restart())
     assert con1.state == 'running'
@@ -553,7 +539,7 @@ def test_lb_container_lifecycle_restart(client, managed_network):
 
 
 @pytest.mark.skipif(True, reason='not implemented yet')
-def test_lb_container_lifecycle_delete_restore(client, managed_network):
+def test_lb_container_lifecycle_delete_restore(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -562,8 +548,7 @@ def test_lb_container_lifecycle_delete_restore(client, managed_network):
 
     logger.info("Create LB for 3 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, managed_network,
-                                                 host, port)
+    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
 
     # Delete Container
     con1 = client.wait_success(client.delete(con1))
@@ -591,7 +576,7 @@ def test_lb_container_lifecycle_delete_restore(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_container_lifecycle_delete_purge(client, managed_network):
+def test_lb_container_lifecycle_delete_purge(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -600,8 +585,7 @@ def test_lb_container_lifecycle_delete_purge(client, managed_network):
 
     logger.info("Create LB for 3 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, managed_network,
-                                                 host, port)
+    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
 
     # Delete Container and purge it
     con1 = client.wait_success(client.delete(con1))
@@ -629,7 +613,7 @@ def test_lb_container_lifecycle_delete_purge(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_add_target_in_different_host(client, managed_network):
+def test_lb_add_target_in_different_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
     host = hosts[0]
@@ -640,12 +624,11 @@ def test_lb_add_target_in_different_host(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host,
                                                          port)
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
@@ -663,7 +646,7 @@ def test_lb_add_target_in_different_host(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_config_shared_by_2_lb_instances(client, managed_network):
+def test_lb_config_shared_by_2_lb_instances(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
     host = hosts[0]
@@ -674,20 +657,18 @@ def test_lb_config_shared_by_2_lb_instances(client, managed_network):
 
     lb1, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     # Create another LB using the same the Lb configuration
     lb2, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host2, port,
                                                          lb_config)
 
     delete_all(client, [lb1, lb2])
 
 
-def test_modify_lb_config_shared_by_2_lb_instances(client, managed_network):
+def test_modify_lb_config_shared_by_2_lb_instances(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
     host1 = hosts[0]
@@ -701,7 +682,6 @@ def test_modify_lb_config_shared_by_2_lb_instances(client, managed_network):
     # Create LB - LB1
     lb1, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host1, port1)
 
     logger.info("Create LB for 2 targets on port - " + port1 +
@@ -710,7 +690,6 @@ def test_modify_lb_config_shared_by_2_lb_instances(client, managed_network):
     # Create another LB - LB2 using the same the Lb configuration
     lb2, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host2, port1,
                                                          lb_config)
 
@@ -755,7 +734,7 @@ def test_modify_lb_config_shared_by_2_lb_instances(client, managed_network):
     delete_all(client, [lb1, lb2])
 
 
-def test_reuse_port_after_lb_deletion(client, managed_network):
+def test_reuse_port_after_lb_deletion(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
@@ -765,7 +744,6 @@ def test_reuse_port_after_lb_deletion(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     lb = client.wait_success(client.delete(lb))
@@ -773,11 +751,10 @@ def test_reuse_port_after_lb_deletion(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
@@ -795,14 +772,14 @@ def test_reuse_port_after_lb_deletion(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_for_container_with_port_mapping(client, managed_network):
+def test_lb_for_container_with_port_mapping(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
 
     port1 = "9002"
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[0]
@@ -814,7 +791,7 @@ def test_lb_for_container_with_port_mapping(client, managed_network):
 
     port2 = "9003"
     con2 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[1]
@@ -831,7 +808,6 @@ def test_lb_for_container_with_port_mapping(client, managed_network):
 
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(client,
-                                                         managed_network,
                                                          host, port)
 
     # Check LB rule works
@@ -845,7 +821,7 @@ def test_lb_for_container_with_port_mapping(client, managed_network):
     delete_all(client, [lb, con1, con2])
 
 
-def test_lb_with_lb_cookie(client, managed_network):
+def test_lb_with_lb_cookie(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
@@ -865,7 +841,6 @@ def test_lb_with_lb_cookie(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             lb_config_params=lbcookie_policy
             )
@@ -876,7 +851,7 @@ def test_lb_with_lb_cookie(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_with_app_cookie(client, managed_network):
+def test_lb_with_app_cookie(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -899,7 +874,6 @@ def test_lb_with_app_cookie(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             lb_config_params=appcookie_policy
             )
@@ -910,7 +884,7 @@ def test_lb_with_app_cookie(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_with_health_check_with_uri(client, managed_network):
+def test_lb_with_health_check_with_uri(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -932,13 +906,12 @@ def test_lb_with_health_check_with_uri(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             lb_config_params=health_check
 
             )
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=TEST_IMAGE_UUID,
                                    requestedHostId=host.id
                                    )
@@ -952,7 +925,7 @@ def test_lb_with_health_check_with_uri(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_with_health_check_without_uri(client, managed_network):
+def test_lb_with_health_check_without_uri(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -973,13 +946,12 @@ def test_lb_with_health_check_without_uri(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             lb_config_params=health_check
             )
 
     con1 = client.create_container(name=random_str(),
-                                   networkIds=[managed_network.id],
+                                   networkMode=MANAGED_NETWORK,
                                    imageUuid=TEST_IMAGE_UUID,
                                    requestedHostId=host.id
                                    )
@@ -994,7 +966,7 @@ def test_lb_with_health_check_without_uri(client, managed_network):
     delete_all(client, [lb, con1])
 
 
-def test_lb_with_leastconn(client, managed_network):
+def test_lb_with_leastconn(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
@@ -1006,7 +978,6 @@ def test_lb_with_leastconn(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             listener_algorithm="leastconn"
             )
@@ -1016,7 +987,7 @@ def test_lb_with_leastconn(client, managed_network):
     delete_all(client, [lb])
 
 
-def test_lb_with_source(client, managed_network):
+def test_lb_with_source(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
     host = hosts[0]
@@ -1027,7 +998,6 @@ def test_lb_with_source(client, managed_network):
     lb, lb_config = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
-            managed_network,
             host, port,
             listener_algorithm="source"
             )

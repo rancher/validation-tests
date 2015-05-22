@@ -37,6 +37,9 @@ ADMIN_HEADERS = dict(gdapi.HEADERS)
 ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
 socat_container_list = []
 
+MANAGED_NETWORK = "managed"
+UNMANAGED_NETWORK = "bridge"
+
 
 @pytest.fixture(scope='session')
 def cattle_url():
@@ -245,7 +248,7 @@ def unmanaged_network(client):
 
 
 @pytest.fixture
-def one_per_host(client, test_name, managed_network):
+def one_per_host(client, test_name):
     instances = []
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 2
@@ -253,7 +256,7 @@ def one_per_host(client, test_name, managed_network):
     for host in hosts:
         c = client.create_container(name=test_name,
                                     ports=['3000:3000'],
-                                    networkIds=managed_network.id,
+                                    networkMode=MANAGED_NETWORK,
                                     imageUuid=TEST_IMAGE_UUID,
                                     requestedHostId=host.id)
         instances.append(c)
@@ -354,8 +357,6 @@ def host_ssh_containers(request, client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
 
-    managed_network = client.list_network(uuid='managed-docker0')[0]
-
     ssh_containers = []
     for host in hosts:
         env_var = {"SSH_KEY": keys[1]}
@@ -363,7 +364,7 @@ def host_ssh_containers(request, client):
                             "/var/run/docker.sock:/var/run/docker.sock"
                             ]
         c = client.create_container(name="host_ssh_container",
-                                    networkIds=[managed_network.id],
+                                    networkMode=MANAGED_NETWORK,
                                     imageUuid=SSH_HOST_IMAGE_UUID,
                                     requestedHostId=host.id,
                                     dataVolumes=docker_vol_value,
@@ -439,12 +440,11 @@ def socat_containers(client, request):
     if len(socat_container_list) != 0:
         return
     hosts = client.list_host(kind='docker', removed_null=True)
-    managed_network = client.list_network(uuid='managed-docker0')[0]
 
     for host in hosts:
         socat_container = client.create_container(
             name='socat-%s' % random_str(),
-            networkIds=[managed_network.id],
+            networkMode=MANAGED_NETWORK,
             imageUuid=SOCAT_IMAGE_UUID,
             ports='2375:2375/tcp',
             stdinOpen=False,
