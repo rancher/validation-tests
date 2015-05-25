@@ -23,7 +23,7 @@ BASE_URL = cattle_url() + '/v1/'
 URL = BASE_URL + 'schemas'
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def config():
     needed_vars = [
         'API_AUTH_GITHUB_TEST_USER',
