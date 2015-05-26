@@ -30,32 +30,37 @@ def lb_targets(request, client):
 
     def fin():
 
-        to_delete = []
+        to_delete_lb = []
 
         for c in containers_in_host:
-            to_delete.append(c)
+            to_delete_lb.append(c)
 
         for i in client.list_loadBalancer(state='active'):
             try:
                 if i.name.startswith('test-'):
-                    to_delete.append(i)
+                    to_delete_lb.append(i)
             except AttributeError:
                 pass
+        delete_all(client, to_delete_lb)
 
+        to_delete_lb_config = []
         for i in client.list_loadBalancerConfig(state='active'):
             try:
                 if i.name.startswith('test-'):
-                    to_delete.append(i)
+                    to_delete_lb_config.append(i)
             except AttributeError:
                 pass
+        delete_all(client, to_delete_lb_config)
+
+        to_delete_lb_listener = []
         for i in client.list_loadBalancerListener(state='active'):
             try:
                 if i.name.startswith('test-'):
-                    to_delete.append(i)
+                    to_delete_lb_listener.append(i)
             except AttributeError:
                 pass
 
-        delete_all(client, to_delete)
+        delete_all(client, to_delete_lb_listener)
 
     request.addfinalizer(fin)
 
