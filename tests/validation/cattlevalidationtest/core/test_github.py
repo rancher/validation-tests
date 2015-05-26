@@ -14,8 +14,8 @@ class NewService(PhantomJSService):
 webdriver.phantomjs.webdriver.Service = NewService
 
 
-if_github = pytest.mark.skipif(os.environ.get('API_AUTH_GITHUB'
-                               '_CLIENT_SECRET') is None,
+if_github = pytest.mark.skipif(not os.environ.get('API_AUTH_GITHUB'
+                               '_CLIENT_SECRET'),
                                reason='API_AUTH_GITHUB'
                                       '_CLIENT_SECRET is not set')
 
