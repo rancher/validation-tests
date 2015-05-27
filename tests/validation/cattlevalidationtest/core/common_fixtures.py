@@ -1,4 +1,3 @@
-import gdapi
 from cattle import from_env
 import pytest
 import random
@@ -25,16 +24,10 @@ SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
 
 DEFAULT_TIMEOUT = 45
 
-ADMIN_HEADERS = dict(gdapi.HEADERS)
-ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
-
-
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
 
-ADMIN_HEADERS = dict(gdapi.HEADERS)
-ADMIN_HEADERS['X-API-Project-Id'] = 'USER'
 socat_container_list = []
 
 MANAGED_NETWORK = "managed"
@@ -65,7 +58,6 @@ def _admin_client():
     secret_key = os.environ.get("CATTLE_SECRET_KEY", 'adminpass')
     return from_env(url=cattle_url(),
                     cache=False,
-                    headers=ADMIN_HEADERS,
                     access_key=access_key,
                     secret_key=secret_key)
 
