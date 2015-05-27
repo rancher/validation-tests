@@ -15,7 +15,7 @@ def lb_targets(request, client):
     assert len(hosts) > 1, "Need at least 2 hosts for executing Lb test cases"
 
     for n in range(0, 2):
-        con_name = "con-" + str(n) + "-" + random_str()
+        con_name = random_str()
         con1 = client.create_container(name=con_name,
                                        networkMode=MANAGED_NETWORK,
                                        imageUuid=LB_IMAGE_UUID,
@@ -971,27 +971,6 @@ def test_lb_with_health_check_without_uri(client):
     delete_all(client, [lb, con1])
 
 
-def test_lb_with_leastconn(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
-    assert len(hosts) > 0
-    host = hosts[0]
-    port = "8100"
-
-    logger.info("Create LB for 2 targets with leastconn algorithm  " +
-                "on port - " + port)
-
-    lb, lb_config = \
-        create_lb_with_one_listener_one_host_two_targets(
-            client,
-            host, port,
-            listener_algorithm="leastconn"
-            )
-    con_hostname = CONTAINER_HOST_NAMES[0:2]
-    check_round_robin_access(con_hostname, host, port)
-
-    delete_all(client, [lb])
-
-
 def test_lb_with_source(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -1199,7 +1178,7 @@ def validate_remove_host(client, host, lb):
         lambda x: 'State is: ' + x.state)
 
 
-def wait_until_lb_is_active(host, port, timeout=30):
+def wait_until_lb_is_active(host, port, timeout=45):
     start = time.time()
     while check_for_no_access(host, port):
         time.sleep(.5)

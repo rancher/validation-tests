@@ -7,6 +7,7 @@ import time
 import logging
 import paramiko
 import inspect
+import re
 from docker import Client
 
 logging.basicConfig()
@@ -41,16 +42,31 @@ def cattle_url():
 
 
 @pytest.fixture(autouse=True, scope='session')
-def cleanup():
+def cleanup(super_client):
     to_delete = []
-    for i in _admin_client().list_instance(state='running'):
+
+    instance_name_format = re.compile('test-[0-9]{6}')
+    env_name_format = re.compile('test[0-9]{6}')
+
+    for i in super_client.list_instance(state='running'):
         try:
-            if i.name.startswith('test-'):
+            if instance_name_format.match(i.name):
+
                 to_delete.append(i)
         except AttributeError:
             pass
 
-    delete_all(_admin_client(), to_delete)
+    delete_all(super_client, to_delete)
+
+    to_delete_env = []
+    for i in super_client.list_environment(state='active'):
+        try:
+            if env_name_format.match(i.name):
+                to_delete_env.append(i)
+        except AttributeError:
+            pass
+
+    delete_all(super_client, to_delete_env)
 
 
 def _admin_client():
