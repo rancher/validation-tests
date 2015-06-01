@@ -785,7 +785,7 @@ def validate_lb_service(super_client, client, env, services, lb_service, port,
                         exclude_instance=None):
 
     lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    len(lbs) == 1
+    assert len(lbs) == 1
 
     lb = lbs[0]
 
@@ -856,6 +856,20 @@ def wait_until_host_map_created(client, lb, count, timeout=30):
     return host_maps
 
 
+def wait_until_target_maps_removed(super_client, lb, consumed_service):
+    instance_maps = super_client.list_serviceExposeMap(
+        serviceId=consumed_service.id)
+    for instance_map in instance_maps:
+        target_maps = super_client.list_loadBalancerTarget(
+            loadBalancerId=lb.id, instanceId=instance_map.instanceId)
+        assert len(target_maps) == 1
+        target_map = target_maps[0]
+        wait_for_condition(
+            super_client, target_map,
+            lambda x: x.state == "removed",
+            lambda x: 'State is: ' + x.state)
+
+
 def validate_add_service_link(super_client, service, consumedService):
     service_maps = super_client. \
         list_serviceConsumeMap(serviceId=service.id,
@@ -878,6 +892,11 @@ def validate_remove_service_link(super_client, service, consumedService):
         super_client, service_map,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
+
+    lbs = super_client.list_loadBalancer(serviceId=service.id)
+    assert len(lbs) == 1
+    lb = lbs[0]
+    wait_until_target_maps_removed(super_client, lb, consumedService)
 
 
 def get_service_container_list(super_client, service):
