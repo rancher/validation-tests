@@ -39,6 +39,35 @@ def register_host(admin_client):
 
 
 @if_machine_digocean
+def test_machine_labels(client):
+
+    name = random_str()
+    labels = {"abc": "def",
+              "foo": "bar",
+              "spam": "eggs"}
+    create_args = {"name": name,
+                   "digitaloceanConfig": {"accessToken": access_key,
+                                          "image": image_name,
+                                          "region": region,
+                                          "size": size
+                                          },
+                   "labels": labels
+                   }
+
+    expected_values = {"image": image_name,
+                       "region": region,
+                       "size": size,
+                       }
+    try:
+        digital_ocean_machine_life_cycle(client,
+                                         create_args,
+                                         expected_values,
+                                         labels)
+    finally:
+        delete_host_in_digital_ocean(name)
+
+
+@if_machine_digocean
 def test_digital_ocean_machine_all_params(client):
 
     name = random_str()
@@ -172,8 +201,8 @@ def test_digital_ocean_machine_invalid_region(client):
     assert machine.state == 'removed'
 
 
-def digital_ocean_machine_life_cycle(client, configs, expected_values):
-
+def digital_ocean_machine_life_cycle(client, configs, expected_values,
+                                     labels=None):
     # Create a Digital Ocean Machine
     machine = client.create_machine(**configs)
 
@@ -190,6 +219,11 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values):
     # correct configurations
 
     droplet = check_host_in_digital_ocean(host.ipAddresses()[0].address)
+
+    if labels is not None:
+        for label in host.hostLabels():
+            assert label.key in labels
+            assert labels[label.key] == label.value
 
     assert droplet is not None
     assert droplet["name"] == machine.name
