@@ -272,7 +272,7 @@ def one_per_host(client, test_name):
     instances = wait_all_success(client, instances, timeout=120)
 
     for i in instances:
-        ports = i.ports()
+        ports = i.ports_link()
         assert len(ports) == 1
         port = ports[0]
 
@@ -323,7 +323,7 @@ def ping_port(port):
 
 
 def ping_link(src, link_name, var=None, value=None):
-    src_port = src.ports()[0]
+    src_port = src.ports_link()[0]
     links = src.instanceLinks()
 
     assert len(links) == 1
