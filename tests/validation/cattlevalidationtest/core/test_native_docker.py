@@ -325,7 +325,7 @@ def test_native_fields(socat_containers, client, pull_images):
     assert container.tty is True
     assert container.stdinOpen is True
     assert container.imageUuid == 'docker:' + NATIVE_TEST_IMAGE
-    assert container.directory == '/root'
+    assert container.workingDir == '/root'
     assert container.environment['FOO'] == 'BA'
     assert container.command == ['-c', 'sleep 3']
     assert container.entryPoint == ['/bin/sh']
