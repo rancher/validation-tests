@@ -10,7 +10,7 @@ def test_sibling_pinging(client, one_per_host):
     hostnames = set()
 
     for i in instances:
-        port = i.ports()[0]
+        port = i.ports_link()[0]
 
         host = port.publicIpAddress().address
         port = port.publicPort
@@ -48,7 +48,7 @@ def test_dynamic_port(client, test_name):
                                 imageUuid=TEST_IMAGE_UUID)
     c = client.wait_success(c)
 
-    ports = c.ports()
+    ports = c.ports_link()
     assert len(ports) == 1
 
     port = ports[0]
