@@ -30,11 +30,13 @@ def lb_targets(request, client):
 
     def fin():
 
-        to_delete_lb = []
-
+        to_delete_con = []
         for c in containers_in_host:
-            to_delete_lb.append(c)
+            if c.state in ("running" or "stopped"):
+                to_delete_con.append(c)
+        delete_all(client, to_delete_con)
 
+        to_delete_lb = []
         for i in client.list_loadBalancer(state='active'):
             try:
                 if i.name.startswith('test-'):
