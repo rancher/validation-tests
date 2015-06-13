@@ -179,9 +179,19 @@ def assert_execute(container, test_msg):
                                 tty=True)
     conn = ws.create_connection(execute.url + '?token=' + execute.token,
                                 timeout=10)
-    stuff = conn.recv()
-    result = base64.b64decode(stuff)
-    assert test_msg == result.rstrip()
+
+    # Python is weird about closures
+    closure_wrapper = {
+        'result': ''
+    }
+
+    def exec_check():
+        msg = conn.recv()
+        closure_wrapper['result'] += base64.b64decode(msg)
+        return test_msg == closure_wrapper['result'].rstrip()
+
+    wait_for(exec_check,
+             'Timeout waiting for exec msg %s' % test_msg)
 
 
 def test_container_stats(client, test_name):
