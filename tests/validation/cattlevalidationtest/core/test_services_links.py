@@ -309,12 +309,7 @@ def test_link_consumed_services_stop_start_instance(super_client, client):
     container = client.wait_success(container.stop(), 120)
     assert container.state == 'stopped'
 
-    validate_linked_service(super_client, service, [consumed_service], port,
-                            container)
-
-    # Start instance
-    container = client.wait_success(container.start(), 120)
-    assert container.state == 'running'
+    wait_for_scale_to_adjust(super_client, consumed_service)
 
     validate_linked_service(super_client, service, [consumed_service], port)
     delete_all(client, [env])
@@ -345,7 +340,7 @@ def test_link_consumed_services_restart_instance(super_client, client):
     delete_all(client, [env])
 
 
-def test_link_consumed_services_delete_purge_instance(super_client, client):
+def test_link_consumed_services_delete_instance(super_client, client):
 
     port = "313"
 
@@ -366,44 +361,7 @@ def test_link_consumed_services_delete_purge_instance(super_client, client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    validate_linked_service(super_client, service, [consumed_service], port,
-                            container)
-
-    # purge instance
-    container = client.wait_success(container.purge(), 120)
-
-    validate_linked_service(super_client, service, [consumed_service], port,
-                            container, True)
-    delete_all(client, [env])
-
-
-def test_link_consumed_services_delete_restore_instance(super_client, client):
-
-    port = "313"
-
-    service_scale = 1
-    consumed_service_scale = 3
-
-    env, service, consumed_service = create_environment_with_linked_services(
-        super_client, client, service_scale, consumed_service_scale, port)
-
-    validate_linked_service(super_client, service, [consumed_service], port)
-
-    container_name = env.name + "_" + consumed_service.name + "_1"
-    containers = client.list_container(name=container_name)
-    assert len(containers) == 1
-    container = containers[0]
-
-    # Delete instance
-    container = client.wait_success(client.delete(container))
-    assert container.state == 'removed'
-
-    validate_linked_service(super_client, service, [consumed_service], port,
-                            container)
-
-    # restore instance and start instance
-    container = client.wait_success(container.restore(), 120)
-    container = client.wait_success(container.start(), 120)
+    wait_for_scale_to_adjust(super_client, consumed_service)
 
     validate_linked_service(super_client, service, [consumed_service], port)
     delete_all(client, [env])
@@ -643,9 +601,7 @@ def test_link_services_stop_start_instance(super_client, client):
     service_instance = client.wait_success(service_instance.stop(), 120)
     assert service_instance.state == 'stopped'
 
-    # Start service instance
-    service_instance = client.wait_success(service_instance.start(), 120)
-    assert service_instance.state == 'running'
+    wait_for_scale_to_adjust(super_client, service)
 
     validate_linked_service(super_client, service, [consumed_service], port)
 
@@ -678,7 +634,7 @@ def test_link_services_restart_instance(super_client, client):
     delete_all(client, [env])
 
 
-def test_link_service_restore_instance(super_client, client):
+def test_link_services_delete_instance(super_client, client):
 
     port = "322"
 
@@ -695,18 +651,11 @@ def test_link_service_restore_instance(super_client, client):
     assert len(containers) == 1
     service_instance = containers[0]
 
-    # delete service instance
-    service_instance = client.wait_success(client.delete(service_instance))
-    assert service_instance.state == 'removed'
+    # Delete instance
+    container = client.wait_success(client.delete(service_instance))
+    assert container.state == 'removed'
 
-    # restore service_instance
-    service_instance = client.wait_success(service_instance.restore())
-    assert service_instance.state == 'stopped'
-
-    # start service_instance
-    service_instance = client.wait_success(service_instance.start())
-    assert service_instance.state == 'running'
-
+    wait_for_scale_to_adjust(super_client, service)
     validate_linked_service(super_client, service, [consumed_service], port)
 
     delete_all(client, [env])

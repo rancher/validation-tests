@@ -28,48 +28,10 @@ def lb_targets(request, client):
         con1 = client.wait_success(con1, timeout=180)
         containers_in_host.append(con1)
 
-    def fin():
-
-        to_delete_con = []
-        for c in containers_in_host:
-            if c.state in ("running" or "stopped"):
-                to_delete_con.append(c)
-        delete_all(client, to_delete_con)
-
-        to_delete_lb = []
-        for i in client.list_loadBalancer(state='active'):
-            try:
-                if i.name.startswith('test-'):
-                    to_delete_lb.append(i)
-            except AttributeError:
-                pass
-        delete_all(client, to_delete_lb)
-
-        to_delete_lb_config = []
-        for i in client.list_loadBalancerConfig(state='active'):
-            try:
-                if i.name.startswith('test-'):
-                    to_delete_lb_config.append(i)
-            except AttributeError:
-                pass
-        delete_all(client, to_delete_lb_config)
-
-        to_delete_lb_listener = []
-        for i in client.list_loadBalancerListener(state='active'):
-            try:
-                if i.name.startswith('test-'):
-                    to_delete_lb_listener.append(i)
-            except AttributeError:
-                pass
-
-        delete_all(client, to_delete_lb_listener)
-
-    request.addfinalizer(fin)
-
 
 def create_lb_for_container_lifecycle(client, host, port):
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -89,7 +51,7 @@ def create_lb_for_container_lifecycle(client, host, port):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    return lb, con1
+    return lb, lb_config, listener, con1
 
 
 def create_lb_with_one_listener_one_host_two_targets(client,
@@ -121,7 +83,7 @@ def create_lb_with_one_listener_one_host_two_targets(client,
                        "sourceProtocol": 'http',
                        "targetProtocol": 'http'
                        }
-
+    listener = None
     if listener_algorithm is not None:
         listener_config["algorithm"] = listener_algorithm
 
@@ -172,7 +134,7 @@ def create_lb_with_one_listener_one_host_two_targets(client,
         con_hostname = CONTAINER_HOST_NAMES[0:2]
         check_round_robin_access(con_hostname, host, port)
 
-    return lb, lb_config
+    return lb, lb_config, listener
 
 
 def test_lb_with_targets(client):
@@ -184,10 +146,10 @@ def test_lb_with_targets(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client, host, "8081")
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_add_host_target_in_parallel(client):
@@ -234,7 +196,7 @@ def test_lb_add_host_target_in_parallel(client):
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_add_target(client):
@@ -246,7 +208,7 @@ def test_lb_add_target(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -270,7 +232,8 @@ def test_lb_add_target(client):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_remove_target(client):
@@ -282,7 +245,7 @@ def test_lb_remove_target(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -318,7 +281,8 @@ def test_lb_remove_target(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_add_listener(client):
@@ -331,7 +295,7 @@ def test_lb_add_listener(client):
 
     logger.info("Create LB for 2 targets on port - " + port1)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client, host, port1)
 
     # Create Listener
@@ -356,7 +320,7 @@ def test_lb_add_listener(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port2)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_remove_listener(client):
@@ -369,7 +333,7 @@ def test_lb_remove_listener(client):
 
     logger.info("Create LB for 2 targets on port - " + port1)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port1)
 
@@ -407,7 +371,7 @@ def test_lb_remove_listener(client):
 
     check_no_access(host, port2)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_add_host(client):
@@ -420,7 +384,7 @@ def test_lb_add_host(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -434,7 +398,7 @@ def test_lb_add_host(client):
     check_round_robin_access(con_hostname, host, port)
     check_round_robin_access(con_hostname, host2, port)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_remove_host(client):
@@ -447,7 +411,7 @@ def test_lb_remove_host(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host,  port)
 
@@ -483,7 +447,7 @@ def test_lb_remove_host(client):
     check_round_robin_access(con_hostname, host, port)
     check_round_robin_access(con_hostname, host2, port)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_container_lifecycle_stop_start(client):
@@ -496,7 +460,8 @@ def test_lb_container_lifecycle_stop_start(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
+    lb, lb_config, listener, con1 =\
+        create_lb_for_container_lifecycle(client, host, port)
     # Stop container
 
     con1 = client.wait_success(con1.stop())
@@ -518,7 +483,8 @@ def test_lb_container_lifecycle_stop_start(client):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_container_lifecycle_restart(client):
@@ -530,7 +496,8 @@ def test_lb_container_lifecycle_restart(client):
 
     logger.info("Create LB for 3 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
+    lb, lb_config, listener, con1 = \
+        create_lb_for_container_lifecycle(client, host, port)
     # Restart Container
     con1 = client.wait_success(con1.restart())
     assert con1.state == 'running'
@@ -542,7 +509,8 @@ def test_lb_container_lifecycle_restart(client):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 @pytest.mark.skipif(True, reason='not implemented yet')
@@ -580,7 +548,8 @@ def test_lb_container_lifecycle_delete_restore(client):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_container_lifecycle_delete_purge(client):
@@ -592,7 +561,8 @@ def test_lb_container_lifecycle_delete_purge(client):
 
     logger.info("Create LB for 3 targets on port - " + port)
 
-    lb, con1 = create_lb_for_container_lifecycle(client, host, port)
+    lb, lb_config, listener, con1 =\
+        create_lb_for_container_lifecycle(client, host, port)
 
     # Delete Container and purge it
     con1 = client.wait_success(client.delete(con1))
@@ -617,7 +587,7 @@ def test_lb_container_lifecycle_delete_purge(client):
 
     assert target_map.state == "removed"
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_add_target_in_different_host(client):
@@ -629,7 +599,7 @@ def test_lb_add_target_in_different_host(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host,
                                                          port)
@@ -650,7 +620,8 @@ def test_lb_add_target_in_different_host(client):
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_config_shared_by_2_lb_instances(client):
@@ -662,17 +633,18 @@ def test_lb_config_shared_by_2_lb_instances(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb1, lb_config = \
+    lb1, lb_config1, listener1 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
     # Create another LB using the same the Lb configuration
-    lb2, lb_config = \
+    lb2, lb_config2, listener2 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host2, port,
-                                                         lb_config)
+                                                         lb_config1)
 
-    delete_all(client, [lb1, lb2])
+    delete_all(client, [lb1])
+    cleanup_lb(client, lb2, lb_config2, listener2)
 
 
 def test_modify_lb_config_shared_by_2_lb_instances(client):
@@ -687,7 +659,7 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
                 "- host-" + str(host1.id))
 
     # Create LB - LB1
-    lb1, lb_config = \
+    lb1, lb_config, listener1 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host1, port1)
 
@@ -695,22 +667,22 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
                 "- host-" + str(host2.id))
 
     # Create another LB - LB2 using the same the Lb configuration
-    lb2, lb_config = \
+    lb2, lb_config, listener2 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host2, port1,
                                                          lb_config)
 
     # Add new listener to existing LB configuration that is attached to 2 LBs.
-    listener1 = client.create_loadBalancerListener(name=random_str(),
+    listener2 = client.create_loadBalancerListener(name=random_str(),
                                                    sourcePort=port2,
                                                    targetPort='80',
                                                    sourceProtocol='http',
                                                    targetProtocol='http')
-    listener1 = client.wait_success(listener1)
+    listener2 = client.wait_success(listener2)
 
     # Add listener to lB config
-    lb_config = lb_config.addlistener(loadBalancerListenerId=listener1.id)
-    validate_add_listener(client, listener1, lb_config)
+    lb_config = lb_config.addlistener(loadBalancerListenerId=listener2.id)
+    validate_add_listener(client, listener2, lb_config)
 
     # Check is new listener is associated with LB1
     con_hostname = CONTAINER_HOST_NAMES[0:2]
@@ -725,8 +697,8 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
     check_round_robin_access(con_hostname, host2, port2)
 
     # Remove listener from lB config
-    lb_config = lb_config.removelistener(loadBalancerListenerId=listener1.id)
-    validate_remove_listener(client, listener1, lb_config)
+    lb_config = lb_config.removelistener(loadBalancerListenerId=listener2.id)
+    validate_remove_listener(client, listener2, lb_config)
 
     # Check if removed listener is not associated with LB1 anymore
     con_hostname = CONTAINER_HOST_NAMES[0:2]
@@ -738,7 +710,8 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
     check_round_robin_access(con_hostname, host2, port1)
     check_no_access(host2, port2)
 
-    delete_all(client, [lb1, lb2])
+    cleanup_lb(client, lb1, None, listener1)
+    cleanup_lb(client, lb2, lb_config, listener2)
 
 
 def test_reuse_port_after_lb_deletion(client):
@@ -749,14 +722,14 @@ def test_reuse_port_after_lb_deletion(client):
 
     logger.info("Create LB for 2 targets on port - " + port)
 
-    lb, lb_config = \
+    lb_1, lb_config_1, listener_1 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
-    lb = client.wait_success(client.delete(lb))
-    assert lb.state == 'removed'
+    lb_1 = client.wait_success(client.delete(lb_1))
+    assert lb_1.state == 'removed'
 
-    lb, lb_config = \
+    lb_2, lb_config_2, listener_2 = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -770,13 +743,15 @@ def test_reuse_port_after_lb_deletion(client):
                                    )
 
     con1 = client.wait_success(con1, timeout=180)
-    lb = lb.addtarget(instanceId=con1.id)
-    validate_add_target(client, con1, lb)
+    lb_2 = lb_2.addtarget(instanceId=con1.id)
+    validate_add_target(client, con1, lb_2)
 
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb_1, lb_config_1, listener_1)
+    cleanup_lb(client, lb_2, lb_config_2, listener_2)
 
 
 def test_lb_for_container_with_port_mapping(client):
@@ -813,7 +788,7 @@ def test_lb_for_container_with_port_mapping(client):
     logger.info("Create LB for 2 targets which have port "
                 "mappings on port - " + port)
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(client,
                                                          host, port)
 
@@ -825,7 +800,8 @@ def test_lb_for_container_with_port_mapping(client):
     check_access(host, port1, CONTAINER_HOST_NAMES[0])
     check_access(host, port2, CONTAINER_HOST_NAMES[1])
 
-    delete_all(client, [lb, con1, con2])
+    delete_all(client, [con1, con2])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_with_lb_cookie(client):
@@ -845,7 +821,7 @@ def test_lb_with_lb_cookie(client):
                         "postonly": False
                         }
                        }
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
             host, port,
@@ -855,7 +831,7 @@ def test_lb_with_lb_cookie(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_for_lbcookie_policy(con_hostname, host, port)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_with_app_cookie(client):
@@ -878,7 +854,7 @@ def test_lb_with_app_cookie(client):
                          "prefix": False
                          }
                         }
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
             host, port,
@@ -888,7 +864,7 @@ def test_lb_with_app_cookie(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_for_appcookie_policy(con_hostname, host, port, cookie_name)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_with_health_check_with_uri(client):
@@ -910,7 +886,7 @@ def test_lb_with_health_check_with_uri(client):
                      }
                     }
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
             host, port,
@@ -929,7 +905,8 @@ def test_lb_with_health_check_with_uri(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_with_health_check_without_uri(client):
@@ -950,7 +927,7 @@ def test_lb_with_health_check_without_uri(client):
                      }
                     }
 
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
             host, port,
@@ -970,7 +947,8 @@ def test_lb_with_health_check_without_uri(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
 
-    delete_all(client, [lb, con1])
+    delete_all(client, [con1])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def test_lb_with_source(client):
@@ -981,7 +959,7 @@ def test_lb_with_source(client):
 
     logger.info("Create LB for 2 targets with source algorithm  " +
                 "on port - " + port)
-    lb, lb_config = \
+    lb, lb_config, listener = \
         create_lb_with_one_listener_one_host_two_targets(
             client,
             host, port,
@@ -991,7 +969,7 @@ def test_lb_with_source(client):
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_for_stickiness(con_hostname, host, port)
 
-    delete_all(client, [lb])
+    cleanup_lb(client, lb, lb_config, listener)
 
 
 def check_round_robin_access(container_names, host, port):
@@ -1199,3 +1177,11 @@ def check_for_no_access(host, port):
     except requests.ConnectionError:
         logger.info("Connection Error - " + url)
         return True
+
+
+def cleanup_lb(client, lb, lb_config, listener):
+    delete_all(client, [lb])
+    if lb_config is not None:
+        delete_all(client, [lb_config])
+    if listener is not None:
+        delete_all(client, [listener])

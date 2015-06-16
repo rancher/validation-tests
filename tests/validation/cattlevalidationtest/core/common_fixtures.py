@@ -65,8 +65,35 @@ def cleanup(super_client):
                 to_delete_env.append(i)
         except AttributeError:
             pass
-
     delete_all(super_client, to_delete_env)
+
+    to_delete_lb = []
+    for i in super_client.list_loadBalancer(state='active'):
+        try:
+            if instance_name_format.match(i.name):
+                to_delete_lb.append(i)
+        except AttributeError:
+            pass
+    delete_all(super_client, to_delete_lb)
+
+    to_delete_lb_config = []
+    for i in super_client.list_loadBalancerConfig(state='active'):
+        try:
+            if instance_name_format.match(i.name):
+                to_delete_lb_config.append(i)
+        except AttributeError:
+            pass
+    delete_all(super_client, to_delete_lb_config)
+
+    to_delete_lb_listener = []
+    for i in super_client.list_loadBalancerListener(state='active'):
+        try:
+            if instance_name_format.match(i.name):
+                to_delete_lb_listener.append(i)
+        except AttributeError:
+            pass
+
+    delete_all(super_client, to_delete_lb_listener)
 
 
 def _admin_client():
@@ -485,3 +512,25 @@ def get_docker_client(host):
     params['version'] = api_version
 
     return Client(**params)
+
+
+def wait_for_scale_to_adjust(super_client, service):
+    service = super_client.wait_success(service)
+    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+                                                       state="active")
+    start = time.time()
+
+    while len(instance_maps) != service.scale:
+        time.sleep(.5)
+        instance_maps = super_client.list_serviceExposeMap(
+            serviceId=service.id, state="active")
+        if time.time() - start > 30:
+            raise Exception('Timed out waiting for Service Expose map to be ' +
+                            'created for all instances')
+
+    for instance_map in instance_maps:
+        c = super_client.by_id('container', instance_map.instanceId)
+        wait_for_condition(
+            super_client, c,
+            lambda x: x.state == "running",
+            lambda x: 'State is: ' + x.state)
