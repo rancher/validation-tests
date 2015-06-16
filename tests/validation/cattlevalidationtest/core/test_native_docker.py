@@ -92,7 +92,7 @@ def test_native_managed_network(socat_containers, client, native_name,
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
-                         environment=['RANCHER_NETWORK=true'])
+                         labels={'io.rancher.container.network': 'true'})
     docker_client.start(d_container)
     inspect = docker_client.inspect_container(d_container)
 
@@ -217,7 +217,7 @@ def test_native_ip_inject(client, socat_containers, native_name,
     d_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
-                         environment=['RANCHER_NETWORK=true'],
+                         labels={'io.rancher.container.network': 'true'},
                          tty=True,
                          stdin_open=True,
                          detach=True,
