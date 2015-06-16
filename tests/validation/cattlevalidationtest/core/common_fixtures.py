@@ -458,6 +458,7 @@ def socat_containers(client, request):
             stdinOpen=False,
             tty=False,
             publishAllPorts=True,
+            privileged=True,
             dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
             requestedHostId=host.id)
         socat_container_list.append(socat_container)
