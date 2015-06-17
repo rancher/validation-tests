@@ -332,7 +332,32 @@ def test_service_activate_deactivate_delete(super_client, client,
     delete_all(client, [env])
 
 
-def test_service_activate_delete_instance_deactivate_activate(
+def test_service_activate_stop_instance(
+        super_client, client, socat_containers):
+
+    service = shared_env[0]["service"]
+
+    # Stop 2 instances
+
+    containers = get_service_container_list(super_client, service)
+    container1 = containers[0]
+    container1 = client.wait_success(container1.stop())
+    container2 = containers[1]
+    container2 = client.wait_success(container2.stop())
+
+    assert container1.state == 'stopped'
+    assert container2.state == 'stopped'
+
+    wait_for_scale_to_adjust(super_client, service)
+
+    check_container_in_service(super_client, service)
+    container1 = client.reload(container1)
+    container2 = client.reload(container2)
+    assert container1.state == 'running'
+    assert container2.state == 'running'
+
+
+def test_service_activate_delete_instance(
         super_client, client, socat_containers):
 
     service = shared_env[0]["service"]
@@ -348,11 +373,12 @@ def test_service_activate_delete_instance_deactivate_activate(
     assert container1.state == 'removed'
     assert container2.state == 'removed'
 
-    deactivate_activate_service(super_client, client, service)
+    wait_for_scale_to_adjust(super_client, service)
+
     check_container_in_service(super_client, service)
 
 
-def test_service_activate_purge_instance_deactivate_activate(
+def test_service_activate_purge_instance(
         super_client, client, socat_containers):
 
     service = shared_env[0]["service"]
@@ -366,11 +392,12 @@ def test_service_activate_purge_instance_deactivate_activate(
     container2 = client.wait_success(client.delete(container2))
     container2 = client.wait_success(container2.purge())
 
-    deactivate_activate_service(super_client, client, service)
+    wait_for_scale_to_adjust(super_client, service)
+
     check_container_in_service(super_client, service)
 
 
-def test_service_activate_restore_instance_deactivate_activate(
+def test_service_activate_restore_instance(
         super_client, client, socat_containers):
 
     service = shared_env[0]["service"]
@@ -387,7 +414,8 @@ def test_service_activate_restore_instance_deactivate_activate(
     assert container1.state == "stopped"
     assert container2.state == "stopped"
 
-    deactivate_activate_service(super_client, client, service)
+    wait_for_scale_to_adjust(super_client, service)
+
     check_container_in_service(super_client, service)
 
 
@@ -432,12 +460,6 @@ def test_service_activate_delete_instance_scale_down(
 def test_service_activate_purge_instance_scale_down(
         super_client, client, socat_containers):
     check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 4, 1, [1], 3)
-
-
-def test_service_activate_restore_instance_scale_down(
-        super_client, client, socat_containers):
-    check_service_activate_restore_instance_scale(
         super_client, client, socat_containers, 4, 1, [1], 3)
 
 
@@ -664,44 +686,6 @@ def check_service_activate_purge_instance_scale(super_client, client,
         container = client.wait_success(container.purge())
         assert container.state == 'purged'
         logger.info("Purged Container - " + container_name)
-
-    # Scale service
-    service = client.update(service, name=service.name, scale=final_scale)
-    service = client.wait_success(service, 300)
-    assert service.state == "active"
-    assert service.scale == final_scale
-    logger.info("Scaled service - " + str(final_scale))
-
-    check_container_in_service(super_client, service)
-
-    # Check for destroyed containers in case of scale down
-    if final_scale < initial_scale and removed_instance_count > 0:
-        check_container_removed_from_service(super_client, service, env,
-                                             removed_instance_count)
-
-    delete_all(client, [env])
-
-
-def check_service_activate_restore_instance_scale(super_client, client,
-                                                  socat_containers,
-                                                  initial_scale, final_scale,
-                                                  delete_instance_index,
-                                                  removed_instance_count=0):
-
-    service, env = create_env_and_svc_activate(super_client, client,
-                                               initial_scale)
-
-    # Delete and restore instance
-    for i in delete_instance_index:
-        container_name = env.name + "_" + service.name + "_" + str(i)
-        containers = client.list_container(name=container_name)
-        assert len(containers) == 1
-        container = containers[0]
-        container = client.wait_success(client.delete(container))
-        assert container.state == 'removed'
-        container = client.wait_success(container.restore())
-        assert container.state == 'stopped'
-        logger.info("Restored Container - " + container_name)
 
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)

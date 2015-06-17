@@ -324,18 +324,12 @@ def test_lb_services_stop_start_instance(super_client, client):
     container = client.wait_success(container.stop(), 120)
     assert container.state == 'stopped'
 
-    validate_lb_service(super_client, client, env, [service], lb_service, port,
-                        container)
-
-    # Start instance
-    container = client.wait_success(container.start(), 120)
-    assert container.state == 'running'
+    wait_for_scale_to_adjust(super_client, service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
     delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='not implemented yet')
 def test_lb_services_delete_purge_instance(super_client, client):
 
     port = "9006"
@@ -356,50 +350,9 @@ def test_lb_services_delete_purge_instance(super_client, client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    validate_lb_service(super_client, client, env, [service], lb_service, port,
-                        container)
-
-    # purge instance
-    container = client.wait_success(container.purge(), 120)
-
-    validate_lb_service(super_client, client, env, [service], lb_service, port,
-                        container)
-    delete_all(client, [env])
-
-
-@pytest.mark.skipif(True, reason='not implemented yet')
-def test_lb_services_delete_restore_instance(super_client, client):
-
-    port = "9007"
-
-    service_scale = 3
-    lb_scale = 1
-
-    env, service, lb_service = create_environment_with_lb_services(
-        super_client, client, service_scale, lb_scale, port)
-
+    wait_for_scale_to_adjust(super_client, service)
     validate_lb_service(super_client, client, env, [service], lb_service, port)
 
-    # Delete instance
-    container_name = env.name + "_" + service.name + "_1"
-    containers = client.list_container(name=container_name)
-    assert len(containers) == 1
-    container = containers[0]
-    container = client.wait_success(client.delete(container))
-    assert container.state == 'removed'
-
-    validate_lb_service(super_client, client, env, [service], lb_service, port,
-                        container)
-
-    # restore instance
-    container = client.wait_success(container.restore(), 120)
-
-    validate_lb_service(super_client, client, env, [service], lb_service, port)
-
-    # start instance
-    container = client.wait_success(container.start(), 120)
-
-    validate_lb_service(super_client, client, env, [service], lb_service, port)
     delete_all(client, [env])
 
 
@@ -650,7 +603,7 @@ def test_lb_services_stop_start_lb_instance_(super_client, client):
     port = "9014"
 
     service_scale = 2
-    lb_scale = 1
+    lb_scale = 2
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
@@ -665,9 +618,7 @@ def test_lb_services_stop_start_lb_instance_(super_client, client):
     lb_instance = client.wait_success(lb_instance.stop(), 120)
     assert lb_instance.state == 'stopped'
 
-    # Start lb_instance
-    lb_instance = client.wait_success(lb_instance.start(), 120)
-    assert lb_instance.state == 'running'
+    wait_for_scale_to_adjust(super_client, lb_service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
 
@@ -679,7 +630,7 @@ def test_lb_services_lb_instance_restart(super_client, client):
     port = "9015"
 
     service_scale = 2
-    lb_scale = 1
+    lb_scale = 2
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
@@ -699,12 +650,12 @@ def test_lb_services_lb_instance_restart(super_client, client):
     delete_all(client, [env])
 
 
-def test_lb_services_lb_instance_delete_restore(super_client, client):
+def test_lb_services_lb_instance_delete(super_client, client):
 
     port = "9016"
 
     service_scale = 2
-    lb_scale = 1
+    lb_scale = 2
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
@@ -719,13 +670,7 @@ def test_lb_services_lb_instance_delete_restore(super_client, client):
     lb_instance = client.wait_success(client.delete(lb_instance))
     assert lb_instance.state == 'removed'
 
-    # restore lb_instance
-    lb_instance = client.wait_success(lb_instance.restore())
-    assert lb_instance.state == 'stopped'
-
-    # start lb_instance
-    lb_instance = client.wait_success(lb_instance.start())
-    assert lb_instance.state == 'running'
+    wait_for_scale_to_adjust(super_client, lb_service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
 
