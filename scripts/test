@@ -5,6 +5,7 @@ set -x
 
 : ${CATTLE_TEST_AGENT_IMAGE:='docker:cattle/test-agent:v7'}
 : ${PHANTOMJS_BIN:='/usr/local/bin/phantomjs'}
+: ${VALIDATION_JUNIT_XML_FILE:='validationTestsJunit.xml'}
 
 export CATTLE_TEST_AGENT_IMAGE PHANTOMJS_BIN
 
@@ -27,10 +28,16 @@ teardown_env()
     ./scripts/build-env -d
 }
 
+copy_logs(){
+    [ ! -f "/scratch/tests/validation/validationTestsJunit.xml" ] && echo Can\'t Find /scratch/tests/validation/validationTestsJunit.xml && return
+    [ -f "/scratch/tests/validation/validationTestsJunit.xml" ] && echo Copying /scratch/tests/validation/validationTestsJunit.xml to /target/${VALIDATION_JUNIT_XML_FILE}
+    [ -d "/target" ] && cp /scratch/tests/validation/validationTestsJunit.xml /target/${VALIDATION_JUNIT_XML_FILE}
+}
+
 run_tests()
 {
     pushd ./tests/validation
-    tox 
+    tox || [ `uname` == "Linux" ] && copy_logs && exit 1
 }
 
 if [ -z "${CATTLE_TEST_URL}" ]; then
