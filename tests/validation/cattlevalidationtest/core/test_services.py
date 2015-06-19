@@ -345,8 +345,7 @@ def test_service_activate_stop_instance(
     container2 = containers[1]
     container2 = client.wait_success(container2.stop())
 
-    assert container1.state == 'stopped'
-    assert container2.state == 'stopped'
+    service = client.wait_success(service)
 
     wait_for_scale_to_adjust(super_client, service)
 
@@ -439,12 +438,6 @@ def test_service_activate_delete_instance_scale_up(
         super_client, client, socat_containers, 3, 4, [1])
 
 
-def test_service_activate_purge_instance_scale_up(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 3, 4, [1])
-
-
 def test_service_activate_stop_instance_scale_down(
         super_client, client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -457,12 +450,6 @@ def test_service_activate_delete_instance_scale_down(
         super_client, client, socat_containers, 4, 1, [1], 3)
 
 
-def test_service_activate_purge_instance_scale_down(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 4, 1, [1], 3)
-
-
 def test_service_activate_stop_instance_scale_up_1(
         super_client, client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -472,12 +459,6 @@ def test_service_activate_stop_instance_scale_up_1(
 def test_service_activate_delete_instance_scale_up_1(
         super_client, client, socat_containers):
     check_service_activate_delete_instance_scale(
-        super_client, client, socat_containers, 3, 4, [3])
-
-
-def test_service_activate_purge_instance_scale_up_1(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
         super_client, client, socat_containers, 3, 4, [3])
 
 
@@ -494,12 +475,6 @@ def test_service_activate_delete_instance_scale_down_1(
                                                  4, 1, [4], 3)
 
 
-def test_service_activate_purge_instance_scale_down_1(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 4, 1, [4], 3)
-
-
 def test_service_activate_stop_instance_scale_up_2(
         super_client, client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -509,12 +484,6 @@ def test_service_activate_stop_instance_scale_up_2(
 def test_service_activate_delete_instance_scale_up_2(
         super_client, client, socat_containers):
     check_service_activate_delete_instance_scale(
-        super_client, client, socat_containers, 3, 4, [1, 2, 3])
-
-
-def test_service_activate_purge_instance_scale_up_2(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
         super_client, client, socat_containers, 3, 4, [1, 2, 3])
 
 
@@ -530,12 +499,6 @@ def test_service_activate_delete_instance_scale_down_2(
         super_client, client, socat_containers, 4, 1, [1, 2, 3, 4])
 
 
-def test_service_activate_purge_instance_scale_down_2(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 4, 1, [1, 2, 3, 4])
-
-
 def test_service_activate_stop_instance_scale_up_3(
         super_client, client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -548,12 +511,6 @@ def test_service_activate_delete_instance_scale_up_3(
         super_client, client, socat_containers, 3, 4, [2])
 
 
-def test_service_activate_purge_instance_scale_up_3(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
-        super_client, client, socat_containers, 3, 4, [2])
-
-
 def test_service_activate_stop_instance_scale_down_3(
         super_client, client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -563,12 +520,6 @@ def test_service_activate_stop_instance_scale_down_3(
 def test_service_activate_delete_instance_scale_down_3(
         super_client, client, socat_containers):
     check_service_activate_delete_instance_scale(
-        super_client, client, socat_containers, 4, 1, [2], 3)
-
-
-def test_service_activate_purge_instance_scale_down_3(
-        super_client, client, socat_containers):
-    check_service_activate_purge_instance_scale(
         super_client, client, socat_containers, 4, 1, [2], 3)
 
 
@@ -610,8 +561,9 @@ def check_service_activate_stop_instance_scale(super_client, client,
         assert len(containers) == 1
         container = containers[0]
         container = client.wait_success(container.stop(), 300)
-        assert container.state == 'stopped'
+        # assert container.state == 'stopped'
         logger.info("Stopped container - " + container_name)
+        service = client.wait_success(service)
 
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
@@ -656,51 +608,13 @@ def check_service_activate_delete_instance_scale(super_client, client,
     logger.info("Scaled service - " + str(final_scale))
 
     check_container_in_service(super_client, service)
-
+    """
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale and removed_instance_count > 0:
         if removed_instance_count is not None:
             check_container_removed_from_service(super_client, service, env,
                                                  removed_instance_count)
-
-    delete_all(client, [env])
-
-
-def check_service_activate_purge_instance_scale(super_client, client,
-                                                socat_containers,
-                                                initial_scale, final_scale,
-                                                delete_instance_index,
-                                                removed_instance_count=0):
-
-    service, env = create_env_and_svc_activate(super_client, client,
-                                               initial_scale)
-
-    # Purge instance
-    for i in delete_instance_index:
-        container_name = env.name + "_" + service.name + "_" + str(i)
-        containers = client.list_container(name=container_name)
-        assert len(containers) == 1
-        container = containers[0]
-        container = client.wait_success(client.delete(container))
-        assert container.state == 'removed'
-        container = client.wait_success(container.purge())
-        assert container.state == 'purged'
-        logger.info("Purged Container - " + container_name)
-
-    # Scale service
-    service = client.update(service, name=service.name, scale=final_scale)
-    service = client.wait_success(service, 300)
-    assert service.state == "active"
-    assert service.scale == final_scale
-    logger.info("Scaled service - " + str(final_scale))
-
-    check_container_in_service(super_client, service)
-
-    # Check for destroyed containers in case of scale down
-    if final_scale < initial_scale and removed_instance_count > 0:
-        check_container_removed_from_service(super_client, service, env,
-                                             removed_instance_count)
-
+    """
     delete_all(client, [env])
 
 

@@ -63,8 +63,7 @@ def cleanup(super_client):
     for i in super_client.list_instance(state='running'):
         try:
             if instance_name_format.match(i.name) or \
-                    instance_name_format_for_services.match(i.name) or \
-                    i.name.startswith("socat"):
+                    instance_name_format_for_services.match(i.name):
                 to_delete.append(i)
         except AttributeError:
             pass
@@ -76,8 +75,7 @@ def cleanup(super_client):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
-                        instance_name_format_for_services.match(i.name) or \
-                        i.name.startswith("socat"):
+                        instance_name_format_for_services.match(i.name):
                     to_delete.append(i)
         except AttributeError:
             pass
@@ -551,3 +549,60 @@ def wait_for_scale_to_adjust(super_client, service):
             super_client, c,
             lambda x: x.state == "running",
             lambda x: 'State is: ' + x.state)
+
+
+def check_service_map(super_client, service, instance, state):
+    instance_service_map = super_client.\
+        list_serviceExposeMap(serviceId=service.id, instanceId=instance.id,
+                              state=state)
+    assert len(instance_service_map) == 1
+
+
+def get_container_names_list(super_client, env, services):
+    container_names = []
+    for service in services:
+        containers = get_service_container_list(super_client, service)
+        for c in containers:
+            if c.state == "running":
+                container_names.append(c.externalId[:12])
+    return container_names
+
+
+def validate_add_service_link(super_client, service, consumedService):
+    service_maps = super_client. \
+        list_serviceConsumeMap(serviceId=service.id,
+                               consumedServiceId=consumedService.id)
+    assert len(service_maps) == 1
+    service_map = service_maps[0]
+    wait_for_condition(
+        super_client, service_map,
+        lambda x: x.state == "active",
+        lambda x: 'State is: ' + x.state)
+
+
+def validate_remove_service_link(super_client, service, consumedService):
+    service_maps = super_client. \
+        list_serviceConsumeMap(serviceId=service.id,
+                               consumedServiceId=consumedService.id)
+    assert len(service_maps) == 1
+    service_map = service_maps[0]
+    wait_for_condition(
+        super_client, service_map,
+        lambda x: x.state == "removed",
+        lambda x: 'State is: ' + x.state)
+
+
+def get_service_container_list(super_client, service):
+
+    container = []
+    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+                                                       state="active")
+    for instance_map in instance_maps:
+        c = super_client.by_id('container', instance_map.instanceId)
+        containers = super_client.list_container(
+            externalId=c.externalId,
+            include="hosts")
+        assert len(containers) == 1
+        container.append(containers[0])
+
+    return container
