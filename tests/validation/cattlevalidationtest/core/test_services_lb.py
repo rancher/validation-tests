@@ -322,8 +322,7 @@ def test_lb_services_stop_start_instance(super_client, client):
     assert len(containers) == 1
     container = containers[0]
     container = client.wait_success(container.stop(), 120)
-    assert container.state == 'stopped'
-
+    service = client.wait_success(service)
     wait_for_scale_to_adjust(super_client, service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
@@ -616,7 +615,7 @@ def test_lb_services_stop_start_lb_instance_(super_client, client):
 
     # Stop lb instance
     lb_instance = client.wait_success(lb_instance.stop(), 120)
-    assert lb_instance.state == 'stopped'
+    service = client.wait_success(lb_service)
 
     wait_for_scale_to_adjust(super_client, lb_service)
 

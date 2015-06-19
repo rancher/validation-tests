@@ -307,7 +307,7 @@ def test_link_consumed_services_stop_start_instance(super_client, client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    assert container.state == 'stopped'
+    service = client.wait_success(service)
 
     wait_for_scale_to_adjust(super_client, consumed_service)
 
@@ -332,7 +332,7 @@ def test_link_consumed_services_restart_instance(super_client, client):
     assert len(containers) == 1
     container = containers[0]
 
-    # Stop instance
+    # Restart instance
     container = client.wait_success(container.restart(), 120)
     assert container.state == 'running'
 
@@ -599,8 +599,7 @@ def test_link_services_stop_start_instance(super_client, client):
 
     # Stop service instance
     service_instance = client.wait_success(service_instance.stop(), 120)
-    assert service_instance.state == 'stopped'
-
+    service = client.wait_success(service)
     wait_for_scale_to_adjust(super_client, service)
 
     validate_linked_service(super_client, service, [consumed_service], port)
@@ -659,63 +658,6 @@ def test_link_services_delete_instance(super_client, client):
     validate_linked_service(super_client, service, [consumed_service], port)
 
     delete_all(client, [env])
-
-
-def check_service_map(super_client, service, instance, state):
-    instance_service_map = super_client.\
-        list_serviceExposeMap(serviceId=service.id, instanceId=instance.id,
-                              state=state)
-    assert len(instance_service_map) == 1
-
-
-def get_container_names_list(super_client, env, services):
-    container_names = []
-    for service in services:
-        containers = get_service_container_list(super_client, service)
-        for c in containers:
-            if c.state == "running":
-                container_names.append(c.externalId[:12])
-    return container_names
-
-
-def validate_add_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
-        list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
-    assert len(service_maps) == 1
-    service_map = service_maps[0]
-    wait_for_condition(
-        super_client, service_map,
-        lambda x: x.state == "active",
-        lambda x: 'State is: ' + x.state)
-
-
-def validate_remove_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
-        list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
-    assert len(service_maps) == 1
-    service_map = service_maps[0]
-    wait_for_condition(
-        super_client, service_map,
-        lambda x: x.state == "removed",
-        lambda x: 'State is: ' + x.state)
-
-
-def get_service_container_list(super_client, service):
-
-    container = []
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
-    for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
-        containers = super_client.list_container(
-            externalId=c.externalId,
-            include="hosts")
-        assert len(containers) == 1
-        container.append(containers[0])
-
-    return container
 
 
 def validate_linked_service(super_client, service, consumed_services,
