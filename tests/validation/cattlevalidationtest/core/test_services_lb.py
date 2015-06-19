@@ -48,31 +48,24 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port):
     return env, service, lb_service
 
 
-def link_svc(super_client, service, linkservices):
-
-    for linkservice in linkservices:
-        service = service.addservicelink(serviceId=linkservice.id)
-        validate_add_service_link(super_client, service, linkservice)
-    return service
-
-
-def activate_svc(client, service):
-
-    service.activate()
-    service = client.wait_success(service, 120)
-    assert service.state == "active"
-    return service
-
-
 def create_environment_with_lb_services(super_client, client,
                                         service_scale, lb_scale, port):
 
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    service = activate_svc(client, service)
-    lb_service = activate_svc(client, lb_service)
-    link_svc(super_client, lb_service, [service])
+    env, service, lb_service = create_env_with_svc_and_lb(
+        client, service_scale, lb_scale, port)
+
+    service.activate()
+    lb_service.activate()
+    lb_service.addservicelink(serviceId=service.id)
+
+    service = client.wait_success(service, 120)
+    lb_service = client.wait_success(lb_service, 120)
+
+    assert service.state == "active"
+    assert lb_service.state == "active"
 
     return env, service, lb_service
 
@@ -615,7 +608,7 @@ def test_lb_services_stop_start_lb_instance_(super_client, client):
 
     # Stop lb instance
     lb_instance = client.wait_success(lb_instance.stop(), 120)
-    service = client.wait_success(lb_service)
+    lb_service = client.wait_success(lb_service)
 
     wait_for_scale_to_adjust(super_client, lb_service)
 
