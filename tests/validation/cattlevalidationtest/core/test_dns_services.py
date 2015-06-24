@@ -62,22 +62,6 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port):
     return env, service, consumed_service, consumed_service1, dns
 
 
-def link_svc(super_client, service, linkservices):
-
-    for linkservice in linkservices:
-        service = service.addservicelink(serviceId=linkservice.id)
-        validate_add_service_link(super_client, service, linkservice)
-    return service
-
-
-def activate_svc(client, service):
-
-    service.activate()
-    service = client.wait_success(service, 120)
-    assert service.state == "active"
-    return service
-
-
 def create_environment_with_dns_services(super_client, client,
                                          service_scale,
                                          consumed_service_scale,
@@ -86,13 +70,27 @@ def create_environment_with_dns_services(super_client, client,
     env, service, consumed_service, consumed_service1, dns = \
         create_env_with_2_svc_dns(
             client, service_scale, consumed_service_scale, port)
+    service.activate()
+    consumed_service.activate()
+    consumed_service1.activate()
+    dns.activate()
 
-    service = activate_svc(client, service)
-    consumed_service = activate_svc(client, consumed_service)
-    consumed_service1 = activate_svc(client, consumed_service1)
-    dns = activate_svc(client, dns)
-    link_svc(super_client, service, [dns])
-    link_svc(super_client, dns, [consumed_service, consumed_service1])
+    service.addservicelink(serviceId=dns.id)
+    dns.addservicelink(serviceId=consumed_service.id)
+    dns.addservicelink(serviceId=consumed_service1.id)
+
+    service = client.wait_success(service, 120)
+    consumed_service = client.wait_success(consumed_service, 120)
+    consumed_service1 = client.wait_success(consumed_service1, 120)
+    dns = client.wait_success(dns, 120)
+
+    assert service.state == "active"
+    assert consumed_service.state == "active"
+    assert consumed_service1.state == "active"
+
+    validate_add_service_link(super_client, service, dns)
+    validate_add_service_link(super_client, dns, consumed_service)
+    validate_add_service_link(super_client, dns, consumed_service1)
 
     return env, service, consumed_service, consumed_service1, dns
 

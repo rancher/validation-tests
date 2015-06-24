@@ -39,7 +39,7 @@ def test_container_run_with_options_1(client, test_name,
                                       imageUuid=TEST_IMAGE_UUID,
                                       requestedHostId=host.id
                                       )
-    con_vol = client.wait_success(con_vol)
+    con_vol = client.wait_success(con_vol, 120)
     assert con_vol.state == "running"
 
     docker_vol_from_value = con_vol.externalId
@@ -73,7 +73,7 @@ def test_container_run_with_options_1(client, test_name,
                                 command=command
                                 )
 
-    c = client.wait_success(c)
+    c = client.wait_success(c, 120)
     assert c.state == "running"
 
     docker_client = get_docker_client(host)
@@ -120,7 +120,7 @@ def test_container_run_with_options_2(client, test_name,
                                 stdinOpen=True,
                                 tty=True,
                                 )
-    c = client.wait_success(c)
+    c = client.wait_success(c, 120)
     assert c.state == "running"
     docker_client = get_docker_client(host)
     inspect = docker_client.inspect_container(c.externalId)

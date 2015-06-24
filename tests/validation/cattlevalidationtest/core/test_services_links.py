@@ -45,33 +45,23 @@ def create_env_with_2_svc(client, scale_svc, scale_consumed_svc, port):
     return env, service, consumed_service
 
 
-def link_svc(super_client, service, linkservices):
-
-    for linkservice in linkservices:
-        service = service.addservicelink(serviceId=linkservice.id)
-        validate_add_service_link(super_client, service, linkservice)
-    return service
-
-
-def activate_svc(client, service):
-
-    service.activate()
-    service = client.wait_success(service, 120)
-    assert service.state == "active"
-    return service
-
-
-def create_environment_with_linked_services(super_client, client,
-                                            service_scale,
-                                            consumed_service_scale,
-                                            port):
+def create_environment_with_linked_services(
+        super_client, client, service_scale, consumed_service_scale, port):
 
     env, service, consumed_service = create_env_with_2_svc(
         client, service_scale, consumed_service_scale, port)
 
-    service = activate_svc(client, service)
-    consumed_service = activate_svc(client, consumed_service)
-    link_svc(super_client, service, [consumed_service])
+    service.activate()
+    consumed_service.activate()
+
+    service.addservicelink(serviceId=consumed_service.id)
+    service = client.wait_success(service, 120)
+
+    consumed_service = client.wait_success(consumed_service, 120)
+
+    assert service.state == "active"
+    assert consumed_service.state == "active"
+    validate_add_service_link(super_client, service, consumed_service)
 
     return env, service, consumed_service
 
