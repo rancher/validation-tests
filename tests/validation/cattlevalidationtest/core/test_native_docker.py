@@ -11,7 +11,7 @@ NATIVE_TEST_IMAGE = 'cattle/test-agent'
 
 @pytest.fixture(scope='module')
 def host(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True, state='active')
     assert len(hosts) >= 1
     host = hosts[0]
     return host
@@ -20,8 +20,9 @@ def host(client):
 @pytest.fixture(scope='module')
 def pull_images(client, socat_containers):
     docker_client = get_docker_client(host(client))
-    image = (NATIVE_TEST_IMAGE, 'latest')
-    docker_client.pull(image[0], image[1])
+    images = [(NATIVE_TEST_IMAGE, 'latest'), ('busybox', 'latest')]
+    for image in images:
+        docker_client.pull(image[0], image[1])
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -306,6 +307,7 @@ def common_network_asserts(rancher_container, docker_container,
     assert rancher_container.state == 'running'
     assert rancher_container.primaryIpAddress == \
         docker_container['NetworkSettings']['IPAddress']
+
     assert rancher_container.networkMode == expected_net_mode
 
 
@@ -329,12 +331,23 @@ def wait_on_rancher_container(client, name, timeout=None):
 def test_native_fields(socat_containers, client, pull_images):
     docker_client = get_docker_client(host(client))
     name = 'native-%s' % random_str()
+
+    host_config = create_host_config(
+        privileged=True,
+        publish_all_ports=True,
+        dns=['1.2.3.4'], dns_search=['search.dns.com'],
+        cap_add=['SYSLOG'], cap_drop=['KILL', 'LEASE'],
+        restart_policy={'MaximumRetryCount': 5,
+                        'Name': 'on-failure'},
+        devices=['/dev/null:/dev/xnull:rw'])
+
     docker_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                       name=name,
                                                       hostname='hostname1',
                                                       domainname='domainname1',
                                                       user='root',
-                                                      mem_limit='4m',
+                                                      mem_limit='4MB',
+                                                      memswap_limit='8MB',
                                                       cpu_shares=1024,
                                                       cpuset='0',
                                                       tty=True,
@@ -344,16 +357,10 @@ def test_native_fields(socat_containers, client, pull_images):
                                                           'FOO': 'BA'},
                                                       command=['-c',
                                                                'sleep 3'],
-                                                      entrypoint=['/bin/sh'])
+                                                      entrypoint=['/bin/sh'],
+                                                      host_config=host_config)
 
-    docker_client.start(docker_container, privileged=True,
-                        publish_all_ports=True,
-                        lxc_conf={'lxc.utsname': 'docker'},
-                        dns=['1.2.3.4'], dns_search=['search.dns.com'],
-                        cap_add=['SYSLOG'], cap_drop=['KILL', 'LEASE'],
-                        restart_policy={'MaximumRetryCount': 5,
-                                        'Name': 'on-failure'},
-                        devices=['/dev/null:/dev/xnull:rw'])
+    docker_client.start(docker_container)
 
     def check():
         containers = client.list_container(name=name)
@@ -380,7 +387,6 @@ def test_native_fields(socat_containers, client, pull_images):
     assert rancher_container.entryPoint == ['/bin/sh']
     assert rancher_container.privileged is True
     assert rancher_container.publishAllPorts is True
-    assert rancher_container.lxcConf == {'lxc.utsname': 'docker'}
     assert rancher_container.dns == ['1.2.3.4']
     assert rancher_container.dnsSearch == ['search.dns.com']
     assert rancher_container.capAdd == ['SYSLOG']
