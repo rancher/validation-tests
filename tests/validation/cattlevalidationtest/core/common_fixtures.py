@@ -418,7 +418,7 @@ def socat_containers(client, request):
 
     if len(socat_container_list) != 0:
         return
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True, state='active')
 
     for host in hosts:
         socat_container = client.create_container(
