@@ -54,9 +54,6 @@ def create_environment_with_lb_services(super_client, client,
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    env, service, lb_service = create_env_with_svc_and_lb(
-        client, service_scale, lb_scale, port)
-
     service.activate()
     lb_service.activate()
     lb_service.addservicelink(serviceId=service.id)
