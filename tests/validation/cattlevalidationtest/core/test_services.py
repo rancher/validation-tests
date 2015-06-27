@@ -33,32 +33,6 @@ def create_env_for_activate_deactivate(request, client, super_client):
     request.addfinalizer(fin)
 
 
-def create_env_and_svc(client, launch_config, scale):
-
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
-    env = client.wait_success(env)
-    assert env.state == "active"
-
-    service = create_svc(client, env, launch_config, scale)
-    return service, env
-
-
-def create_svc(client, env, launch_config, scale):
-
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-    service = client.create_service(name=service_name,
-                                    environmentId=env.id,
-                                    launchConfig=launch_config,
-                                    scale=scale)
-
-    service = client.wait_success(service)
-    assert service.state == "inactive"
-    return service
-
-
 def deactivate_activate_service(super_client, client, service):
 
     # Deactivate service
@@ -629,23 +603,6 @@ def _validate_add_service_link(service, client, scale):
         lambda x: 'State is: ' + x.state)
 
 
-def check_container_in_service(super_client, service):
-
-    container_list = get_service_container_list(super_client, service)
-    assert len(container_list) == service.scale
-
-    for container in container_list:
-        assert container.state == "running"
-        containers = super_client.list_container(
-            externalId=container.externalId,
-            include="hosts",
-            removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
-        inspect = docker_client.inspect_container(container.externalId)
-        logger.info("Checked for containers running - " + container.name)
-        assert inspect["State"]["Running"]
-
-
 def check_stopped_container_in_service(super_client, service):
 
     container_list = get_service_container_list(super_client, service)
@@ -718,56 +675,6 @@ def check_service_map(super_client, service, instance, state):
         list_serviceExposeMap(serviceId=service.id, instanceId=instance.id)
     assert len(instance_service_map) == 1
     assert instance_service_map[0].state == state
-
-
-def validate_exposed_port_and_container_link(super_client, con, link_name,
-                                             link_port, exposed_port):
-    time.sleep(10)
-    # Validate that the environment variables relating to link containers are
-    # set
-    containers = super_client.list_container(externalId=con.externalId,
-                                             include="hosts",
-                                             removed_null=True)
-    assert len(containers) == 1
-    con = containers[0]
-    host = super_client.by_id('host', con.hosts[0].id)
-    docker_client = get_docker_client(host)
-    inspect = docker_client.inspect_container(con.externalId)
-    response = inspect["Config"]["Env"]
-    logger.info(response)
-    address = None
-    port = None
-
-    env_name_link_address = link_name + "_PORT_" + str(link_port) + "_TCP_ADDR"
-    env_name_link_name = link_name + "_PORT_" + str(link_port) + "_TCP_PORT"
-
-    for env_var in response:
-        if env_name_link_address in env_var:
-            address = env_var[env_var.index("=")+1:]
-        if env_name_link_name in env_var:
-            port = env_var[env_var.index("=")+1:]
-
-    logger.info(address)
-    logger.info(port)
-    assert address and port is not None
-
-    # Validate port mapping
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
-                password="root", port=exposed_port)
-
-    # Validate link containers
-    cmd = "wget -O result.txt http://"+address+":"+port+"/name.html" +\
-          ";cat result.txt"
-    logger.info(cmd)
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-
-    response = stdout.readlines()
-    resp = response[0].strip("\n")
-    logger.info(resp)
-
-    assert link_name == resp
 
 
 def get_service_container_list(super_client, service):

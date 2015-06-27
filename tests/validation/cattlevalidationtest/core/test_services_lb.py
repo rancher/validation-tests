@@ -1,51 +1,7 @@
 from common_fixtures import *  # NOQA
 
-LB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
-SSH_IMAGE_UUID = "docker:sangeetha/test:latest"
-
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-
-def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port):
-
-    launch_config_svc = {"imageUuid": LB_IMAGE_UUID}
-
-    launch_config_lb = {"ports": [port+":80"]}
-
-    # Create Environment
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
-    env = client.wait_success(env)
-    assert env.state == "active"
-
-    # Create Service
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-    service = client.create_service(name=service_name,
-                                    environmentId=env.id,
-                                    launchConfig=launch_config_svc,
-                                    scale=scale_svc)
-
-    service = client.wait_success(service)
-    assert service.state == "inactive"
-
-    # Create LB Service
-    random_name = random_str()
-    service_name = "LB-" + random_name.replace("-", "")
-
-    lb_service = client.create_loadBalancerService(
-        name=service_name,
-        environmentId=env.id,
-        launchConfig=launch_config_lb,
-        scale=scale_lb)
-
-    lb_service = client.wait_success(lb_service)
-    assert lb_service.state == "inactive"
-
-    return env, service, lb_service
 
 
 def create_environment_with_lb_services(super_client, client,
@@ -439,7 +395,7 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
     validate_lb_service(super_client, client, env, [service], lb_service, port)
 
     # Add another service to environment
-    launch_config = {"imageUuid": LB_IMAGE_UUID}
+    launch_config = {"imageUuid": WEB_IMAGE_UUID}
 
     random_name = random_str()
     service_name = random_name.replace("-", "")
@@ -534,7 +490,7 @@ def test_lb_services_delete_service_add_service(super_client, client):
     validate_remove_service_link(super_client, lb_service, service)
 
     # Add another service to environment and link to LB
-    launch_config = {"imageUuid": LB_IMAGE_UUID}
+    launch_config = {"imageUuid": WEB_IMAGE_UUID}
 
     random_name = random_str()
     service_name = random_name.replace("-", "")
@@ -664,204 +620,3 @@ def test_lb_services_lb_instance_delete(super_client, client):
     validate_lb_service(super_client, client, env, [service], lb_service, port)
 
     delete_all(client, [env])
-
-
-def check_round_robin_access(container_names, host, port):
-    con_hostname = container_names[:]
-    con_hostname_ordered = []
-
-    url = "http://" + host.ipAddresses()[0].address +\
-          ":" + port + "/name.html"
-
-    logger.info(url)
-
-    for n in range(0, len(con_hostname)):
-        r = requests.get(url)
-        response = r.text.strip("\n")
-        logger.info(response)
-        r.close()
-        assert response in con_hostname
-        con_hostname.remove(response)
-        con_hostname_ordered.append(response)
-
-    logger.info(con_hostname_ordered)
-
-    i = 0
-    for n in range(0, 10):
-        r = requests.get(url)
-        response = r.text.strip("\n")
-        r.close()
-        logger.info(response)
-        assert response == con_hostname_ordered[i]
-        i = i + 1
-        if i == len(con_hostname_ordered):
-            i = 0
-
-
-def check_service_map(super_client, service, instance, state):
-    instance_service_map = super_client.\
-        list_serviceExposeMap(serviceId=service.id, instanceId=instance.id,
-                              state=state)
-    assert len(instance_service_map) == 1
-
-
-def get_container_names_list(super_client, env, services):
-    container_names = []
-    for service in services:
-        containers = get_service_container_list(super_client, service)
-        for c in containers:
-            if c.state == "running":
-                container_names.append(c.externalId[:12])
-    return container_names
-
-
-def validate_lb_service(super_client, client, env, services, lb_service, port,
-                        exclude_instance=None):
-
-    lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    assert len(lbs) == 1
-
-    lb = lbs[0]
-
-    # Wait for host maps to get created and reach "active" state
-    host_maps = wait_until_host_map_created(client, lb, lb_service.scale)
-    assert len(host_maps) == lb_service.scale
-
-    logger.info("host_maps - " + str(host_maps))
-
-    target_count = 0
-    for service in services:
-        target_count = target_count + service.scale
-
-    # Wait for target maps to get created and reach "active" state
-
-    target_maps = wait_until_target_map_created(client, lb, target_count)
-    logger.info(target_maps)
-
-    lb_hosts = []
-
-    for host_map in host_maps:
-        host = client.by_id('host', host_map.hostId)
-        lb_hosts.append(host)
-        logger.info("host: " + host.name)
-
-    container_names = get_container_names_list(super_client, env, services)
-    logger.info(container_names)
-
-    if exclude_instance is None:
-        assert len(container_names) == target_count
-    else:
-        list_length = target_count - 1
-        assert len(container_names) == list_length
-        assert exclude_instance.externalId[:12] not in container_names
-
-    for host in lb_hosts:
-        wait_until_lb_is_active(host, port)
-        check_round_robin_access(container_names, host, port)
-
-
-def wait_until_target_map_created(client, lb, count, timeout=30):
-    start = time.time()
-    target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
-                                                 removed_null=True,
-                                                 state="active")
-    while len(target_maps) != count:
-        time.sleep(.5)
-        target_maps = client. \
-            list_loadBalancerTarget(loadBalancerId=lb.id, removed_null=True,
-                                    state="active")
-        if time.time() - start > timeout:
-            raise Exception('Timed out waiting for map creation')
-    return target_maps
-
-
-def wait_until_host_map_created(client, lb, count, timeout=30):
-    start = time.time()
-    host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
-                                                removed_null=True,
-                                                state="active")
-    while len(host_maps) != count:
-        time.sleep(.5)
-        host_maps = client. \
-            list_loadBalancerHostMap(loadBalancerId=lb.id, removed_null=True,
-                                     state="active")
-        if time.time() - start > timeout:
-            raise Exception('Timed out waiting for map creation')
-    return host_maps
-
-
-def wait_until_target_maps_removed(super_client, lb, consumed_service):
-    instance_maps = super_client.list_serviceExposeMap(
-        serviceId=consumed_service.id)
-    for instance_map in instance_maps:
-        target_maps = super_client.list_loadBalancerTarget(
-            loadBalancerId=lb.id, instanceId=instance_map.instanceId)
-        assert len(target_maps) == 1
-        target_map = target_maps[0]
-        wait_for_condition(
-            super_client, target_map,
-            lambda x: x.state == "removed",
-            lambda x: 'State is: ' + x.state)
-
-
-def validate_add_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
-        list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
-    assert len(service_maps) == 1
-    service_map = service_maps[0]
-    wait_for_condition(
-        super_client, service_map,
-        lambda x: x.state == "active",
-        lambda x: 'State is: ' + x.state)
-
-
-def validate_remove_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
-        list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
-    assert len(service_maps) == 1
-    service_map = service_maps[0]
-    wait_for_condition(
-        super_client, service_map,
-        lambda x: x.state == "removed",
-        lambda x: 'State is: ' + x.state)
-
-    lbs = super_client.list_loadBalancer(serviceId=service.id)
-    assert len(lbs) == 1
-    lb = lbs[0]
-    wait_until_target_maps_removed(super_client, lb, consumedService)
-
-
-def get_service_container_list(super_client, service):
-
-    container = []
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
-    for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
-        container.append(c)
-
-    assert len(container) == service.scale
-    return container
-
-
-def wait_until_lb_is_active(host, port, timeout=30):
-    start = time.time()
-    while check_for_no_access(host, port):
-        time.sleep(.5)
-        print "No access yet"
-        if time.time() - start > timeout:
-            raise Exception('Timed out waiting for LB to become active')
-    return
-
-
-def check_for_no_access(host, port):
-    try:
-        url = "http://" + host.ipAddresses()[0].address + ":" +\
-              port + "/name.html"
-        requests.get(url)
-        return False
-    except requests.ConnectionError:
-        logger.info("Connection Error - " + url)
-        return True
