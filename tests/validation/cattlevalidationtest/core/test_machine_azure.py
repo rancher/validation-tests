@@ -28,10 +28,13 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='session', autouse=True)
 def register_host(admin_client):
-    test_url = cattle_url()
-    start = test_url.index("//") + 2
-    api_host = test_url[start:]
-    admin_client.create_setting(name="api.host", value=api_host)
+    setting = admin_client.by_id_setting("api.host")
+    if setting.value is None or len(setting.value) == 0:
+        test_url = cattle_url()
+        start = test_url.index("//") + 2
+        api_host = test_url[start:]
+        admin_client.create_setting(name="api.host", value=api_host)
+        time.sleep(15)
 
 
 @if_machine_azure
