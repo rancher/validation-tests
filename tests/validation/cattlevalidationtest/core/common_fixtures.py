@@ -597,8 +597,8 @@ def validate_exposed_port_and_container_link(super_client, con, link_name,
                 password="root", port=exposed_port)
 
     # Validate link containers
-    cmd = "wget -O result.txt http://"+address+":"+port+"/name.html" +\
-          ";cat result.txt"
+    cmd = "wget -O result.txt  --timeout=20 --tries=1 http://" + \
+          address+":"+port+"/name.html" + ";cat result.txt"
     logger.info(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
 
@@ -792,8 +792,8 @@ def validate_linked_service(super_client, service, consumed_services,
                         password="root", port=int(exposed_port))
 
             # Validate link containers
-            cmd = "wget -O result.txt http://" + consumed_service.name + \
-                  ":80/name.html;cat result.txt"
+            cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
+                  consumed_service.name + ":80/name.html;cat result.txt"
             logger.info(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
@@ -866,7 +866,7 @@ def validate_dns_service(super_client, service, consumed_services,
                     password="root", port=int(exposed_port))
 
         # Validate link containers
-        cmd = "wget -O result.txt http://" + dnsname + \
+        cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + dnsname + \
               ":80/name.html;cat result.txt"
         logger.info(cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -1267,3 +1267,18 @@ def create_svc(client, env, launch_config, scale):
     service = client.wait_success(service)
     assert service.state == "inactive"
     return service
+
+
+def wait_until_instances_get_stopped(super_client, service, timeout=60):
+    stopped_count = 0
+    start = time.time()
+    while stopped_count != service.scale:
+        time.sleep(.5)
+        container_list = get_service_container_list(super_client, service)
+        stopped_count = 0
+        for con in container_list:
+            if con.state == "stopped":
+                stopped_count = stopped_count + 1
+        if time.time() - start > timeout:
+            raise Exception(
+                'Timed out waiting for instances to get to stopped state')

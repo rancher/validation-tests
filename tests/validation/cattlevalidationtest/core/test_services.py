@@ -698,18 +698,3 @@ def get_service_container_list(super_client, service):
         container.append(c)
 
     return container
-
-
-def wait_until_instances_get_stopped(super_client, service, timeout=60):
-    stopped_count = 0
-    start = time.time()
-    while stopped_count != service.scale:
-        time.sleep(.5)
-        container_list = get_service_container_list(super_client, service)
-        stopped_count = 0
-        for con in container_list:
-            if con.state == "stopped":
-                stopped_count = stopped_count + 1
-        if time.time() - start > timeout:
-            raise Exception(
-                'Timed out waiting for instances to get to stopped state')

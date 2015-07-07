@@ -316,7 +316,7 @@ def test_lb_services_deactivate_activate_lbservice(super_client, client):
     lb_service = lb_service.deactivate()
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "inactive"
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, lb_service)
 
     lb_service = lb_service.activate()
     lb_service = client.wait_success(lb_service, 120)
@@ -341,7 +341,7 @@ def test_lb_services_deactivate_activate_service(super_client, client):
     service = service.deactivate()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, service)
 
     service = service.activate()
     service = client.wait_success(service, 120)
@@ -370,7 +370,7 @@ def test_lb_services_deactivate_activate_environment(super_client, client):
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "inactive"
 
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, lb_service)
 
     env = env.activateservices()
     service = client.wait_success(service, 120)
