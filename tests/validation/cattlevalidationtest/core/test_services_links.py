@@ -330,7 +330,7 @@ def test_link_consumed_services_deactivate_activate(super_client, client):
     consumed_service = consumed_service.deactivate()
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "inactive"
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, consumed_service)
 
     consumed_service = consumed_service.activate()
     consumed_service = client.wait_success(consumed_service, 120)
@@ -355,7 +355,7 @@ def test_link_service_deactivate_activate(super_client, client):
     service = service.deactivate()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, service)
 
     service = service.activate()
     service = client.wait_success(service, 120)
@@ -384,7 +384,7 @@ def test_link_deactivate_activate_environment(super_client, client):
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "inactive"
 
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, consumed_service)
 
     env = env.activateservices()
     service = client.wait_success(service, 120)

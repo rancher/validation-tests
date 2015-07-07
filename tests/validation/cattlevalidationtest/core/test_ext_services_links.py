@@ -206,7 +206,6 @@ def test_extservice_ext_services_deactivate_activate(super_client, client):
     ext_service = ext_service.deactivate()
     ext_service = client.wait_success(ext_service, 120)
     assert ext_service.state == "inactive"
-    time.sleep(60)
 
     ext_service = ext_service.activate()
     ext_service = client.wait_success(ext_service, 120)
@@ -233,7 +232,7 @@ def test_extservice_service_deactivate_activate(super_client, client):
     service = service.deactivate()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, service)
 
     service = service.activate()
     service = client.wait_success(service, 120)
@@ -264,7 +263,7 @@ def test_extservice_deactivate_activate_environment(super_client, client):
     ext_service = client.wait_success(ext_service, 120)
     assert ext_service.state == "inactive"
 
-    time.sleep(60)
+    wait_until_instances_get_stopped(super_client, service)
 
     env = env.activateservices()
     service = client.wait_success(service, 120)
