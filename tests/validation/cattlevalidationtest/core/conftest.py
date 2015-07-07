@@ -19,30 +19,6 @@ def cleanup(super_client):
         except AttributeError:
             pass
     delete_all(super_client, to_delete_env)
-    to_delete = []
-    for i in super_client.list_instance(state='running'):
-        try:
-            if instance_name_format.match(i.name) or \
-                    instance_name_format_for_services.match(i.name) or \
-                    i.name.startswith("socat-test") or \
-                    i.name.startswith("rancher-compose"):
-                to_delete.append(i)
-        except AttributeError:
-            pass
-
-    delete_all(super_client, to_delete)
-
-    to_delete = []
-    for i in super_client.list_instance(state='stopped'):
-        try:
-            if i.name is not None:
-                if instance_name_format.match(i.name) or \
-                        instance_name_format_for_services.match(i.name):
-                    to_delete.append(i)
-        except AttributeError:
-            pass
-
-    delete_all(super_client, to_delete)
 
     to_delete_lb = []
     for i in super_client.list_loadBalancer(state='active'):
@@ -71,3 +47,28 @@ def cleanup(super_client):
             pass
 
     delete_all(super_client, to_delete_lb_listener)
+
+    to_delete = []
+    for i in super_client.list_instance(state='running'):
+        try:
+            if instance_name_format.match(i.name) or \
+                    instance_name_format_for_services.match(i.name) or \
+                    i.name.startswith("socat-test") or \
+                    i.name.startswith("rancher-compose"):
+                to_delete.append(i)
+        except AttributeError:
+            pass
+
+    delete_all(super_client, to_delete)
+
+    to_delete = []
+    for i in super_client.list_instance(state='stopped'):
+        try:
+            if i.name is not None:
+                if instance_name_format.match(i.name) or \
+                        instance_name_format_for_services.match(i.name):
+                    to_delete.append(i)
+        except AttributeError:
+            pass
+
+    delete_all(super_client, to_delete)
