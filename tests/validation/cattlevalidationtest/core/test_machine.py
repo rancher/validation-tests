@@ -17,7 +17,7 @@ default_region = "nyc3"
 
 
 # Digital Ocean Error Messages
-error_msg_auth_failure = "401"
+error_msg_auth_failure = "Invalid access token"
 
 error_msg_invalid_region = "digitalocean requires a valid region"
 
@@ -32,10 +32,13 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='session', autouse=True)
 def register_host(admin_client):
-    test_url = cattle_url()
-    start = test_url.index("//") + 2
-    api_host = test_url[start:]
-    admin_client.create_setting(name="api.host", value=api_host)
+    setting = admin_client.by_id_setting("api.host")
+    if setting.value is None or len(setting.value) == 0:
+        test_url = cattle_url()
+        start = test_url.index("//") + 2
+        api_host = test_url[start:]
+        admin_client.create_setting(name="api.host", value=api_host)
+        time.sleep(15)
 
 
 @if_machine_digocean
@@ -137,6 +140,9 @@ def test_digital_ocean_machine_parallel(client):
             assert machine.state == 'removed'
 
             host = machine.hosts()[0]
+            host = wait_for_condition(client, host,
+                                      lambda x: x.state == 'removed',
+                                      lambda x: 'State is: ' + x.state)
             assert host.state == 'removed'
             wait_for_host_destroy_in_digital_ocean(
                 host.ipAddresses()[0].address)
@@ -238,6 +244,9 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
     assert machine.state == 'removed'
 
     host = client.reload(machine.hosts()[0])
+    host = wait_for_condition(client, host,
+                              lambda x: x.state == 'removed',
+                              lambda x: 'State is: ' + x.state)
     assert host.state == 'removed'
 
     wait_for_host_destroy_in_digital_ocean(host.ipAddresses()[0].address)

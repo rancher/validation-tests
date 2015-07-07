@@ -25,7 +25,7 @@ instance_type = "t2.small"
 
 # Default values set by Docker Machine
 default_image_in_west = "ami-898dd9b9"
-default_image_in_east = "ami-4ae27e22"
+default_image_in_east = "ami-5f709f34"
 default_security_group = "docker-machine"
 default_instance_type = "t2.micro"
 default_root_size = "16"
@@ -34,9 +34,10 @@ default_region = "us-east-1"
 
 # Amazon error message validation
 
-error_msg_auth_failure = "code=401"
+error_msg_auth_failure = \
+    "AWS was not able to validate the provided access credentials"
 error_msg_invalid_vpc = "unable to find a subnet in the zone"
-error_msg_invalid_subnet = "code=400"
+error_msg_invalid_subnet = "The subnet ID '"+subnet_id+"' does not exist"
 
 if_machine_amazon = pytest.mark.skipif(
     not os.environ.get('AMAZON_ACCESSKEY') or
@@ -49,10 +50,13 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='session', autouse=True)
 def register_host(admin_client):
-    test_url = cattle_url()
-    start = test_url.index("//") + 2
-    api_host = test_url[start:]
-    admin_client.create_setting(name="api.host", value=api_host)
+    setting = admin_client.by_id_setting("api.host")
+    if setting.value is None or len(setting.value) == 0:
+        test_url = cattle_url()
+        start = test_url.index("//") + 2
+        api_host = test_url[start:]
+        admin_client.create_setting(name="api.host", value=api_host)
+        time.sleep(15)
 
 
 @if_machine_amazon
@@ -385,6 +389,9 @@ def test_amazon_ec2machine_parallel(client):
             assert machine.state == 'removed'
 
             host = machine.hosts()[0]
+            host = wait_for_condition(client, host,
+                                      lambda x: x.state == 'removed',
+                                      lambda x: 'State is: ' + x.state)
             assert host.state == 'removed'
             wait_for_host_to_destroy_in_amazon(region, machine.name)
 
@@ -436,6 +443,9 @@ def amazon_ec2_machine_lifecycle(ec2_region, client, configs, expected_values):
     assert machine.state == 'removed'
 
     host = client.reload(host)
+    host = wait_for_condition(client, host,
+                              lambda x: x.state == 'removed',
+                              lambda x: 'State is: ' + x.state)
     assert host.state == 'removed'
 
     wait_for_host_to_destroy_in_amazon(ec2_region, machine.name)
