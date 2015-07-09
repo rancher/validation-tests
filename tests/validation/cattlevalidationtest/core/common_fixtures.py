@@ -7,6 +7,7 @@ import time
 import logging
 import paramiko
 import inspect
+import re
 from docker import Client
 
 logging.basicConfig()
@@ -543,10 +544,20 @@ def get_service_container_list(super_client, service):
     return container
 
 
+def link_svc_with_port(super_client, service, linkservices, port):
+
+    for linkservice in linkservices:
+        service_link = {"serviceId": linkservice.id, "ports": [port]}
+        service = service.addservicelink(serviceLink=service_link)
+        validate_add_service_link(super_client, service, linkservice)
+    return service
+
+
 def link_svc(super_client, service, linkservices):
 
     for linkservice in linkservices:
-        service = service.addservicelink(serviceId=linkservice.id)
+        service_link = {"serviceId": linkservice.id}
+        service = service.addservicelink(serviceLink=service_link)
         validate_add_service_link(super_client, service, linkservice)
     return service
 
@@ -1273,6 +1284,42 @@ def wait_until_instances_get_stopped(super_client, service, timeout=60):
     stopped_count = 0
     start = time.time()
     while stopped_count != service.scale:
+        time.sleep(.5)
+        container_list = get_service_container_list(super_client, service)
+        stopped_count = 0
+        for con in container_list:
+            if con.state == "stopped":
+                stopped_count = stopped_count + 1
+        if time.time() - start > timeout:
+            raise Exception(
+                'Timed out waiting for instances to get to stopped state')
+
+
+def get_service_containers_with_name(super_client, service, name):
+
+    container = []
+    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+                                                       state="active")
+    nameformat = re.compile(name + "_[0-9]{1,2}")
+    for instance_map in instance_maps:
+        c = super_client.by_id('container', instance_map.instanceId)
+        print c.name
+        if nameformat.match(c.name):
+            containers = super_client.list_container(
+                externalId=c.externalId,
+                include="hosts")
+            assert len(containers) == 1
+            container.append(containers[0])
+
+    return container
+
+
+def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
+        super_client, service, timeout=60):
+    stopped_count = 0
+    start = time.time()
+    container_count = service.scale*(len(service.secondaryLaunchConfigs)+1)
+    while stopped_count != container_count:
         time.sleep(.5)
         container_list = get_service_container_list(super_client, service)
         stopped_count = 0

@@ -10,7 +10,7 @@ def activate_environment_with_external_services(
 
     service.activate()
     ext_service.activate()
-    service.addservicelink(serviceId=ext_service.id)
+    service.addservicelink(serviceLink={"serviceId": ext_service.id})
     service = client.wait_success(service, 120)
     ext_service = client.wait_success(ext_service, 120)
     assert service.state == "active"
@@ -125,7 +125,7 @@ def test_extservice_link_when_services_still_activating(super_client, client):
     service.activate()
     ext_service.activate()
 
-    service.addservicelink(serviceId=ext_service.id)
+    service.addservicelink(serviceLink={"serviceId": ext_service.id})
     service = client.wait_success(service, 120)
 
     ext_service = client.wait_success(ext_service, 120)
@@ -315,7 +315,7 @@ def test_extservice_services_delete_service_add_service(super_client, client):
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    service1.addservicelink(serviceId=ext_service.id)
+    service1.addservicelink(serviceLink={"serviceId": ext_service.id})
     validate_add_service_link(super_client, service1, ext_service)
 
     validate_external_service(super_client, service1,
@@ -366,7 +366,8 @@ def test_extservice_delete_and_add_ext_service(super_client, client):
     ext_service1 = client.wait_success(ext_service1)
     ext_service1 = activate_svc(client, ext_service1)
 
-    service.addservicelink(serviceId=ext_service1.id)
+    service.addservicelink(serviceLink={"serviceId": ext_service1.id})
+
     validate_add_service_link(super_client, service, ext_service1)
 
     validate_external_service(super_client, service, [ext_service1], port,

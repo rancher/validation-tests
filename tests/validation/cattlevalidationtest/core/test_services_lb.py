@@ -12,7 +12,9 @@ def create_environment_with_lb_services(super_client, client,
 
     service.activate()
     lb_service.activate()
-    lb_service.addservicelink(serviceId=service.id)
+
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
 
     service = client.wait_success(service, 120)
     lb_service = client.wait_success(lb_service, 120)
@@ -48,7 +50,7 @@ def test_lbservice_activate_lb_link_activate_svc(super_client, client):
         client, service_scale, lb_scale, port)
 
     lb_service = activate_svc(client, lb_service)
-    link_svc(super_client, lb_service, [service])
+    link_svc_with_port(super_client, lb_service, [service], "80")
     service = activate_svc(client, service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
@@ -66,7 +68,7 @@ def test_lbservice_activate_svc_link_activate_lb(super_client, client):
         client, service_scale, lb_scale, port)
 
     service = activate_svc(client, service)
-    link_svc(super_client, lb_service, [service])
+    link_svc_with_port(super_client, lb_service, [service], "80")
     lb_service = activate_svc(client, lb_service)
 
     validate_lb_service(super_client, client, env, [service], lb_service, port)
@@ -83,7 +85,7 @@ def test_lbservice_link_activate_lb_activate_svc(super_client, client):
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    link_svc(super_client, lb_service, [service])
+    link_svc_with_port(super_client, lb_service, [service], "80")
     lb_service = activate_svc(client, lb_service)
     service = activate_svc(client, service)
 
@@ -101,7 +103,7 @@ def test_lbservice_link_activate_svc_activate_lb(super_client, client):
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    link_svc(super_client, lb_service, [service])
+    link_svc_with_port(super_client, lb_service, [service], "80")
     service = activate_svc(client, service)
     lb_service = activate_svc(client, lb_service)
 
@@ -121,7 +123,8 @@ def test_lbservice_link_when_services_still_activating(super_client, client):
 
     service.activate()
     lb_service.activate()
-    lb_service.addservicelink(serviceId=service.id)
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
 
     service = client.wait_success(service, 120)
     lb_service = client.wait_success(lb_service, 120)
@@ -144,7 +147,8 @@ def test_lb_services_activate_env(super_client, client):
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    lb_service.addservicelink(serviceId=service.id)
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
 
     env = env.activateservices()
     env = client.wait_success(env, 120)
@@ -411,7 +415,9 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    lb_service.addservicelink(serviceId=service1.id)
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
+
     validate_add_service_link(super_client, lb_service, service1)
 
     validate_lb_service(super_client, client, env, [service, service1],
@@ -506,7 +512,9 @@ def test_lb_services_delete_service_add_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    lb_service.addservicelink(serviceId=service1.id)
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
+
     validate_add_service_link(super_client, lb_service, service1)
 
     validate_lb_service(super_client, client, env, [service1],

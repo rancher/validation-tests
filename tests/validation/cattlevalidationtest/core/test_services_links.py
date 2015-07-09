@@ -12,7 +12,7 @@ def create_environment_with_linked_services(
     service.activate()
     consumed_service.activate()
 
-    service.addservicelink(serviceId=consumed_service.id)
+    service.addservicelink(serviceLink={"serviceId": consumed_service.id})
     service = client.wait_success(service, 120)
 
     consumed_service = client.wait_success(consumed_service, 120)
@@ -124,7 +124,7 @@ def test_link_link_when_services_still_activating(super_client, client):
     service.activate()
     consumed_service.activate()
 
-    service.addservicelink(serviceId=consumed_service.id)
+    service.addservicelink(serviceLink={"serviceId": consumed_service.id})
     service = client.wait_success(service, 120)
 
     consumed_service = client.wait_success(consumed_service, 120)
@@ -425,14 +425,14 @@ def test_link_add_remove_servicelinks(super_client, client):
     assert consumed_service1.state == "active"
 
     # Add another service link
-    service.addservicelink(serviceId=consumed_service1.id)
+    service.addservicelink(serviceLink={"serviceId": consumed_service1.id})
     validate_add_service_link(super_client, service, consumed_service1)
 
     validate_linked_service(super_client, service,
                             [consumed_service, consumed_service1], port)
 
     # Remove existing service link to the service
-    service.removeservicelink(serviceId=consumed_service.id)
+    service.removeservicelink(serviceLink={"serviceId": consumed_service.id})
     validate_remove_service_link(super_client, service, consumed_service)
 
     validate_linked_service(super_client, service, [consumed_service1], port)
@@ -476,7 +476,7 @@ def test_link_services_delete_service_add_service(super_client, client):
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    service1.addservicelink(serviceId=consumed_service.id)
+    service1.addservicelink(serviceLink={"serviceId": consumed_service.id})
     validate_add_service_link(super_client, service1, consumed_service)
 
     validate_linked_service(super_client, service1, [consumed_service], port1)
@@ -520,7 +520,7 @@ def test_link_services_delete_and_add_consumed_service(super_client, client):
     consumed_service1 = client.wait_success(consumed_service1, 120)
     assert consumed_service1.state == "active"
 
-    service.addservicelink(serviceId=consumed_service1.id)
+    service.addservicelink(serviceLink={"serviceId": consumed_service1.id})
     validate_add_service_link(super_client, service, consumed_service1)
 
     validate_linked_service(super_client, service, [consumed_service1], port)
