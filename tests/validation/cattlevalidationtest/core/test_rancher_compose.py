@@ -185,7 +185,9 @@ def test_rancher_compose_lbservice(super_client, client,
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    lb_service.addservicelink(serviceId=service.id)
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
+
     validate_add_service_link(super_client, lb_service, service)
 
     # Add another service link to the LB service
@@ -198,7 +200,8 @@ def test_rancher_compose_lbservice(super_client, client,
     service1 = client.wait_success(service1)
     assert service1.state == "inactive"
 
-    lb_service.addservicelink(serviceId=service1.id)
+    service_link = {"serviceId": service1.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
     validate_add_service_link(super_client, lb_service, service1)
 
     launch_rancher_compose(client, env, "lb_service")
@@ -253,7 +256,9 @@ def test_rancher_compose_service_links(super_client, client,
     env, service, consumed_service = create_env_with_2_svc(
         client, service_scale, consumed_service_scale, port)
 
-    service.addservicelink(serviceId=consumed_service.id)
+    service_link = {"serviceId": consumed_service.id, "ports": ["80"]}
+    service.addservicelink(serviceLink=service_link)
+
     service = client.wait_success(service, 120)
 
 #   Launch env using docker compose
@@ -299,9 +304,14 @@ def test_rancher_compose_dns_services(super_client, client,
         create_env_with_2_svc_dns(
             client, service_scale, consumed_service_scale, port)
 
-    service.addservicelink(serviceId=dns.id)
-    dns.addservicelink(serviceId=consumed_service.id)
-    dns.addservicelink(serviceId=consumed_service1.id)
+    service_link = {"serviceId": dns.id}
+    service.addservicelink(serviceLink=service_link)
+
+    service_link = {"serviceId": consumed_service.id}
+    dns.addservicelink(serviceLink=service_link)
+
+    service_link = {"serviceId": consumed_service1.id}
+    dns.addservicelink(serviceLink=service_link)
 
 #   Launch env using docker compose
 
@@ -366,7 +376,9 @@ def test_rancher_compose_external_services(super_client, client,
     env, service, ext_service, con_list = create_env_with_ext_svc(
         client, service_scale, port)
 
-    service.addservicelink(serviceId=ext_service.id)
+    service_link = {"serviceId": ext_service.id}
+    service.addservicelink(serviceLink=service_link)
+
 #   Launch env using docker compose
 
     launch_rancher_compose(client, env, "ext_service")

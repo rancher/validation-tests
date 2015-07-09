@@ -16,9 +16,9 @@ def create_environment_with_dns_services(super_client, client,
     consumed_service1.activate()
     dns.activate()
 
-    service.addservicelink(serviceId=dns.id)
-    dns.addservicelink(serviceId=consumed_service.id)
-    dns.addservicelink(serviceId=consumed_service1.id)
+    service.addservicelink(serviceLink={"serviceId": dns.id})
+    dns.addservicelink(serviceLink={"serviceId": consumed_service.id})
+    dns.addservicelink(serviceLink={"serviceId": consumed_service1.id})
 
     service = client.wait_success(service, 120)
     consumed_service = client.wait_success(consumed_service, 120)
@@ -141,9 +141,9 @@ def test_dns_link_when_services_still_activating(super_client, client):
     consumed_service1.activate()
     dns.activate()
 
-    service.addservicelink(serviceId=dns.id)
-    dns.addservicelink(serviceId=consumed_service.id)
-    dns.addservicelink(serviceId=consumed_service1.id)
+    service.addservicelink(serviceLink={"serviceId": dns.id})
+    dns.addservicelink(serviceLink={"serviceId": consumed_service.id})
+    dns.addservicelink(serviceLink={"serviceId": consumed_service1.id})
 
     service = client.wait_success(service, 120)
     consumed_service = client.wait_success(consumed_service, 120)
@@ -504,7 +504,7 @@ def test_dns_add_remove_servicelinks(super_client, client):
     assert consumed_service2.state == "active"
 
     # Add another service link
-    dns.addservicelink(serviceId=consumed_service2.id)
+    dns.addservicelink(serviceLink={"serviceId": consumed_service2.id})
     validate_add_service_link(super_client, dns, consumed_service2)
 
     validate_dns_service(
@@ -512,7 +512,7 @@ def test_dns_add_remove_servicelinks(super_client, client):
                                 consumed_service2], port, dns.name)
 
     # Remove existing service link to the service
-    dns.removeservicelink(serviceId=consumed_service.id)
+    dns.removeservicelink(serviceLink={"serviceId": consumed_service.id})
     validate_remove_service_link(super_client, dns, consumed_service)
 
     validate_dns_service(
@@ -561,7 +561,7 @@ def test_dns_services_delete_service_add_service(super_client, client):
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    service1.addservicelink(serviceId=dns.id)
+    service1.addservicelink(serviceLink={"serviceId": dns.id})
     validate_add_service_link(super_client, service1, dns)
 
     validate_dns_service(
@@ -613,7 +613,9 @@ def test_dns_services_delete_and_add_consumed_service(super_client, client):
     consumed_service2 = client.wait_success(consumed_service2, 120)
     assert consumed_service2.state == "active"
 
-    dns.addservicelink(serviceId=consumed_service2.id)
+    service_link = {"serviceId": consumed_service2.id}
+    dns.addservicelink(serviceLink=service_link)
+
     validate_add_service_link(super_client, dns, consumed_service2)
 
     validate_dns_service(
@@ -778,14 +780,19 @@ def test_dns_add_remove_servicelinks_using_set(super_client, client):
     assert consumed_service1.state == "active"
 
     # Add another service link using setservicelinks
-    dns.setservicelinks(serviceIds=[consumed_service.id, consumed_service1.id])
+
+    service_link1 = {"serviceId": consumed_service.id}
+    service_link2 = {"serviceId": consumed_service1.id}
+
+    dns.setservicelinks(serviceLinks=[service_link1, service_link2])
+
     validate_add_service_link(super_client, dns, consumed_service1)
 
     validate_dns_service(super_client, service,
                          [consumed_service, consumed_service1], port, dns.name)
 
     # Remove existing service link to the service using setservicelinks
-    dns.setservicelinks(serviceIds=[consumed_service1.id])
+    dns.setservicelinks(serviceLinks=[service_link2])
     validate_remove_service_link(super_client, dns, consumed_service)
 
     validate_dns_service(super_client, service, [consumed_service1], port,

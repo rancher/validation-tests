@@ -45,7 +45,8 @@ def create_lb_for_container_lifecycle(client, host, port):
                                    )
     con1 = client.wait_success(con1, timeout=180)
 
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     con_hostname = CONTAINER_HOST_NAMES
@@ -122,11 +123,13 @@ def create_lb_with_one_listener_one_host_two_targets(client,
     if containers is None:
         # Add default containers to LB
         for n in range(0, 2):
-            lb = lb.addtarget(instanceId=containers_in_host[n].id)
+            target = {"instanceId": containers_in_host[n].id, "ports": ["80"]}
+            lb = lb.addtarget(loadBalancerTarget=target)
             validate_add_target(client, containers_in_host[n], lb)
     else:
         for container in containers:
-            lb = lb.addtarget(instanceId=container.id)
+            target = {"instanceId": container.id, "ports": ["80"]}
+            lb = lb.addtarget(loadBalancerTarget=target)
             validate_add_target(client, container, lb)
 
     if lb_config_params is None and listener_algorithm is None \
@@ -184,7 +187,8 @@ def test_lb_add_host_target_in_parallel(client):
     lb = lb.addhost(hostId=host.id)
 
     for n in range(0, 2):
-        lb = lb.addtarget(instanceId=containers_in_host[n].id)
+        target = {"instanceId": containers_in_host[n].id, "ports": ["80"]}
+        lb = lb.addtarget(loadBalancerTarget=target)
 
     lb_config = lb_config.addlistener(loadBalancerListenerId=listener.id)
 
@@ -223,7 +227,8 @@ def test_lb_add_target(client):
     con1 = client.wait_success(con1, timeout=180)
 
     # Add target to existing LB
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     logger.info("Check LB access after adding target with container name: "
@@ -261,7 +266,8 @@ def test_lb_remove_target(client):
     con1 = client.wait_success(con1, timeout=180)
 
     # Add target to existing LB
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     logger.info("Check LB access after adding target with container name: "
@@ -272,7 +278,8 @@ def test_lb_remove_target(client):
 
     # Remove target to existing LB
 
-    lb = lb.removetarget(instanceId=con1.id)
+    lb = lb.removetarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_remove_target(client, con1, lb)
 
     logger.info("Check LB access after removing target with container name: "
@@ -614,7 +621,8 @@ def test_lb_add_target_in_different_host(client):
                                    )
     con1 = client.wait_success(con1, timeout=180)
 
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     con_hostname = CONTAINER_HOST_NAMES
@@ -743,7 +751,8 @@ def test_reuse_port_after_lb_deletion(client):
                                    )
 
     con1 = client.wait_success(con1, timeout=180)
-    lb_2 = lb_2.addtarget(instanceId=con1.id)
+    lb_2 = lb_2.addtarget(loadBalancerTarget={
+        "instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb_2)
 
     con_hostname = CONTAINER_HOST_NAMES
@@ -899,7 +908,8 @@ def test_lb_with_health_check_with_uri(client):
                                    requestedHostId=host.id
                                    )
     con1 = client.wait_success(con1, timeout=180)
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
@@ -941,7 +951,8 @@ def test_lb_with_health_check_without_uri(client):
                                    )
 
     con1 = client.wait_success(con1, timeout=180)
-    lb = lb.addtarget(instanceId=con1.id)
+    lb = lb.addtarget(
+        loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
