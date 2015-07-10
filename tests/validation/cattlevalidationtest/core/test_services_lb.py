@@ -415,7 +415,7 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service1.id, "ports": ["80"]}
     lb_service.addservicelink(serviceLink=service_link)
 
     validate_add_service_link(super_client, lb_service, service1)
@@ -424,7 +424,10 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
                         lb_service, port)
 
     # Remove existing service link to the LB service
-    lb_service.removeservicelink(serviceId=service.id)
+
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.removeservicelink(serviceLink=service_link)
+
     validate_remove_service_link(super_client, lb_service, service)
 
     validate_lb_service(super_client, client, env, [service1], lb_service,
@@ -462,14 +465,16 @@ def test_lb_services_add_remove_servicelinks_lb(super_client, client):
 
     # Link this LB to the existing service
 
-    lb2_service.addservicelink(serviceId=service.id)
+    lb2_service.addservicelink(
+        serviceLink={"serviceId": service.id, "ports": ["80"]})
     validate_add_service_link(super_client, lb2_service, service)
 
     validate_lb_service(super_client, client, env, [service],
                         lb2_service, port2)
 
     # Remove existing lB link to service
-    lb_service.removeservicelink(serviceId=service.id)
+    lb_service.removeservicelink(
+        serviceLink={"serviceId": service.id, "ports": ["80"]})
     validate_remove_service_link(super_client, lb_service, service)
 
     validate_lb_service(super_client, client, env, [service],
@@ -512,7 +517,7 @@ def test_lb_services_delete_service_add_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service1.id, "ports": ["80"]}
     lb_service.addservicelink(serviceLink=service_link)
 
     validate_add_service_link(super_client, lb_service, service1)
