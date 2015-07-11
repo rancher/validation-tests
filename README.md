@@ -19,15 +19,15 @@ If that variable is not set, the tests will attempt to provision one.
 To run:
 
 ```
-git clone git@github.com:rancherio/validation-tests.git
+git clone git@github.com:rancher/validation-tests.git
 cd validation-tests
 ./scripts/test
 ```
 ## Contact
 For bugs, questions, comments, corrections, suggestions, etc., open an issue in
- [rancherio/rancher](//github.com/rancherio/rancher/issues) with a title starting with `[Validation-Tests] `.
+ [rancher/rancher](//github.com/rancher/rancher/issues) with a title starting with `[Validation-Tests] `.
 
-Or just [click here](//github.com/rancherio/rancher/issues/new?title=%5BValidation-Tests%5D%20) to create a new issue.
+Or just [click here](//github.com/rancher/rancher/issues/new?title=%5BValidation-Tests%5D%20) to create a new issue.
 
 # License
 Copyright (c) 2014-2015 [Rancher Labs, Inc.](http://rancher.com)
