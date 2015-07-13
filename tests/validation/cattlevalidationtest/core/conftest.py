@@ -54,6 +54,8 @@ def cleanup(super_client):
             if instance_name_format.match(i.name) or \
                     instance_name_format_for_services.match(i.name) or \
                     i.name.startswith("socat-test") or \
+                    i.name.startswith("native-test") or \
+                    i.name.startswith("target-native-test-") or \
                     i.name.startswith("rancher-compose"):
                 to_delete.append(i)
         except AttributeError:
@@ -66,7 +68,9 @@ def cleanup(super_client):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
-                        instance_name_format_for_services.match(i.name):
+                        instance_name_format_for_services.match(i.name) or \
+                        i.name.startswith("native-test") or \
+                        i.name.startswith("target-native-test-"):
                     to_delete.append(i)
         except AttributeError:
             pass
