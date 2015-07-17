@@ -26,6 +26,7 @@ SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
+LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testhostrouting:latest"
 
 DEFAULT_TIMEOUT = 45
 
@@ -621,40 +622,11 @@ def validate_exposed_port_and_container_link(super_client, con, link_name,
     assert link_name == resp
 
 
-def check_round_robin_access(container_names, host, port):
-    con_hostname = container_names[:]
-    con_hostname_ordered = []
-
-    url = "http://" + host.ipAddresses()[0].address +\
-          ":" + port + "/name.html"
-
-    logger.info(url)
-
-    for n in range(0, len(con_hostname)):
-        r = requests.get(url)
-        response = r.text.strip("\n")
-        logger.info(response)
-        r.close()
-        assert response in con_hostname
-        con_hostname.remove(response)
-        con_hostname_ordered.append(response)
-
-    logger.info(con_hostname_ordered)
-
-    i = 0
-    for n in range(0, 10):
-        r = requests.get(url)
-        response = r.text.strip("\n")
-        r.close()
-        logger.info(response)
-        assert response == con_hostname_ordered[i]
-        i = i + 1
-        if i == len(con_hostname_ordered):
-            i = 0
-
-
 def validate_lb_service(super_client, client, env, services, lb_service, port,
-                        exclude_instance=None):
+                        target_services=None, hostheader=None, path=None):
+
+    if target_services is None:
+        target_services = services
 
     lbs = client.list_loadBalancer(serviceId=lb_service.id)
     assert len(lbs) == 1
@@ -662,18 +634,17 @@ def validate_lb_service(super_client, client, env, services, lb_service, port,
     lb = lbs[0]
 
     # Wait for host maps to get created and reach "active" state
-    host_maps = wait_until_host_map_created(client, lb, lb_service.scale)
+    host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
     assert len(host_maps) == lb_service.scale
 
     logger.info("host_maps - " + str(host_maps))
 
-    target_count = 0
-    for service in services:
-        target_count = target_count + service.scale
-
     # Wait for target maps to get created and reach "active" state
-
-    target_maps = wait_until_target_map_created(client, lb, target_count)
+    all_target_count = 0
+    for service in services:
+        all_target_count = all_target_count + service.scale
+    target_maps = wait_until_target_map_created(
+        client, lb, all_target_count, 60)
     logger.info(target_maps)
 
     lb_hosts = []
@@ -683,19 +654,23 @@ def validate_lb_service(super_client, client, env, services, lb_service, port,
         lb_hosts.append(host)
         logger.info("host: " + host.name)
 
-    container_names = get_container_names_list(super_client, env, services)
+    # Build all the servers for the access url
+
+    target_count = 0
+    for service in target_services:
+        target_count = target_count + service.scale
+    container_names = get_container_names_list(super_client, env,
+                                               target_services)
     logger.info(container_names)
 
-    if exclude_instance is None:
-        assert len(container_names) == target_count
-    else:
-        list_length = target_count - 1
-        assert len(container_names) == list_length
-        assert exclude_instance.externalId[:12] not in container_names
-
+    assert len(container_names) == target_count
     for host in lb_hosts:
         wait_until_lb_is_active(host, port)
-        check_round_robin_access(container_names, host, port)
+        if hostheader is not None or path is not None:
+            check_round_robin_access(container_names, host, port,
+                                     hostheader, path)
+        else:
+            check_round_robin_access(container_names, host, port)
 
 
 def wait_until_target_map_created(client, lb, count, timeout=30):
@@ -709,7 +684,7 @@ def wait_until_target_map_created(client, lb, count, timeout=30):
             list_loadBalancerTarget(loadBalancerId=lb.id, removed_null=True,
                                     state="active")
         if time.time() - start > timeout:
-            raise Exception('Timed out waiting for map creation')
+            raise Exception('Timed out waiting for target map creation')
     return target_maps
 
 
@@ -724,7 +699,7 @@ def wait_until_host_map_created(client, lb, count, timeout=30):
             list_loadBalancerHostMap(loadBalancerId=lb.id, removed_null=True,
                                      state="active")
         if time.time() - start > timeout:
-            raise Exception('Timed out waiting for map creation')
+            raise Exception('Timed out waiting for host map creation')
     return host_maps
 
 
@@ -970,12 +945,14 @@ def validate_external_service(super_client, service, ext_services,
 
 
 @pytest.fixture(scope='session')
-def rancher_compose_container(client, request):
+def rancher_compose_container(admin_client, client, request):
     if rancher_compose_con["container"] is not None:
         return
+    setting = admin_client.by_id_setting(
+        "default.cattle.rancher.compose.linux.url")
+    rancher_compose_url = setting.value
     cmd1 = \
-        "wget https://releases.rancher.com/compose/latest/" \
-        "rancher-compose-linux-amd64.tar.gz"
+        "wget " + rancher_compose_url
     cmd2 = "tar xvf rancher-compose-linux-amd64.tar.gz"
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -1329,3 +1306,132 @@ def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
         if time.time() - start > timeout:
             raise Exception(
                 'Timed out waiting for instances to get to stopped state')
+
+
+def validate_lb_service_for_no_access(client, lb_service, port,
+                                      hostheader, path):
+
+    lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    assert len(lbs) == 1
+
+    lb = lbs[0]
+    host_maps = wait_until_host_map_created(client, lb, lb_service.scale)
+    assert len(host_maps) == lb_service.scale
+
+    lb_hosts = []
+
+    for host_map in host_maps:
+        host = client.by_id('host', host_map.hostId)
+        lb_hosts.append(host)
+        logger.info("host: " + host.name)
+
+    for host in lb_hosts:
+        wait_until_lb_is_active(host, port)
+        check_for_service_unavailable(host, port, hostheader, path)
+
+
+def check_for_service_unavailable(host, port, hostheader, path):
+
+    url = "http://" + host.ipAddresses()[0].address +\
+          ":" + port + path
+    logger.info(url)
+
+    headers = {"host": hostheader}
+
+    logger.info(headers)
+    r = requests.get(url, headers=headers)
+    response = r.text.strip("\n")
+    logger.info(response)
+    r.close()
+    assert "503 Service Unavailable" in response
+
+
+def check_round_robin_access(container_names, host, port,
+                             hostheader=None, path="/name.html"):
+
+    con_hostname = container_names[:]
+    con_hostname_ordered = []
+
+    url = "http://" + host.ipAddresses()[0].address +\
+          ":" + port + path
+
+    logger.info(url)
+
+    headers = None
+    if hostheader is not None:
+        headers = {"host": hostheader}
+
+    logger.info(headers)
+
+    for n in range(0, len(con_hostname)):
+        if headers is not None:
+            r = requests.get(url, headers=headers)
+        else:
+            r = requests.get(url)
+        response = r.text.strip("\n")
+        logger.info(response)
+        r.close()
+        assert response in con_hostname
+        con_hostname.remove(response)
+        con_hostname_ordered.append(response)
+
+    logger.info(con_hostname_ordered)
+
+    i = 0
+    for n in range(0, 10):
+        if headers is not None:
+            r = requests.get(url, headers=headers)
+        else:
+            r = requests.get(url)
+        response = r.text.strip("\n")
+        r.close()
+        logger.info(response)
+        assert response == con_hostname_ordered[i]
+        i = i + 1
+        if i == len(con_hostname_ordered):
+            i = 0
+
+
+def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
+                                        port, count):
+
+    launch_config_svc = \
+        {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
+
+    launch_config_lb = {"ports": [port+":80"]}
+
+    services = []
+    # Create Environment
+    random_name = random_str()
+    env_name = random_name.replace("-", "")
+    env = client.create_environment(name=env_name)
+    env = client.wait_success(env)
+    assert env.state == "active"
+
+    # Create Service
+    for i in range(0, count):
+        random_name = random_str()
+        service_name = random_name.replace("-", "")
+        service = client.create_service(name=service_name,
+                                        environmentId=env.id,
+                                        launchConfig=launch_config_svc,
+                                        scale=scale_svc)
+
+        service = client.wait_success(service)
+        assert service.state == "inactive"
+        services.append(service)
+
+    # Create LB Service
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    lb_service = client.create_loadBalancerService(
+        name=service_name,
+        environmentId=env.id,
+        launchConfig=launch_config_lb,
+        scale=scale_lb)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    return env, services, lb_service
