@@ -16,17 +16,17 @@ def test_lbservice_host_routing_1(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80:www.abc3.com/service1.html",
-                               "80:www.abc4.com/service2.html"]}
+                     "ports": ["www.abc3.com/service1.html",
+                               "www.abc4.com/service2.html"]}
     service_link4 = {"serviceId": services[3].id,
-                     "ports": ["80:www.abc3.com/service1.html",
-                               "80:www.abc4.com/service2.html"]}
+                     "ports": ["www.abc3.com/service1.html",
+                               "www.abc4.com/service2.html"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
@@ -67,14 +67,14 @@ def test_lbservice_host_routing_2(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80:www.abc1.com/name.html",
-                               "80:www.abc2.com/name.html"]}
+                     "ports": ["www.abc1.com/name.html",
+                               "www.abc2.com/name.html"]}
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3])
@@ -119,14 +119,14 @@ def test_lbservice_host_routing_scale_up(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80:www.abc1.com/name.html",
-                               "80:www.abc2.com/name.html"]}
+                     "ports": ["www.abc1.com/name.html",
+                               "www.abc2.com/name.html"]}
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3])
@@ -205,14 +205,14 @@ def test_lbservice_host_routing_scale_down(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com/service1.html",
-                               "80:www.abc2.com/service2.html"]}
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
     service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80:www.abc1.com/name.html",
-                               "80:www.abc2.com/name.html"]}
+                     "ports": ["www.abc1.com/name.html",
+                               "www.abc2.com/name.html"]}
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3])
@@ -292,9 +292,9 @@ def test_lbservice_host_routing_only_path(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:/service1.html"]}
+                     "ports": ["/service1.html"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:/service2.html"]}
+                     "ports": ["/service2.html"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
@@ -344,9 +344,9 @@ def test_lbservice_host_routing_only_host(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com"]}
+                     "ports": ["www.abc1.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
@@ -384,13 +384,12 @@ def test_lbservice_host_routing_3(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com"]}
-    service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80"]}
+                     "ports": ["www.abc1.com"]}
+    service_link3 = {"serviceId": services[2].id}
     service_link4 = {"serviceId": services[3].id,
-                     "ports": ["80:/service1.html"]}
+                     "ports": ["/service1.html"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
@@ -430,13 +429,12 @@ def test_lbservice_edit_host_routing_3(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
     service_link2 = {"serviceId": services[1].id,
-                     "ports": ["80:www.abc1.com"]}
-    service_link3 = {"serviceId": services[2].id,
-                     "ports": ["80"]}
+                     "ports": ["www.abc1.com"]}
+    service_link3 = {"serviceId": services[2].id}
     service_link4 = {"serviceId": services[3].id,
-                     "ports": ["80:/service1.html"]}
+                     "ports": ["/service1.html"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
@@ -464,13 +462,12 @@ def test_lbservice_edit_host_routing_3(super_client, client):
 
     # Edit service links
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
-    service_link2 = {"serviceId": services[2].id,
-                     "ports": ["80"]}
+                     "ports": ["www.abc.com"]}
+    service_link2 = {"serviceId": services[2].id}
     service_link3 = {"serviceId": services[3].id,
-                     "ports": ["80:/service2.html"]}
+                     "ports": ["/service2.html"]}
     service_link4 = {"serviceId": services[4].id,
-                     "ports": ["80:www.abc.com", "80:www.abc1.com"]}
+                     "ports": ["www.abc.com", "www.abc1.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
@@ -509,7 +506,7 @@ def test_lbservice_edit_host_routing_add_host(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
@@ -527,7 +524,7 @@ def test_lbservice_edit_host_routing_add_host(super_client, client):
 
     # Edit service links
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com", "80:www.abc2.com"]}
+                     "ports": ["www.abc.com", "www.abc2.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
@@ -557,7 +554,7 @@ def test_lbservice_edit_host_routing_remove_host(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com", "80:www.abc2.com"]}
+                     "ports": ["www.abc.com", "www.abc2.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
@@ -576,7 +573,7 @@ def test_lbservice_edit_host_routing_remove_host(super_client, client):
 
     # Edit service links
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
@@ -602,7 +599,7 @@ def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
         client, service_scale, lb_scale, port, service_count)
 
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc.com"]}
+                     "ports": ["www.abc.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
@@ -618,7 +615,7 @@ def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
 
     # Edit service links
     service_link1 = {"serviceId": services[0].id,
-                     "ports": ["80:www.abc2.com"]}
+                     "ports": ["www.abc2.com"]}
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])

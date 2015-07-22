@@ -13,7 +13,7 @@ def create_environment_with_lb_services(super_client, client,
     service.activate()
     lb_service.activate()
 
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service.id}
     lb_service.addservicelink(serviceLink=service_link)
 
     service = client.wait_success(service, 120)
@@ -123,7 +123,7 @@ def test_lbservice_link_when_services_still_activating(super_client, client):
 
     service.activate()
     lb_service.activate()
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service.id}
     lb_service.addservicelink(serviceLink=service_link)
 
     service = client.wait_success(service, 120)
@@ -147,7 +147,7 @@ def test_lb_services_activate_env(super_client, client):
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service.id}
     lb_service.addservicelink(serviceLink=service_link)
 
     env = env.activateservices()
@@ -415,7 +415,7 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    service_link = {"serviceId": service1.id, "ports": ["80"]}
+    service_link = {"serviceId": service1.id}
     lb_service.addservicelink(serviceLink=service_link)
 
     validate_add_service_link(super_client, lb_service, service1)
@@ -425,7 +425,7 @@ def test_lb_services_add_remove_servicelinks_service(super_client, client):
 
     # Remove existing service link to the LB service
 
-    service_link = {"serviceId": service.id, "ports": ["80"]}
+    service_link = {"serviceId": service.id}
     lb_service.removeservicelink(serviceLink=service_link)
 
     validate_remove_service_link(super_client, lb_service, service)
@@ -466,7 +466,7 @@ def test_lb_services_add_remove_servicelinks_lb(super_client, client):
     # Link this LB to the existing service
 
     lb2_service.addservicelink(
-        serviceLink={"serviceId": service.id, "ports": ["80"]})
+        serviceLink={"serviceId": service.id})
     validate_add_service_link(super_client, lb2_service, service)
 
     validate_lb_service(super_client, client, env, [service],
@@ -474,7 +474,7 @@ def test_lb_services_add_remove_servicelinks_lb(super_client, client):
 
     # Remove existing lB link to service
     lb_service.removeservicelink(
-        serviceLink={"serviceId": service.id, "ports": ["80"]})
+        serviceLink={"serviceId": service.id})
     validate_remove_service_link(super_client, lb_service, service)
 
     validate_lb_service(super_client, client, env, [service],
@@ -517,7 +517,7 @@ def test_lb_services_delete_service_add_service(super_client, client):
     assert service1.state == "active"
 
     # Add another service link to the LB service
-    service_link = {"serviceId": service1.id, "ports": ["80"]}
+    service_link = {"serviceId": service1.id}
     lb_service.addservicelink(serviceLink=service_link)
 
     validate_add_service_link(super_client, lb_service, service1)
