@@ -7,6 +7,11 @@ CONTAINER_HOST_NAMES = ["container1", "container2", "container3"]
 containers_in_host = []
 logger = logging.getLogger(__name__)
 
+if_lb_containers = pytest.mark.skipif(
+    not os.environ.get('EXECUTE_STANDALONE_LB') or
+    os.environ.get('EXECUTE_STANDALONE_LB').lower() != "true",
+    reason='LB support for containers is terminated')
+
 
 @pytest.fixture(scope='session', autouse=True)
 def lb_targets(request, client):
@@ -140,6 +145,7 @@ def create_lb_with_one_listener_one_host_two_targets(client,
     return lb, lb_config, listener
 
 
+@if_lb_containers
 def test_lb_with_targets(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -155,6 +161,7 @@ def test_lb_with_targets(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_add_host_target_in_parallel(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -203,6 +210,7 @@ def test_lb_add_host_target_in_parallel(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_add_target(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -241,6 +249,7 @@ def test_lb_add_target(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_remove_target(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -292,6 +301,7 @@ def test_lb_remove_target(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_add_listener(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -330,6 +340,7 @@ def test_lb_add_listener(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_remove_listener(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -381,6 +392,7 @@ def test_lb_remove_listener(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_add_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
@@ -408,6 +420,7 @@ def test_lb_add_host(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_remove_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
@@ -457,6 +470,7 @@ def test_lb_remove_host(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_container_lifecycle_stop_start(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -494,6 +508,7 @@ def test_lb_container_lifecycle_stop_start(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_container_lifecycle_restart(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -520,6 +535,7 @@ def test_lb_container_lifecycle_restart(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 @pytest.mark.skipif(True, reason='not implemented yet')
 def test_lb_container_lifecycle_delete_restore(client):
 
@@ -559,6 +575,7 @@ def test_lb_container_lifecycle_delete_restore(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_container_lifecycle_delete_purge(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -597,6 +614,7 @@ def test_lb_container_lifecycle_delete_purge(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_add_target_in_different_host(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
@@ -632,6 +650,7 @@ def test_lb_add_target_in_different_host(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_config_shared_by_2_lb_instances(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
@@ -655,6 +674,7 @@ def test_lb_config_shared_by_2_lb_instances(client):
     cleanup_lb(client, lb2, lb_config2, listener2)
 
 
+@if_lb_containers
 def test_modify_lb_config_shared_by_2_lb_instances(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 1
@@ -722,6 +742,7 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
     cleanup_lb(client, lb2, lb_config, listener2)
 
 
+@if_lb_containers
 def test_reuse_port_after_lb_deletion(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -763,6 +784,7 @@ def test_reuse_port_after_lb_deletion(client):
     cleanup_lb(client, lb_2, lb_config_2, listener_2)
 
 
+@if_lb_containers
 def test_lb_for_container_with_port_mapping(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -813,6 +835,7 @@ def test_lb_for_container_with_port_mapping(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_with_lb_cookie(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -843,6 +866,7 @@ def test_lb_with_lb_cookie(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_with_app_cookie(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -876,6 +900,7 @@ def test_lb_with_app_cookie(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_with_health_check_with_uri(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -919,6 +944,7 @@ def test_lb_with_health_check_with_uri(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_with_health_check_without_uri(client):
 
     hosts = client.list_host(kind='docker', removed_null=True)
@@ -962,6 +988,7 @@ def test_lb_with_health_check_without_uri(client):
     cleanup_lb(client, lb, lb_config, listener)
 
 
+@if_lb_containers
 def test_lb_with_source(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
@@ -1016,6 +1043,7 @@ def check_round_robin_access(container_names, host, port):
             i = 0
 
 
+@if_lb_containers
 def check_no_access(host, port):
     try:
         url = "http://" + host.ipAddresses()[0].address + ":" +\
@@ -1026,6 +1054,7 @@ def check_no_access(host, port):
         logger.info("Connection Error - " + url)
 
 
+@if_lb_containers
 def check_access(host, port, expected_response):
     url = "http://" + host.ipAddresses()[0].address + ":" +\
           port + "/name.html"
@@ -1036,6 +1065,7 @@ def check_access(host, port, expected_response):
     assert response == expected_response
 
 
+@if_lb_containers
 def check_for_appcookie_policy(container_names, host, port, cookie_name):
     wait_until_lb_is_active(host, port)
 
@@ -1058,6 +1088,7 @@ def check_for_appcookie_policy(container_names, host, port, cookie_name):
         assert response == sticky_response
 
 
+@if_lb_containers
 def check_for_lbcookie_policy(container_names, host, port):
     wait_until_lb_is_active(host, port)
     con_hostname = container_names[:]
@@ -1079,6 +1110,7 @@ def check_for_lbcookie_policy(container_names, host, port):
         assert response == sticky_response
 
 
+@if_lb_containers
 def check_for_stickiness(container_names, host, port):
     wait_until_lb_is_active(host, port)
 
