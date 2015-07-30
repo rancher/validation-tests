@@ -6,7 +6,7 @@ DEFAULT_TIMEOUT = 900
 
 # Digital Ocean configurations
 access_key = os.environ.get('DIGITALOCEAN_KEY')
-image_name = "ubuntu-14-10-x64"
+image_name = "ubuntu-14-04-x64"
 region = "sfo1"
 size = "1gb"
 

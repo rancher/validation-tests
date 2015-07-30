@@ -26,7 +26,7 @@ SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
-LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testhostrouting:latest"
+LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 
 DEFAULT_TIMEOUT = 45
 
@@ -622,11 +622,8 @@ def validate_exposed_port_and_container_link(super_client, con, link_name,
     assert link_name == resp
 
 
-def validate_lb_service(super_client, client, env, services, lb_service, port,
-                        target_services=None, hostheader=None, path=None):
-
-    if target_services is None:
-        target_services = services
+def wait_for_lb_service_to_become_active(super_client, client, env,
+                                         services, lb_service):
 
     lbs = client.list_loadBalancer(serviceId=lb_service.id)
     assert len(lbs) == 1
@@ -647,6 +644,20 @@ def validate_lb_service(super_client, client, env, services, lb_service, port,
         client, lb, all_target_count, 60)
     logger.info(target_maps)
 
+    wait_for_config_propagation(super_client, lb, host_maps)
+
+
+def validate_lb_service(super_client, client, env, lb_service, port,
+                        target_services=None, hostheader=None, path=None):
+    lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    assert len(lbs) == 1
+
+    lb = lbs[0]
+
+    host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
+                                                removed_null=True,
+                                                state="active")
+    assert len(host_maps) == lb_service.scale
     lb_hosts = []
 
     for host_map in host_maps:
@@ -1393,13 +1404,16 @@ def check_round_robin_access(container_names, host, port,
 
 
 def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
-                                        port, count):
+                                        ports, count):
 
     launch_config_svc = \
         {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
 
-    launch_config_lb = {"ports": [port+":80"]}
-
+    assert len(ports) > 0
+    if len(ports) == 1:
+        launch_config_lb = {"ports": [ports[0]+":80"]}
+    else:
+        launch_config_lb = {"ports": [ports[0]+":80", ports[1]+":81"]}
     services = []
     # Create Environment
     random_name = random_str()
@@ -1435,3 +1449,48 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
     assert lb_service.state == "inactive"
 
     return env, services, lb_service
+
+
+def wait_for_config_propagation(super_client, lb, host_maps, timeout=30):
+    for host_map in host_maps:
+        uri = 'delegate:///?lbId={}&hostMapId={}'.\
+            format(get_plain_id(super_client, lb),
+                   get_plain_id(super_client, host_map))
+        agents = super_client.list_agent(uri=uri)
+        assert len(agents) == 1
+        agent = agents[0]
+        assert agent is not None
+        item = get_config_item(agent, "haproxy")
+        start = time.time()
+        print "requested_version" + str(item.requestedVersion)
+        print "applied_version" + str(item.appliedVersion)
+        while item.requestedVersion != item.appliedVersion:
+            print "requested_version" + str(item.requestedVersion)
+            print "applied_version" + str(item.appliedVersion)
+            time.sleep(.5)
+            agent = super_client.reload(agent)
+            item = get_config_item(agent, "haproxy")
+            if time.time() - start > timeout:
+                raise Exception('Timed out waiting for config propagation')
+            return
+
+
+def get_config_item(agent, config_name):
+    item = None
+    for config_items in agent.configItemStatuses():
+        print config_items.name
+        if config_items.name == config_name:
+            item = config_items
+            break
+    assert item is not None
+    return item
+
+
+def get_plain_id(admin_client, obj=None):
+    if obj is None:
+        obj = admin_client
+        admin_client = super_client(None)
+
+    ret = admin_client.list(obj.type, uuid=obj.uuid, _plainId='true')
+    assert len(ret) == 1
+    return ret[0].id
