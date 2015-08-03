@@ -143,7 +143,12 @@ def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
 
     launch_config_service = {
         "imageUuid": SSH_IMAGE_UUID,
-        "ports": [expose_port+":22/tcp"]}
+        "ports": [expose_port+":22/tcp"],
+        "labels": {
+            'io.rancher.scheduler.affinity:container_label_ne':
+                "io.rancher.stack_service.name" +
+                "=${stack_name}/${service_name}"
+        }}
 
     random_name = random_str()
     consumed_service_name1 = random_name.replace("-", "")

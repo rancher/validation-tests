@@ -8,8 +8,8 @@ def cleanup(super_client):
     # For cleaning up environment and instances that get disassociated
     # from services where deleted
     env_name_format = re.compile('test[0-9]{1,6}')
-    instance_name_format_for_services = \
-        re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
+    # instance_name_format_for_services =
+    # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
     to_delete_env = []
     for i in super_client.list_environment(state='active'):
@@ -52,7 +52,6 @@ def cleanup(super_client):
     for i in super_client.list_instance(state='running'):
         try:
             if instance_name_format.match(i.name) or \
-                    instance_name_format_for_services.match(i.name) or \
                     i.name.startswith("socat-test") or \
                     i.name.startswith("native-test") or \
                     i.name.startswith("target-native-test-") or \
@@ -68,7 +67,6 @@ def cleanup(super_client):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
-                        instance_name_format_for_services.match(i.name) or \
                         i.name.startswith("native-test") or \
                         i.name.startswith("target-native-test-"):
                     to_delete.append(i)

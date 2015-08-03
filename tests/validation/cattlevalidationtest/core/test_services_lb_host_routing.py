@@ -4,9 +4,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def test_lbservice_host_routing_1(super_client, client):
+def test_lbservice_host_routing_1(super_client, client, socat_containers):
 
-    port = "901"
+    port = "900"
 
     service_scale = 2
     lb_scale = 1
@@ -40,29 +40,97 @@ def test_lbservice_host_routing_1(super_client, client):
     validate_add_service_link(super_client, lb_service, services[2])
     validate_add_service_link(super_client, lb_service, services[3])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port,
                         [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2], services[3]],
                         "www.abc3.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2], services[3]],
                         "www.abc4.com", "/service2.html")
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_2(super_client, client):
+def test_lbservice_host_routing_cross_stack(
+        super_client, client, socat_containers):
+
+    port = "901"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 4
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port], service_count, True)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
+    service_link3 = {"serviceId": services[2].id,
+                     "ports": ["www.abc3.com/service1.html",
+                               "www.abc4.com/service2.html"]}
+    service_link4 = {"serviceId": services[3].id,
+                     "ports": ["www.abc3.com/service1.html",
+                               "www.abc4.com/service2.html"]}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2,
+                      service_link3, service_link4])
+
+    env = env.activateservices()
+    env = client.wait_success(env, 120)
+
+    for service in services:
+        service = service.activate()
+    for service in services:
+        service = client.wait_success(service, 120)
+        assert service.state == "active"
+
+    validate_add_service_link(super_client, lb_service, services[0])
+    validate_add_service_link(super_client, lb_service, services[1])
+    validate_add_service_link(super_client, lb_service, services[2])
+    validate_add_service_link(super_client, lb_service, services[3])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         services, lb_service)
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[0], services[1]],
+                        "www.abc1.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port, [services[0], services[1]],
+                        "www.abc2.com", "/service2.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port, [services[2], services[3]],
+                        "www.abc3.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port, [services[2], services[3]],
+                        "www.abc4.com", "/service2.html")
+    to_delete = [env]
+    for service in services:
+        to_delete.append(get_env(super_client, service))
+    delete_all(client, to_delete)
+
+
+def test_lbservice_host_routing_2(super_client, client, socat_containers):
 
     port = "902"
 
@@ -93,22 +161,22 @@ def test_lbservice_host_routing_2(super_client, client):
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
@@ -121,7 +189,8 @@ def test_lbservice_host_routing_2(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_scale_up(super_client, client):
+def test_lbservice_host_routing_scale_up(
+        super_client, client, socat_containers):
 
     port = "903"
 
@@ -152,22 +221,22 @@ def test_lbservice_host_routing_scale_up(super_client, client):
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
@@ -187,24 +256,24 @@ def test_lbservice_host_routing_scale_up(super_client, client):
         assert service.scale == final_service_scale
         final_services.append(service)
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          final_services,
                                          lb_service)
 
-    validate_lb_service(super_client, client, env, lb_service, port,
+    validate_lb_service(super_client, client, lb_service, port,
                         [final_services[0], final_services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port,
                         [final_services[0], final_services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [final_services[2]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [final_services[2]],
                         "www.abc2.com", "/name.html")
 
@@ -217,7 +286,8 @@ def test_lbservice_host_routing_scale_up(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_scale_down(super_client, client):
+def test_lbservice_host_routing_scale_down(
+        super_client, client, socat_containers):
 
     port = "904"
 
@@ -248,22 +318,22 @@ def test_lbservice_host_routing_scale_down(super_client, client):
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
@@ -283,23 +353,23 @@ def test_lbservice_host_routing_scale_down(super_client, client):
         assert service.scale == final_service_scale
         final_services.append(service)
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          final_services,
                                          lb_service)
 
-    validate_lb_service(super_client, client, env, lb_service, port,
+    validate_lb_service(super_client, client, lb_service, port,
                         [final_services[0], final_services[1]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env, lb_service, port,
+    validate_lb_service(super_client, client, lb_service, port,
                         [final_services[0], final_services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env, lb_service,
+    validate_lb_service(super_client, client, lb_service,
                         port, [final_services[2]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env, lb_service, port,
+    validate_lb_service(super_client, client, lb_service, port,
                         [final_services[2]],
                         "www.abc2.com", "/name.html")
 
@@ -313,7 +383,8 @@ def test_lbservice_host_routing_scale_down(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_only_path(super_client, client):
+def test_lbservice_host_routing_only_path(
+        super_client, client, socat_containers):
 
     port = "905"
 
@@ -338,30 +409,30 @@ def test_lbservice_host_routing_only_path(super_client, client):
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc2.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         None, "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[1]],
                         "www.abc3.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port,  [services[1]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         None, "/service1.html")
 
@@ -371,7 +442,8 @@ def test_lbservice_host_routing_only_path(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_only_host(super_client, client):
+def test_lbservice_host_routing_only_host(
+        super_client, client, socat_containers):
 
     port = "906"
 
@@ -396,19 +468,19 @@ def test_lbservice_host_routing_only_host(super_client, client):
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          [services[0], services[1]],
                                          lb_service)
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[1]],
                         "www.abc1.com", "/name.html")
 
@@ -418,7 +490,7 @@ def test_lbservice_host_routing_only_host(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_3(super_client, client):
+def test_lbservice_host_routing_3(super_client, client, socat_containers):
 
     port = "907"
 
@@ -448,28 +520,28 @@ def test_lbservice_host_routing_3(super_client, client):
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
     validate_add_service_link(super_client, lb_service, services[3])
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[1]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[3]],
                         "www.abc3.com", "/service1.html")
 
     delete_all(client, [env])
 
 
-def test_lbservice_edit_host_routing_3(super_client, client):
+def test_lbservice_edit_host_routing_3(super_client, client, socat_containers):
 
     port = "908"
 
@@ -501,22 +573,22 @@ def test_lbservice_edit_host_routing_3(super_client, client):
     validate_add_service_link(super_client, lb_service, services[3])
 
     service_list = [services[0], services[1], services[2], services[3]]
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          service_list,
                                          lb_service)
-    validate_lb_service(super_client, client, env, lb_service,
+    validate_lb_service(super_client, client, lb_service,
                         port, [services[0]],
                         "www.abc.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[1]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[3]],
                         "www.abc3.com", "/service1.html")
 
@@ -540,29 +612,30 @@ def test_lbservice_edit_host_routing_3(super_client, client):
 
     service_list = [services[0], services[2], services[3], services[4]]
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          service_list,
                                          lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0], services[4]],
                         "www.abc.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[4]],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[2]],
                         "www.abc2.com", "/name.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[3]],
                         "www.abc3.com", "/service2.html")
 
     delete_all(client, [env])
 
 
-def test_lbservice_edit_host_routing_add_host(super_client, client):
+def test_lbservice_edit_host_routing_add_host(
+        super_client, client, socat_containers):
 
     port = "909"
 
@@ -584,9 +657,9 @@ def test_lbservice_edit_host_routing_add_host(super_client, client):
 
     validate_add_service_link(super_client, lb_service, services[0])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
     validate_lb_service_for_no_access(client, lb_service, port,
@@ -602,12 +675,12 @@ def test_lbservice_edit_host_routing_add_host(super_client, client):
         serviceLinks=[service_link1])
 
     validate_add_service_link(super_client, lb_service, services[0])
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc2.com", "/name.html")
 
@@ -617,7 +690,8 @@ def test_lbservice_edit_host_routing_add_host(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_edit_host_routing_remove_host(super_client, client):
+def test_lbservice_edit_host_routing_remove_host(
+        super_client, client, socat_containers):
 
     port = "910"
 
@@ -638,12 +712,12 @@ def test_lbservice_edit_host_routing_remove_host(super_client, client):
     env = client.wait_success(env, 120)
 
     validate_add_service_link(super_client, lb_service, services[0])
-    wait_for_lb_service_to_become_active(super_client, client, env, services,
+    wait_for_lb_service_to_become_active(super_client, client, services,
                                          lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc2.com", "/service2.html")
     validate_lb_service_for_no_access(client, lb_service, port,
@@ -656,11 +730,11 @@ def test_lbservice_edit_host_routing_remove_host(super_client, client):
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
     validate_lb_service_for_no_access(client, lb_service, port,
@@ -669,7 +743,8 @@ def test_lbservice_edit_host_routing_remove_host(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
+def test_lbservice_edit_host_routing_edit_existing_host(
+        super_client, client, socat_containers):
 
     port = "911"
 
@@ -689,11 +764,11 @@ def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
     env = env.activateservices()
     env = client.wait_success(env, 120)
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc.com", "/service2.html")
     validate_lb_service_for_no_access(client, lb_service, port,
@@ -707,9 +782,9 @@ def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
         serviceLinks=[service_link1])
 
     validate_add_service_link(super_client, lb_service, services[0])
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port, [services[0]],
                         "www.abc2.com", "/service2.html")
     validate_lb_service_for_no_access(client, lb_service, port,
@@ -718,7 +793,8 @@ def test_lbservice_edit_host_routing_edit_existing_host(super_client, client):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_multiple_port_1(super_client, client):
+def test_lbservice_host_routing_multiple_port_1(
+        super_client, client, socat_containers):
 
     port1 = "1000"
     port2 = "1001"
@@ -756,39 +832,40 @@ def test_lbservice_host_routing_multiple_port_1(super_client, client):
     validate_add_service_link(super_client, lb_service, services[2])
     validate_add_service_link(super_client, lb_service, services[3])
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[3]],
                         "www.abc1.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc2.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc2.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0]],
                         "www.abc1.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc4.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[3]],
                         "www.abc3.com", "/service4.html")
 
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_multiple_port_2(super_client, client):
+def test_lbservice_host_routing_multiple_port_2(
+        super_client, client, socat_containers):
 
     port1 = "1002"
     port2 = "1003"
@@ -814,35 +891,36 @@ def test_lbservice_host_routing_multiple_port_2(super_client, client):
     env = env.activateservices()
     env = client.wait_success(env, 120)
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[2]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[0]],
                         "www.abc1.com", "/81/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc1.com", "/81/service3.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc1.com", "/service3.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc1.com", "/service4.html")
 
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_multiple_port_3(super_client, client):
+def test_lbservice_host_routing_multiple_port_3(
+        super_client, client, socat_containers):
 
     port1 = "1004"
     port2 = "1005"
@@ -864,23 +942,24 @@ def test_lbservice_host_routing_multiple_port_3(super_client, client):
     env = env.activateservices()
     env = client.wait_success(env, 120)
 
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0], services[1]],
                         "www.abc1.com", "/service3.html")
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_target_port_override(super_client, client):
+def test_lbservice_host_routing_target_port_override(
+        super_client, client, socat_containers):
 
     port1 = "1010"
 
@@ -901,23 +980,24 @@ def test_lbservice_host_routing_target_port_override(super_client, client):
 
     env = env.activateservices()
     env = client.wait_success(env, 120)
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[1]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc1.com", "/service3.html")
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_multiple_port_1_edit_add(super_client, client):
+def test_lbservice_host_routing_multiple_port_1_edit_add(
+        super_client, client, socat_containers):
 
     port1 = "1006"
     port2 = "1007"
@@ -955,33 +1035,33 @@ def test_lbservice_host_routing_multiple_port_1_edit_add(super_client, client):
     validate_add_service_link(super_client, lb_service, services[3])
 
     service_list = [services[0], services[1], services[2], services[3]]
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          service_list, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc1.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[2]],
                         "www.abc2.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[3]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0]],
                         "www.abc1.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc1.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[3]],
                         "www.abc2.com", "/service4.html")
 
@@ -1007,39 +1087,39 @@ def test_lbservice_host_routing_multiple_port_1_edit_add(super_client, client):
     validate_add_service_link(super_client, lb_service, services[2])
     validate_add_service_link(super_client, lb_service, services[3])
     validate_add_service_link(super_client, lb_service, services[4])
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc1.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[0]],
                         "www.abc2.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc2.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[3], services[4]],
                         "www.abc3.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0]],
                         "www.abc1.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc1.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[0]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc2.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[3], services[4]],
                         "www.abc3.com", "/service4.html")
 
@@ -1047,7 +1127,7 @@ def test_lbservice_host_routing_multiple_port_1_edit_add(super_client, client):
 
 
 def test_lbservice_host_routing_multiple_port_1_edit_edit(
-        super_client, client):
+        super_client, client, socat_containers):
 
     port1 = "1008"
     port2 = "1009"
@@ -1086,33 +1166,33 @@ def test_lbservice_host_routing_multiple_port_1_edit_edit(
     validate_add_service_link(super_client, lb_service, services[3])
 
     service_list = [services[0], services[1], services[2], services[3]]
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          service_list, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc1.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[2]],
                         "www.abc2.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[3]],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0]],
                         "www.abc1.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc1.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[3]],
                         "www.abc2.com", "/service4.html")
 
@@ -1136,39 +1216,39 @@ def test_lbservice_host_routing_multiple_port_1_edit_edit(
     validate_add_service_link(super_client, lb_service, services[2])
     validate_add_service_link(super_client, lb_service, services[3])
     validate_add_service_link(super_client, lb_service, services[4])
-    wait_for_lb_service_to_become_active(super_client, client, env,
+    wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1,
                         [services[0]],
                         "www.abc2.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[2]],
                         "www.abc2.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[3], services[4]],
                         "www.abc1.com", "/service1.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[2]],
                         "www.abc1.com", "/service2.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port1, [services[1]],
                         "www.abc3.com", "/service1.html")
 
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2,
                         [services[0]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc2.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[3], services[4]],
                         "www.abc1.com", "/service3.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[2]],
                         "www.abc1.com", "/service4.html")
-    validate_lb_service(super_client, client, env,
+    validate_lb_service(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc3.com", "/service3.html")
 
