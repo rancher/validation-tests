@@ -188,7 +188,7 @@ def admin_client():
 
 
 @pytest.fixture(scope='session')
-def super_client(request, accounts):
+def super_client(accounts):
     ret = _client_for_user('superadmin', accounts)
     return ret
 

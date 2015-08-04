@@ -1,6 +1,7 @@
 flake8
 paramiko
-pytest
+pytest==2.7.1
+pytest-xdist
 requests==2.6.0
 cattle==0.5.1
 selenium

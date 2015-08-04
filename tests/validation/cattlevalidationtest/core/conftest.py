@@ -1,9 +1,17 @@
 from common_fixtures import *  # NOQA
 import re
+import logging
+
+log = logging.getLogger(__name__)
 
 
-@pytest.fixture(autouse=True, scope='session')
-def cleanup(super_client):
+def pytest_configure(config):
+    cleanup()
+
+
+def cleanup():
+    log.info('Running cleanup')
+    sc = super_client(accounts())
     instance_name_format = re.compile('test-[0-9]{1,6}')
     # For cleaning up environment and instances that get disassociated
     # from services where deleted
@@ -12,44 +20,44 @@ def cleanup(super_client):
     # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
     to_delete_env = []
-    for i in super_client.list_environment(state='active'):
+    for i in sc.list_environment(state='active'):
         try:
             if env_name_format.match(i.name):
                 to_delete_env.append(i)
         except AttributeError:
             pass
-    delete_all(super_client, to_delete_env)
+    delete_all(sc, to_delete_env)
 
     to_delete_lb = []
-    for i in super_client.list_loadBalancer(state='active'):
+    for i in sc.list_loadBalancer(state='active'):
         try:
             if instance_name_format.match(i.name):
                 to_delete_lb.append(i)
         except AttributeError:
             pass
-    delete_all(super_client, to_delete_lb)
+    delete_all(sc, to_delete_lb)
 
     to_delete_lb_config = []
-    for i in super_client.list_loadBalancerConfig(state='active'):
+    for i in sc.list_loadBalancerConfig(state='active'):
         try:
             if instance_name_format.match(i.name):
                 to_delete_lb_config.append(i)
         except AttributeError:
             pass
-    delete_all(super_client, to_delete_lb_config)
+    delete_all(sc, to_delete_lb_config)
 
     to_delete_lb_listener = []
-    for i in super_client.list_loadBalancerListener(state='active'):
+    for i in sc.list_loadBalancerListener(state='active'):
         try:
             if instance_name_format.match(i.name):
                 to_delete_lb_listener.append(i)
         except AttributeError:
             pass
 
-    delete_all(super_client, to_delete_lb_listener)
+    delete_all(sc, to_delete_lb_listener)
 
     to_delete = []
-    for i in super_client.list_instance(state='running'):
+    for i in sc.list_instance(state='running'):
         try:
             if instance_name_format.match(i.name) or \
                     i.name.startswith("socat-test") or \
@@ -60,10 +68,10 @@ def cleanup(super_client):
         except AttributeError:
             pass
 
-    delete_all(super_client, to_delete)
+    delete_all(sc, to_delete)
 
     to_delete = []
-    for i in super_client.list_instance(state='stopped'):
+    for i in sc.list_instance(state='stopped'):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
@@ -73,4 +81,4 @@ def cleanup(super_client):
         except AttributeError:
             pass
 
-    delete_all(super_client, to_delete)
+    delete_all(sc, to_delete)
