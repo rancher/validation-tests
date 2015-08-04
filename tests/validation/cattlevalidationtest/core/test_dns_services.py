@@ -6,11 +6,11 @@ logger = logging.getLogger(__name__)
 def create_environment_with_dns_services(super_client, client,
                                          service_scale,
                                          consumed_service_scale,
-                                         port):
+                                         port, cross_linking=False):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_env_with_2_svc_dns(
-            client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port, cross_linking)
     service.activate()
     consumed_service.activate()
     consumed_service1.activate()
@@ -38,7 +38,7 @@ def create_environment_with_dns_services(super_client, client,
 
 def test_dns_activate_svc_dns_consumed_svc_link(super_client, client):
 
-    port = "31101"
+    port = "31100"
 
     service_scale = 1
     consumed_service_scale = 2
@@ -52,6 +52,26 @@ def test_dns_activate_svc_dns_consumed_svc_link(super_client, client):
         dns.name)
 
     delete_all(client, [env])
+
+
+def test_dns_cross_link(super_client, client):
+
+    port = "31101"
+
+    service_scale = 1
+    consumed_service_scale = 2
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            super_client, client, service_scale, consumed_service_scale,
+            port, True)
+
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], port,
+        dns.name)
+
+    delete_all(client, [env, get_env(super_client, consumed_service),
+                        get_env(super_client, consumed_service1), dns])
 
 
 def test_dns_activate_consumed_svc_link_activate_svc(super_client, client):
@@ -304,7 +324,7 @@ def test_dns_consumed_services_stop_start_instance(super_client, client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    service = client.wait_success(consumed_service)
+    consumed_service = client.wait_success(consumed_service)
     wait_for_scale_to_adjust(super_client, consumed_service)
 
     validate_dns_service(

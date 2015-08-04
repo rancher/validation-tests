@@ -72,14 +72,8 @@ def test_rancher_compose_service(super_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
-
-    rancher_service = client.wait_success(rancher_service, 120)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
 
     check_container_in_service(super_client, rancher_service)
 
@@ -153,14 +147,8 @@ def test_rancher_compose_services_port_and_link_options(
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
-
-    rancher_service = client.wait_success(rancher_service, 120)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
 
     container_name = rancher_env.name + "_" + rancher_service.name + "_1"
     containers = client.list_container(name=container_name, state="running")
@@ -210,26 +198,12 @@ def test_rancher_compose_lbservice(super_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
-
-    rancher_services1 = client.list_service(name=service1.name,
-                                            environmentId=rancher_env.id,
-                                            removed_null=True)
-    assert len(rancher_services1) == 1
-    rancher_service1 = rancher_services1[0]
-    assert rancher_service1.scale == service1.scale
-
-    rancher_lb_services = client.list_service(name=lb_service.name,
-                                              environmentId=rancher_env.id,
-                                              removed_null=True)
-    assert len(rancher_lb_services) == 1
-    rancher_lb_service = rancher_lb_services[0]
-    assert rancher_lb_service.scale == lb_service.scale
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, service1)
+    rancher_lb_service = get_rancher_compose_service(
+        client, rancher_env.id, lb_service)
 
     client.wait_success(rancher_service)
     client.wait_success(rancher_service1)
@@ -239,9 +213,8 @@ def test_rancher_compose_lbservice(super_client, client,
     validate_add_service_link(
         super_client, rancher_lb_service, rancher_service1)
 
-    validate_lb_service(super_client, client, rancher_env,
-                        [rancher_service, rancher_service1],
-                        rancher_lb_service, port)
+    validate_lb_service(super_client, client, rancher_lb_service, port,
+                        [rancher_service, rancher_service1])
     delete_all(client, [env, rancher_env])
 
 
@@ -268,19 +241,11 @@ def test_rancher_compose_service_links(super_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
 
-    rancher_consumed_services = client.list_service(
-        name=consumed_service.name, environmentId=rancher_env.id,
-        removed_null=True)
-    assert len(rancher_consumed_services) == 1
-    rancher_consumed_service = rancher_consumed_services[0]
-    assert rancher_service.scale == service.scale
+    rancher_consumed_service = get_rancher_compose_service(
+        client, rancher_env.id, consumed_service)
 
     client.wait_success(rancher_service)
     client.wait_success(rancher_consumed_service)
@@ -294,82 +259,22 @@ def test_rancher_compose_service_links(super_client, client,
 
 def test_rancher_compose_dns_services(super_client, client,
                                       rancher_compose_container):
-
     port = "7902"
+    rancher_compose_dns_services(super_client, client, port,
+                                 rancher_compose_container)
 
-    service_scale = 1
-    consumed_service_scale = 2
 
-    env, service, consumed_service, consumed_service1, dns = \
-        create_env_with_2_svc_dns(
-            client, service_scale, consumed_service_scale, port)
-
-    service_link = {"serviceId": dns.id}
-    service.addservicelink(serviceLink=service_link)
-
-    service_link = {"serviceId": consumed_service.id}
-    dns.addservicelink(serviceLink=service_link)
-
-    service_link = {"serviceId": consumed_service1.id}
-    dns.addservicelink(serviceLink=service_link)
-
-#   Launch env using docker compose
-
-    launch_rancher_compose(client, env, "service_dns")
-    rancher_envs = client.list_environment(name=env.name+"rancher")
-    assert len(rancher_envs) == 1
-    rancher_env = rancher_envs[0]
-
-    rancher_dnss = client.list_service(name=dns.name,
-                                       environmentId=rancher_env.id,
-                                       removed_null=True)
-    assert len(rancher_dnss) == 1
-    rancher_dns = rancher_dnss[0]
-
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
-
-    rancher_consumed_services = client.list_service(
-        name=consumed_service.name,
-        environmentId=rancher_env.id,
-        removed_null=True)
-    assert len(rancher_consumed_services) == 1
-    rancher_consumed_service = rancher_consumed_services[0]
-    assert rancher_consumed_service.scale == consumed_service.scale
-
-    rancher_consumed_services1 = client.list_service(
-        name=consumed_service1.name,
-        environmentId=rancher_env.id,
-        removed_null=True)
-    assert len(rancher_consumed_services1) == 1
-    rancher_consumed_service1 = rancher_consumed_services1[0]
-    assert rancher_consumed_service1.scale == consumed_service1.scale
-
-    client.wait_success(rancher_dns)
-    client.wait_success(rancher_consumed_service)
-    client.wait_success(rancher_consumed_service1)
-    client.wait_success(rancher_service)
-    validate_add_service_link(super_client, rancher_service,
-                              rancher_dns)
-    validate_add_service_link(super_client, rancher_dns,
-                              rancher_consumed_service)
-    validate_add_service_link(super_client, rancher_dns,
-                              rancher_consumed_service1)
-
-    validate_dns_service(super_client, rancher_service,
-                         [rancher_consumed_service, rancher_consumed_service1],
-                         port, rancher_dns.name)
-    delete_all(client, [env, rancher_env])
+def test_rancher_compose_dns_services_cross_stack(super_client, client,
+                                                  rancher_compose_container):
+    port = "7903"
+    rancher_compose_dns_services(super_client, client, port,
+                                 rancher_compose_container, True)
 
 
 def test_rancher_compose_external_services(super_client, client,
                                            rancher_compose_container):
 
-    port = "7903"
+    port = "7904"
 
     service_scale = 1
 
@@ -386,18 +291,10 @@ def test_rancher_compose_external_services(super_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_services = client.list_service(name=service.name,
-                                           environmentId=rancher_env.id,
-                                           removed_null=True)
-    assert len(rancher_services) == 1
-    rancher_service = rancher_services[0]
-    assert rancher_service.scale == service.scale
-
-    rancher_ext_services = client.list_service(name=ext_service.name,
-                                               environmentId=rancher_env.id,
-                                               removed_null=True)
-    assert len(rancher_ext_services) == 1
-    rancher_ext_service = rancher_ext_services[0]
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    rancher_ext_service = get_rancher_compose_service(
+        client, rancher_env.id, ext_service)
 
     client.wait_success(con_list[0])
     client.wait_success(con_list[1])
@@ -411,3 +308,178 @@ def test_rancher_compose_external_services(super_client, client,
                               [rancher_ext_service],
                               port, con_list)
     delete_all(client, [env, rancher_env])
+
+
+def test_rancher_compose_lbservice_host_routing(super_client, client,
+                                                rancher_compose_container):
+    port1 = "7906"
+    port2 = "7907"
+
+    port1_target = "80"
+    port2_target = "81"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 4
+
+    env, services, lb_service = \
+        create_env_with_multiple_svc_and_lb(
+            client, service_scale, lb_scale, [port1, port2], service_count)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["www.abc1.com:"+port1+"/service1.html",
+                               "www.abc1.com:"+port2+"/service3.html"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["www.abc1.com"]}
+    service_link3 = {"serviceId": services[2].id,
+                     "ports": ["/service1.html="+port1_target,
+                               "/service3.html="+port2_target]}
+    service_link4 = {"serviceId": services[3].id}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2,
+                      service_link3, service_link4])
+
+    launch_rancher_compose(client, env, "lb_service_host_routing")
+
+    rancher_envs = client.list_environment(name=env.name+"rancher")
+    assert len(rancher_envs) == 1
+    rancher_env = rancher_envs[0]
+
+    rancher_lb_service = get_rancher_compose_service(client, rancher_env.id,
+                                                     lb_service)
+    rancher_services = []
+    for service in services:
+        rancher_services.append(
+            get_rancher_compose_service(client, rancher_env.id, service))
+
+    validate_add_service_link(super_client, rancher_lb_service,
+                              rancher_services[0])
+    validate_add_service_link(super_client, rancher_lb_service,
+                              rancher_services[1])
+    validate_add_service_link(super_client, rancher_lb_service,
+                              rancher_services[2])
+    validate_add_service_link(super_client, rancher_lb_service,
+                              rancher_services[3])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         rancher_services,
+                                         rancher_lb_service)
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port1,
+                        [rancher_services[0]],
+                        "www.abc1.com", "/service1.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port1, [rancher_services[1]],
+                        "www.abc1.com", "/service2.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port1, [rancher_services[2]],
+                        "www.abc2.com", "/service1.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port1, [rancher_services[3]],
+                        "www.abc2.com", "/service2.html")
+
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port2,
+                        [rancher_services[0]],
+                        "www.abc1.com", "/service3.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port2, [rancher_services[1]],
+                        "www.abc1.com", "/service4.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port2, [rancher_services[2]],
+                        "www.abc2.com", "/service3.html")
+    validate_lb_service(super_client, client,
+                        rancher_lb_service, port2, [rancher_services[3]],
+                        "www.abc2.com", "/service4.html")
+    delete_all(client, [env, rancher_env])
+
+
+def rancher_compose_dns_services(super_client, client, port,
+                                 rancher_compose_container,
+                                 cross_linking=False):
+
+    service_scale = 1
+    consumed_service_scale = 2
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_env_with_2_svc_dns(
+            client, service_scale, consumed_service_scale, port, cross_linking)
+
+    service_link = {"serviceId": dns.id}
+    service.addservicelink(serviceLink=service_link)
+
+    service_link = {"serviceId": consumed_service.id}
+    dns.addservicelink(serviceLink=service_link)
+
+    service_link = {"serviceId": consumed_service1.id}
+    dns.addservicelink(serviceLink=service_link)
+
+    # Launch dns env using docker compose
+    launch_rancher_compose(client, env, "service_dns")
+    rancher_envs = client.list_environment(name=env.name+"rancher")
+    assert len(rancher_envs) == 1
+    rancher_env = rancher_envs[0]
+
+    # Launch envs using docker compose
+
+    if cross_linking:
+        # Launch Consumed Service2
+        env_con = get_env(super_client, consumed_service)
+        env_con = env_con.activateservices()
+        env_con = client.wait_success(env_con, 120)
+        assert env_con.state == "active"
+        con_service1_id = env_con.id
+        # Launch Consumed Service1
+        env_con1 = get_env(super_client, consumed_service1)
+        env_con1 = env_con1.activateservices()
+        env_con1 = client.wait_success(env_con1, 120)
+        assert env_con1.state == "active"
+        con_service2_id = env_con1.id
+    else:
+        con_service1_id = rancher_env.id
+        con_service2_id = rancher_env.id
+
+    rancher_consumed_service = get_rancher_compose_service(
+        client, con_service1_id, consumed_service)
+
+    rancher_consumed_service1 = get_rancher_compose_service(
+        client, con_service2_id, consumed_service1)
+
+    rancher_dns = get_rancher_compose_service(
+        client, rancher_env.id, dns)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+
+    client.wait_success(rancher_dns)
+    client.wait_success(rancher_consumed_service)
+    client.wait_success(rancher_consumed_service1)
+    client.wait_success(rancher_service)
+    validate_add_service_link(super_client, rancher_service,
+                              rancher_dns)
+    validate_add_service_link(super_client, rancher_dns,
+                              rancher_consumed_service)
+    validate_add_service_link(super_client, rancher_dns,
+                              rancher_consumed_service1)
+
+    validate_dns_service(super_client, rancher_service,
+                         [rancher_consumed_service, rancher_consumed_service1],
+                         port, rancher_dns.name)
+    to_delete = [env, rancher_env]
+    if cross_linking:
+        to_delete.append(env_con)
+        to_delete.append(env_con1)
+    delete_all(client, to_delete)
+
+
+def get_rancher_compose_service(client, rancher_env_id, service):
+    rancher_services = client.list_service(name=service.name,
+                                           environmentId=rancher_env_id,
+                                           removed_null=True)
+    assert len(rancher_services) == 1
+    rancher_service = rancher_services[0]
+    print service.kind
+    if service.kind != 'externalService' and service.kind != 'dnsService':
+        assert rancher_service.scale == service.scale
+    rancher_service = client.wait_success(rancher_service, 120)
+    return rancher_service
