@@ -171,6 +171,11 @@ def test_lb_services_activate_env(
 
     env = env.activateservices()
     env = client.wait_success(env, 120)
+    service = client.wait_success(service, 120)
+    assert service.state == "active"
+
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
 
     wait_for_lb_service_to_become_active(super_client, client,
                                          [service], lb_service)
