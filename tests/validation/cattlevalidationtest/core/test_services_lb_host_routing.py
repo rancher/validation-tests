@@ -32,9 +32,6 @@ def test_lbservice_host_routing_1(super_client, client, socat_containers):
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
@@ -90,9 +87,6 @@ def test_lbservice_host_routing_cross_stack(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     for service in services:
         service = service.activate()
@@ -154,9 +148,6 @@ def test_lbservice_host_routing_2(super_client, client, socat_containers):
         serviceLinks=[service_link1, service_link2,
                       service_link3])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
@@ -213,9 +204,6 @@ def test_lbservice_host_routing_scale_up(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
@@ -311,9 +299,6 @@ def test_lbservice_host_routing_scale_down(
         serviceLinks=[service_link1, service_link2,
                       service_link3])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
@@ -403,9 +388,6 @@ def test_lbservice_host_routing_only_path(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
@@ -462,9 +444,6 @@ def test_lbservice_host_routing_only_host(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
 
@@ -513,9 +492,6 @@ def test_lbservice_host_routing_3(super_client, client, socat_containers):
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
@@ -563,9 +539,6 @@ def test_lbservice_edit_host_routing_3(super_client, client, socat_containers):
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
@@ -652,9 +625,6 @@ def test_lbservice_edit_host_routing_add_host(
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
 
     wait_for_lb_service_to_become_active(super_client, client,
@@ -708,9 +678,6 @@ def test_lbservice_edit_host_routing_remove_host(
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     validate_add_service_link(super_client, lb_service, services[0])
     wait_for_lb_service_to_become_active(super_client, client, services,
                                          lb_service)
@@ -760,9 +727,6 @@ def test_lbservice_edit_host_routing_edit_existing_host(
 
     lb_service.setservicelinks(
         serviceLinks=[service_link1])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
@@ -823,9 +787,6 @@ def test_lbservice_host_routing_multiple_port_1(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
@@ -888,9 +849,6 @@ def test_lbservice_host_routing_multiple_port_2(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2, service_link3])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
@@ -939,9 +897,6 @@ def test_lbservice_host_routing_multiple_port_3(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
-
     wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
@@ -978,8 +933,6 @@ def test_lbservice_host_routing_target_port_override(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
     wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service)
     validate_add_service_link(super_client, lb_service, services[0])
@@ -1027,8 +980,6 @@ def test_lbservice_host_routing_multiple_port_1_edit_add(
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
 
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])
     validate_add_service_link(super_client, lb_service, services[2])
@@ -1156,9 +1107,6 @@ def test_lbservice_host_routing_multiple_port_1_edit_edit(
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
-
-    env = env.activateservices()
-    env = client.wait_success(env, 120)
 
     validate_add_service_link(super_client, lb_service, services[0])
     validate_add_service_link(super_client, lb_service, services[1])

@@ -1449,6 +1449,13 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
 
+    env = env.activateservices()
+    env = client.wait_success(env, 120)
+    for service in services:
+        service = client.wait_success(service, 120)
+        assert service.state == "active"
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
     return env, services, lb_service
 
 

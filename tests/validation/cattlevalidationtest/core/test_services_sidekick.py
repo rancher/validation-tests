@@ -212,7 +212,7 @@ def env_with_sidekick(super_client, client, service_scale, exposed_port):
 
 def test_sidekick_activate_env(client, super_client):
 
-    exposed_port = "9000"
+    exposed_port = "7000"
     service_scale = 2
 
     env, service, service_name, consumed_service_name = \
@@ -235,7 +235,7 @@ def test_sidekick_activate_env(client, super_client):
 
 def test_multiple_sidekick_activate_service(client, super_client):
 
-    exposed_port = "9003"
+    exposed_port = "7003"
     service_scale = 2
 
     env, service, service_name, consumed_service1, consumed_service2 =\
@@ -289,7 +289,7 @@ def test_service_links_to_sidekick(client, super_client):
     env, linked_service, linked_service_name, linked_consumed_service_name = \
         create_env_with_sidekick_for_linking(client, service_scale)
 
-    client_port = "9004"
+    client_port = "7004"
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
                      "ports": [client_port+":22/tcp"]}
 
@@ -324,7 +324,7 @@ def test_service_links_to_sidekick(client, super_client):
 def test_sidekick_service_scale_up(client, super_client):
 
     service_scale = 2
-    exposed_port = "9005"
+    exposed_port = "7005"
     final_service_scale = 3
 
     env, service, service_name, consumed_service_name = \
@@ -344,7 +344,7 @@ def test_sidekick_service_scale_up(client, super_client):
 
 def test_sidekick_scale_down(client, super_client):
     service_scale = 3
-    exposed_port = "9006"
+    exposed_port = "7006"
     final_service_scale = 2
 
     env, service, service_name, consumed_service_name = \
@@ -365,7 +365,7 @@ def test_sidekick_scale_down(client, super_client):
 def test_sidekick_consumed_services_stop_start_instance(client,  super_client):
 
     service_scale = 2
-    exposed_port = "9007"
+    exposed_port = "7007"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -387,7 +387,7 @@ def test_sidekick_consumed_services_stop_start_instance(client,  super_client):
 
 def test_sidekick_consumed_services_restart_instance(client,  super_client):
     service_scale = 2
-    exposed_port = "9008"
+    exposed_port = "7008"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -410,7 +410,7 @@ def test_sidekick_consumed_services_restart_instance(client,  super_client):
 def test_sidekick_consumed_services_delete_instance(client,  super_client):
 
     service_scale = 3
-    exposed_port = "9009"
+    exposed_port = "7009"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -435,7 +435,7 @@ def test_sidekick_consumed_services_delete_instance(client,  super_client):
 def test_sidekick_deactivate_activate_environment(client, super_client):
 
     service_scale = 2
-    exposed_port = "9010"
+    exposed_port = "7010"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -460,7 +460,7 @@ def test_sidekick_deactivate_activate_environment(client, super_client):
 def test_sidekick_services_stop_start_instance(client,  super_client):
 
     service_scale = 2
-    exposed_port = "9011"
+    exposed_port = "7011"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -482,7 +482,7 @@ def test_sidekick_services_stop_start_instance(client,  super_client):
 
 def test_sidekick_services_restart_instance(client, super_client):
     service_scale = 3
-    exposed_port = "9012"
+    exposed_port = "7012"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -504,7 +504,7 @@ def test_sidekick_services_restart_instance(client, super_client):
 def test_sidekick_services_delete_instance(client,  super_client):
 
     service_scale = 2
-    exposed_port = "9013"
+    exposed_port = "7013"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
@@ -529,7 +529,7 @@ def test_sidekick_services_delete_instance(client,  super_client):
 def test_sidekick_services_deactivate_activate(client,  super_client):
 
     service_scale = 2
-    exposed_port = "9014"
+    exposed_port = "7014"
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(super_client, client, service_scale, exposed_port)
 
