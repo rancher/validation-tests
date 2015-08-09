@@ -1,5 +1,4 @@
 from common_fixtures import *  # NOQA
-import re
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
@@ -419,6 +418,11 @@ def test_sidekick_consumed_services_delete_instance(client,  super_client):
     assert len(containers) == 1
     container = containers[0]
 
+    print container_name
+    primary_container = get_side_kick_container(
+        super_client, container, service, service_name)
+    print primary_container.name
+
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
@@ -428,6 +432,11 @@ def test_sidekick_consumed_services_delete_instance(client,  super_client):
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(super_client, service, service_name,
                       consumed_service_name, exposed_port, dnsname)
+
+    # Check that the consumed container is not recreated
+    primary_container = client.reload(primary_container)
+    print primary_container.state
+    assert primary_container.state == "running"
 
     delete_all(client, [env])
 
@@ -513,6 +522,11 @@ def test_sidekick_services_delete_instance(client,  super_client):
     assert len(containers) == 1
     container = containers[0]
 
+    print container_name
+    consumed_container = get_side_kick_container(
+        super_client, container, service, consumed_service_name)
+    print consumed_container.name
+
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
@@ -522,6 +536,11 @@ def test_sidekick_services_delete_instance(client,  super_client):
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(super_client, service, service_name,
                       consumed_service_name, exposed_port, dnsname)
+
+    # Check that the consumed container is not recreated
+    consumed_container = client.reload(consumed_container)
+    print consumed_container.state
+    assert consumed_container.state == "running"
 
     delete_all(client, [env])
 
@@ -549,27 +568,6 @@ def test_sidekick_services_deactivate_activate(client,  super_client):
                       consumed_service_name, exposed_port, dnsname)
 
     delete_all(client, [env])
-
-
-def get_service_container_with_label(super_client, service, name, label):
-
-    containers = []
-    found = False
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
-    nameformat = re.compile(name + "_[0-9]{1,2}")
-    for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
-        if nameformat.match(c.name) \
-                and c.labels["io.rancher.service.deployment.unit"] == label:
-            containers = super_client.list_container(
-                externalId=c.externalId,
-                include="hosts")
-            assert len(containers) == 1
-            found = True
-            break
-    assert found
-    return containers[0]
 
 
 def validate_sidekick(super_client, primary_service, service_name,

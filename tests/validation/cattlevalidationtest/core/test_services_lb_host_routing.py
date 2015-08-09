@@ -1201,3 +1201,31 @@ def test_lbservice_host_routing_multiple_port_1_edit_edit(
                         "www.abc3.com", "/service3.html")
 
     delete_all(client, [env])
+
+
+def test_lbservice_external_service(super_client, client, socat_containers):
+    port = "1010"
+
+    lb_scale = 2
+
+    env, lb_service, ext_service, con_list = \
+        create_env_with_ext_svc_and_lb(client, lb_scale, port)
+
+    ext_service = activate_svc(client, ext_service)
+    lb_service = activate_svc(client, lb_service)
+
+    lb_service.setservicelinks(serviceLinks=[{"serviceId": ext_service.id}])
+
+    validate_add_service_link(super_client, lb_service, ext_service)
+
+    # Wait for host maps to be created
+    lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    assert len(lbs) == 1
+    lb = lbs[0]
+    host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
+    assert len(host_maps) == lb_service.scale
+
+    validate_lb_service_for_external_services(super_client, client,
+                                              lb_service, port, con_list)
+
+    delete_all(client, [env])

@@ -659,8 +659,32 @@ def wait_for_lb_service_to_become_active(super_client, client,
         print "haproxy: " + haproxy.read()
 
 
+def validate_lb_service_for_external_services(super_client, client, lb_service,
+                                              port, container_list,
+                                              hostheader=None, path=None):
+    container_names = []
+    for con in container_list:
+        container_names.append(con.externalId[:12])
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names, hostheader, path)
+
+
 def validate_lb_service(super_client, client, lb_service, port,
                         target_services, hostheader=None, path=None):
+    target_count = 0
+    for service in target_services:
+        target_count = target_count + service.scale
+    container_names = get_container_names_list(super_client,
+                                               target_services)
+    logger.info(container_names)
+    assert len(container_names) == target_count
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names, hostheader, path)
+
+
+def validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names,
+                                  hostheader=None, path=None):
     lbs = client.list_loadBalancer(serviceId=lb_service.id)
     assert len(lbs) == 1
 
@@ -677,16 +701,6 @@ def validate_lb_service(super_client, client, lb_service, port,
         lb_hosts.append(host)
         logger.info("host: " + host.name)
 
-    # Build all the servers for the access url
-
-    target_count = 0
-    for service in target_services:
-        target_count = target_count + service.scale
-    container_names = get_container_names_list(super_client,
-                                               target_services)
-    logger.info(container_names)
-
-    assert len(container_names) == target_count
     for host in lb_hosts:
         wait_until_lb_is_active(host, port)
         if hostheader is not None or path is not None:
@@ -966,6 +980,36 @@ def validate_external_service(super_client, service, ext_services,
                 assert address in dns_response
 
 
+def validate_external_service_for_hostname(super_client, service, ext_services,
+                                           exposed_port):
+
+    time.sleep(5)
+
+    containers = get_service_container_list(super_client, service)
+    assert len(containers) == service.scale
+    for container in containers:
+        print "Validation for container -" + str(container.name)
+        host = super_client.by_id('host', container.hosts[0].id)
+        for ext_service in ext_services:
+            expected_link_response = "About Google"
+
+            # Validate port mapping
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host.ipAddresses()[0].address, username="root",
+                        password="root", port=int(exposed_port))
+            cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
+                  ext_service.name + ";cat result.txt"
+            print cmd
+
+            # Validate link containers mutliple times
+            for i in range(0, 10):
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                response = stdout.readlines()
+                print "Actual wget Response" + str(response)
+                assert expected_link_response in str(response)
+
+
 @pytest.fixture(scope='session')
 def rancher_compose_container(admin_client, client, request):
     if rancher_compose_con["container"] is not None:
@@ -1088,6 +1132,29 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port):
     return env, service, lb_service
 
 
+def create_env_with_ext_svc_and_lb(client, scale_lb, port):
+
+    launch_config_lb = {"ports": [port+":80"]}
+
+    env, service, ext_service, con_list = create_env_with_ext_svc(
+        client, 1, port)
+
+    # Create LB Service
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    lb_service = client.create_loadBalancerService(
+        name=service_name,
+        environmentId=env.id,
+        launchConfig=launch_config_lb,
+        scale=scale_lb)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    return env, lb_service, ext_service, con_list
+
+
 def create_env_with_2_svc(client, scale_svc, scale_consumed_svc, port):
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
@@ -1185,7 +1252,7 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
     return env, service, consumed_service, consumed_service1, dns
 
 
-def create_env_with_ext_svc(client, scale_svc, port):
+def create_env_with_ext_svc(client, scale_svc, port, hostname=False):
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
@@ -1204,25 +1271,36 @@ def create_env_with_ext_svc(client, scale_svc, port):
     service = client.wait_success(service)
     assert service.state == "inactive"
 
-    # Create 2 containers which would be the applications that need to be
-    # serviced by the external service
+    con_list = None
 
-    c1 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
-    c2 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
-
-    c1 = client.wait_success(c1, 120)
-    assert c1.state == "running"
-    c2 = client.wait_success(c2, 120)
-    assert c2.state == "running"
-
-    con_list = [c1, c2]
-    ips = [c1.primaryIpAddress, c2.primaryIpAddress]
     # Create external Service
     random_name = random_str()
     ext_service_name = random_name.replace("-", "")
 
-    ext_service = client.create_externalService(
-        name=ext_service_name, environmentId=env.id, externalIpAddresses=ips)
+    if not hostname:
+        # Create 2 containers which would be the applications that need to be
+        # serviced by the external service
+
+        c1 = client.create_container(name=random_str(),
+                                     imageUuid=WEB_IMAGE_UUID)
+        c2 = client.create_container(name=random_str(),
+                                     imageUuid=WEB_IMAGE_UUID)
+
+        c1 = client.wait_success(c1, 120)
+        assert c1.state == "running"
+        c2 = client.wait_success(c2, 120)
+        assert c2.state == "running"
+
+        con_list = [c1, c2]
+        ips = [c1.primaryIpAddress, c2.primaryIpAddress]
+
+        ext_service = client.create_externalService(
+            name=ext_service_name, environmentId=env.id,
+            externalIpAddresses=ips)
+
+    else:
+        ext_service = client.create_externalService(
+            name=ext_service_name, environmentId=env.id, hostname="google.com")
 
     ext_service = client.wait_success(ext_service)
     assert ext_service.state == "inactive"
@@ -1518,3 +1596,32 @@ def create_env(client):
 def get_env(super_client, service):
     e = super_client.by_id('environment', service.environmentId)
     return e
+
+
+def get_service_container_with_label(super_client, service, name, label):
+
+    containers = []
+    found = False
+    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+                                                       state="active")
+    nameformat = re.compile(name + "_[0-9]{1,2}")
+    for instance_map in instance_maps:
+        c = super_client.by_id('container', instance_map.instanceId)
+        if nameformat.match(c.name) \
+                and c.labels["io.rancher.service.deployment.unit"] == label:
+            containers = super_client.list_container(
+                externalId=c.externalId,
+                include="hosts")
+            assert len(containers) == 1
+            found = True
+            break
+    assert found
+    return containers[0]
+
+
+def get_side_kick_container(super_client, container, service, service_name):
+    label = container.labels["io.rancher.service.deployment.unit"]
+    print container.name + " - " + label
+    secondary_con = get_service_container_with_label(
+        super_client, service, service_name, label)
+    return secondary_con

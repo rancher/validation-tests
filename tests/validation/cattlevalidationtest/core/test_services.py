@@ -497,6 +497,72 @@ def test_service_activate_delete_instance_scale_down_3(
         super_client, client, socat_containers, 4, 1, [2], 3)
 
 
+def test_services_hostname_override_1(super_client, client, socat_containers):
+
+    host_name = "test"
+    domain_name = "abc.com"
+
+    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+                     "domainName": domain_name,
+                     "hostname": host_name,
+                     "labels":
+                         {"io.rancher.container.hostname_override":
+                          "container_name"}
+                     }
+
+    scale = 2
+
+    service, env = create_env_and_svc(client, launch_config,
+                                      scale)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 300)
+    assert service.state == "active"
+
+    check_container_in_service(super_client, service)
+
+    container_list = get_service_container_list(super_client, service)
+    assert len(container_list) == service.scale
+    print container_list
+    for c in container_list:
+        docker_client = get_docker_client(c.hosts()[0])
+        inspect = docker_client.inspect_container(c.externalId)
+
+        assert inspect["Config"]["Hostname"] == c.name
+
+    delete_all(client, [env])
+
+
+def test_services_hostname_override_2(super_client, client, socat_containers):
+
+    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+                     "labels":
+                         {"io.rancher.container.hostname_override":
+                          "container_name"}
+                     }
+
+    scale = 2
+
+    service, env = create_env_and_svc(client, launch_config,
+                                      scale)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 300)
+    assert service.state == "active"
+
+    check_container_in_service(super_client, service)
+
+    container_list = get_service_container_list(super_client, service)
+    assert len(container_list) == service.scale
+    for c in container_list:
+        docker_client = get_docker_client(c.hosts()[0])
+        inspect = docker_client.inspect_container(c.externalId)
+
+        assert inspect["Config"]["Hostname"] == c.name
+
+    delete_all(client, [env])
+
+
 def check_service_scale(super_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
