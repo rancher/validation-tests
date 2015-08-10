@@ -19,9 +19,6 @@ if_github = pytest.mark.skipif(not os.environ.get('API_AUTH_GITHUB'
                                reason='API_AUTH_GITHUB'
                                       '_CLIENT_SECRET is not set')
 
-BASE_URL = cattle_url() + '/v1/'
-URL = BASE_URL + 'schemas'
-
 
 @pytest.fixture(scope='session')
 def config():
@@ -110,7 +107,7 @@ def github_request_code(config, cattle_url, admin_client, request, user=None):
 def github_request_token(github_request_code):
     code = github_request_code
 
-    c = requests.post(BASE_URL + 'token', {'code': code})
+    c = requests.post(base_url() + 'token', {'code': code})
     return c.json()['jwt']
 
 
