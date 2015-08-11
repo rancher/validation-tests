@@ -395,6 +395,42 @@ def test_rancher_compose_lbservice_host_routing(super_client, client,
     delete_all(client, [env, rancher_env])
 
 
+def test_rancher_compose_external_services_hostname(super_client, client,
+                                                    rancher_compose_container):
+
+    port = "7904"
+
+    service_scale = 1
+
+    env, service, ext_service, con_list = create_env_with_ext_svc(
+        client, service_scale, port, True)
+
+    service_link = {"serviceId": ext_service.id}
+    service.addservicelink(serviceLink=service_link)
+
+#   Launch env using docker compose
+
+    launch_rancher_compose(client, env, "ext_service_hostname")
+    rancher_envs = client.list_environment(name=env.name+"rancher")
+    assert len(rancher_envs) == 1
+    rancher_env = rancher_envs[0]
+
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    rancher_ext_service = get_rancher_compose_service(
+        client, rancher_env.id, ext_service)
+
+    client.wait_success(rancher_service)
+    client.wait_success(rancher_ext_service)
+
+    validate_add_service_link(super_client, rancher_service,
+                              rancher_ext_service)
+
+    validate_external_service_for_hostname(super_client, rancher_service,
+                                           [rancher_ext_service], port)
+    delete_all(client, [env, rancher_env])
+
+
 def rancher_compose_dns_services(super_client, client, port,
                                  rancher_compose_container,
                                  cross_linking=False):

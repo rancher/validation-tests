@@ -127,7 +127,6 @@ def test_extservice_link_when_services_still_activating(super_client, client):
 
     service.addservicelink(serviceLink={"serviceId": ext_service.id})
     service = client.wait_success(service, 120)
-
     ext_service = client.wait_success(ext_service, 120)
 
     assert service.state == "active"
@@ -473,4 +472,21 @@ def test_extservice_add_and_delete_ips(super_client, client):
     validate_external_service(super_client, service, [ext_service], port,
                               con_list)
 
+    delete_all(client, [env])
+
+
+def test_extservice_with_cname(super_client, client):
+
+    port = "3024"
+    service_scale = 2
+
+    env, service, ext_service, con_list = create_env_with_ext_svc(
+        client, service_scale, port, True)
+
+    ext_service = activate_svc(client, ext_service)
+    link_svc(super_client, service, [ext_service])
+    service = activate_svc(client, service)
+
+    validate_external_service_for_hostname(
+        super_client, service, [ext_service], port)
     delete_all(client, [env])

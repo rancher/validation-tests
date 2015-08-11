@@ -319,6 +319,118 @@ def test_multiple_level_volume_mount_activate_service(client, super_client,
     delete_all(client, [env])
 
 
+def test_multiple_level_volume_mount_delete_services_1(client, super_client,
+                                                       socat_containers):
+
+    service_scale = 2
+
+    env, service, service_name, consumed_service1, consumed_service2 =\
+        create_env_with_multiple_levels_svcs_and_volume_mounts(
+            client, service_scale)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 120)
+    assert service.state == "active"
+
+    validate_volume_mount(super_client, service, service_name,
+                          [consumed_service1])
+    validate_volume_mount(super_client, service, consumed_service1,
+                          [consumed_service2])
+
+    # Delete container from consumed_service2
+    container_name = consumed_service2 + "_1"
+    containers = client.list_container(name=container_name)
+    assert len(containers) == 1
+    container = containers[0]
+    print container_name
+
+    consumed1_container = get_side_kick_container(
+        super_client, container, service, consumed_service1)
+    print consumed1_container.name
+
+    primary_container = get_side_kick_container(
+        super_client, container, service, service_name)
+    print primary_container.name
+
+    # Delete instance
+    container = client.wait_success(client.delete(container))
+    assert container.state == 'removed'
+    client.wait_success(service)
+
+    validate_volume_mount(super_client, service, service_name,
+                          [consumed_service1])
+    validate_volume_mount(super_client, service, consumed_service1,
+                          [consumed_service2])
+
+    # Check that both the consuming containers are recreated
+    consumed1_container = client.reload(consumed1_container)
+    print consumed1_container.state
+    assert consumed1_container.state == "removed"
+
+    primary_container = client.reload(primary_container)
+    print primary_container.state
+    assert primary_container.state == "removed"
+
+    delete_all(client, [env])
+
+
+def test_multiple_level_volume_mount_delete_services_2(client, super_client,
+                                                       socat_containers):
+
+    service_scale = 2
+
+    env, service, service_name, consumed_service1, consumed_service2 =\
+        create_env_with_multiple_levels_svcs_and_volume_mounts(
+            client, service_scale)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 120)
+    assert service.state == "active"
+
+    validate_volume_mount(super_client, service, service_name,
+                          [consumed_service1])
+    validate_volume_mount(super_client, service, consumed_service1,
+                          [consumed_service2])
+
+    # Delete container from consumed_service1
+    container_name = consumed_service1 + "_1"
+    containers = client.list_container(name=container_name)
+    assert len(containers) == 1
+    container = containers[0]
+    print container_name
+
+    consumed2_container = get_side_kick_container(
+        super_client, container, service, consumed_service2)
+    print consumed2_container.name
+
+    primary_container = get_side_kick_container(
+        super_client, container, service, service_name)
+    print primary_container.name
+
+    # Delete instance
+    container = client.wait_success(client.delete(container))
+    assert container.state == 'removed'
+    client.wait_success(service)
+
+    validate_volume_mount(super_client, service, service_name,
+                          [consumed_service1])
+    validate_volume_mount(super_client, service, consumed_service1,
+                          [consumed_service2])
+
+    # Check that consuming container of the deleted instance is recreated
+    # but the consumed container of the deleted instance continues to be in
+    # running state
+    consumed2_container = client.reload(consumed2_container)
+    print consumed2_container.state
+    assert consumed2_container.state == "running"
+
+    primary_container = client.reload(primary_container)
+    print primary_container.state
+    assert primary_container.state == "removed"
+
+    delete_all(client, [env])
+
+
 def test_multiple_level_volume_mount_activate_service_circular(client):
 
     service_scale = 2
@@ -429,6 +541,11 @@ def test_volume_mount_consumed_services_delete_instance(
     assert len(containers) == 1
     container = containers[0]
 
+    print container_name
+    primary_container = get_side_kick_container(
+        super_client, container, service, service_name)
+    print primary_container.name
+
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
@@ -437,6 +554,11 @@ def test_volume_mount_consumed_services_delete_instance(
 
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service_name])
+
+    # Check that consuming container was recreated
+    primary_container = client.reload(primary_container)
+    print primary_container.state
+    assert primary_container.state == "removed"
 
     delete_all(client, [env])
 
@@ -523,6 +645,11 @@ def test_volume_mount_services_delete_instance(
     assert len(containers) == 1
     container = containers[0]
 
+    print container_name
+    consumed_container = get_side_kick_container(
+        super_client, container, service, consumed_service_name)
+    print consumed_container.name
+
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
@@ -531,6 +658,11 @@ def test_volume_mount_services_delete_instance(
 
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service_name])
+
+    # Check that the consumed container is not recreated
+    consumed_container = client.reload(consumed_container)
+    print consumed_container.state
+    assert consumed_container.state == "running"
 
     delete_all(client, [env])
 
