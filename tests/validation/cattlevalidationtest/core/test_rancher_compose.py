@@ -218,6 +218,83 @@ def test_rancher_compose_lbservice(super_client, client,
     delete_all(client, [env, rancher_env])
 
 
+def test_rancher_compose_lbservice_internal(super_client, client,
+                                            rancher_compose_container):
+
+    port = "7911"
+    con_port = "7912"
+
+    # Deploy container in same network to test accessibility of internal LB
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    host = hosts[0]
+    client_con = client.create_container(
+        name=random_str(), imageUuid=SSH_IMAGE_UUID,
+        ports=[con_port+":22/tcp"], requestedHostId=host.id)
+    client_con = client.wait_success(client_con, 120)
+    assert client_con.state == "running"
+
+    # Add an internal LB service and do not activate services
+    service_scale = 2
+    lb_scale = 1
+
+    env, service, lb_service = create_env_with_svc_and_lb(
+        client, service_scale, lb_scale, port, internal=True)
+
+    service_link = {"serviceId": service.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
+
+    validate_add_service_link(super_client, lb_service, service)
+
+    # Add another service link to the LB service
+    launch_config = {"imageUuid": WEB_IMAGE_UUID}
+    service_name = random_str()
+    service1 = client.create_service(name=service_name,
+                                     environmentId=env.id,
+                                     launchConfig=launch_config,
+                                     scale=2)
+    service1 = client.wait_success(service1)
+    assert service1.state == "inactive"
+
+    service_link = {"serviceId": service1.id, "ports": ["80"]}
+    lb_service.addservicelink(serviceLink=service_link)
+    validate_add_service_link(super_client, lb_service, service1)
+
+    launch_rancher_compose(client, env, "lb_service_internal")
+
+    rancher_envs = client.list_environment(name=env.name+"rancher")
+    assert len(rancher_envs) == 1
+    rancher_env = rancher_envs[0]
+
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, service1)
+    rancher_lb_service = get_rancher_compose_service(
+        client, rancher_env.id, lb_service)
+
+    client.wait_success(rancher_service)
+    client.wait_success(rancher_service1)
+    client.wait_success(rancher_lb_service)
+    validate_add_service_link(
+        super_client, rancher_lb_service, rancher_service)
+    validate_add_service_link(
+        super_client, rancher_lb_service, rancher_service1)
+
+    validate_internal_lb(super_client, rancher_lb_service,
+                         [rancher_service, rancher_service1],
+                         host, con_port, port)
+    # Check that port in the host where LB Agent is running is not accessible
+    lb_containers = get_service_container_list(
+        super_client, rancher_lb_service)
+    assert len(lb_containers) == lb_service.scale
+    for lb_con in lb_containers:
+        host = super_client.by_id('host', lb_con.hosts[0].id)
+        assert check_for_no_access(host, port)
+
+    delete_all(client, [env, rancher_env])
+
+
 def test_rancher_compose_service_links(super_client, client,
                                        rancher_compose_container):
 

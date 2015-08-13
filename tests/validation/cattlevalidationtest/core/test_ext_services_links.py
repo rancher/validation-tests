@@ -33,8 +33,8 @@ def test_extservice_activate_svc_activate_external_svc_link(
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_activate_external_svc_link_activate_svc(
@@ -53,7 +53,8 @@ def test_extservice_activate_external_svc_link_activate_svc(
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_activate_svc_link_activate_external_svc(
@@ -72,7 +73,8 @@ def test_extservice_activate_svc_link_activate_external_svc(
     validate_add_service_link(super_client, service, ext_service)
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_link_activate_external_svc_activate_svc(
@@ -91,7 +93,8 @@ def test_extservice_link_activate_external_svc_activate_svc(
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_link_activate_svc_activate_external_svc(
@@ -110,7 +113,8 @@ def test_extservice_link_activate_svc_activate_external_svc(
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_link_when_services_still_activating(super_client, client):
@@ -135,8 +139,8 @@ def test_extservice_link_when_services_still_activating(super_client, client):
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_service_scale_up(super_client, client):
@@ -161,7 +165,8 @@ def test_extservice_service_scale_up(super_client, client):
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_services_scale_down(super_client, client):
@@ -186,7 +191,8 @@ def test_extservice_services_scale_down(super_client, client):
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_ext_services_deactivate_activate(super_client, client):
@@ -212,7 +218,8 @@ def test_extservice_ext_services_deactivate_activate(super_client, client):
 
     validate_external_service(
         super_client, service, [ext_service], port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_service_deactivate_activate(super_client, client):
@@ -239,7 +246,8 @@ def test_extservice_service_deactivate_activate(super_client, client):
 
     validate_external_service(super_client, service, [ext_service],
                               port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_deactivate_activate_environment(super_client, client):
@@ -273,7 +281,8 @@ def test_extservice_deactivate_activate_environment(super_client, client):
 
     validate_external_service(super_client, service, [ext_service],
                               port, con_list)
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_services_delete_service_add_service(super_client, client):
@@ -319,8 +328,8 @@ def test_extservice_services_delete_service_add_service(super_client, client):
 
     validate_external_service(super_client, service1,
                               [ext_service], port1, con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_delete_and_add_ext_service(super_client, client):
@@ -371,8 +380,8 @@ def test_extservice_delete_and_add_ext_service(super_client, client):
 
     validate_external_service(super_client, service, [ext_service1], port,
                               con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_services_stop_start_instance(super_client, client):
@@ -400,8 +409,8 @@ def test_extservice_services_stop_start_instance(super_client, client):
 
     validate_external_service(super_client, service, [ext_service],
                               port, con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_services_restart_instance(super_client, client):
@@ -428,8 +437,8 @@ def test_extservice_services_restart_instance(super_client, client):
 
     validate_external_service(super_client, service,
                               [ext_service], port, con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_add_and_delete_ips(super_client, client):
@@ -471,8 +480,8 @@ def test_extservice_add_and_delete_ips(super_client, client):
 
     validate_external_service(super_client, service, [ext_service], port,
                               con_list)
-
-    delete_all(client, [env])
+    con_list.append(env)
+    delete_all(client, con_list)
 
 
 def test_extservice_with_cname(super_client, client):
@@ -489,4 +498,5 @@ def test_extservice_with_cname(super_client, client):
 
     validate_external_service_for_hostname(
         super_client, service, [ext_service], port)
+
     delete_all(client, [env])

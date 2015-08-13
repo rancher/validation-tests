@@ -47,9 +47,15 @@ def deactivate_activate_service(super_client, client, service):
 
 
 def create_env_and_svc_activate(super_client, client, scale, check=True):
-
-    start_time = time.time()
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale, check)
+    return service, env
+
+
+def create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale, check=True):
+    start_time = time.time()
     service, env = create_env_and_svc(client, launch_config, scale)
     service = service.activate()
     service = client.wait_success(service, 300)
@@ -310,45 +316,14 @@ def test_service_activate_stop_instance(
         super_client, client, socat_containers):
 
     service = shared_env[0]["service"]
-
-    # Stop 2 instances
-
-    containers = get_service_container_list(super_client, service)
-    container1 = containers[0]
-    container1 = client.wait_success(container1.stop())
-    container2 = containers[1]
-    container2 = client.wait_success(container2.stop())
-
-    service = client.wait_success(service)
-
-    wait_for_scale_to_adjust(super_client, service)
-
-    check_container_in_service(super_client, service)
-    container1 = client.reload(container1)
-    container2 = client.reload(container2)
-    assert container1.state == 'running'
-    assert container2.state == 'running'
+    check_for_service_reconciliation_on_stop(super_client, client, service)
 
 
 def test_service_activate_delete_instance(
         super_client, client, socat_containers):
 
     service = shared_env[0]["service"]
-
-    # Delete 2 instances
-
-    containers = get_service_container_list(super_client, service)
-    container1 = containers[0]
-    container1 = client.wait_success(client.delete(container1))
-    container2 = containers[1]
-    container2 = client.wait_success(client.delete(container2))
-
-    assert container1.state == 'removed'
-    assert container2.state == 'removed'
-
-    wait_for_scale_to_adjust(super_client, service)
-
-    check_container_in_service(super_client, service)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
 
 
 def test_service_activate_purge_instance(
@@ -502,7 +477,7 @@ def test_services_hostname_override_1(super_client, client, socat_containers):
     host_name = "test"
     domain_name = "abc.com"
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "domainName": domain_name,
                      "hostname": host_name,
                      "labels":
@@ -535,7 +510,7 @@ def test_services_hostname_override_1(super_client, client, socat_containers):
 
 def test_services_hostname_override_2(super_client, client, socat_containers):
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "labels":
                          {"io.rancher.container.hostname_override":
                           "container_name"}
@@ -561,6 +536,110 @@ def test_services_hostname_override_2(super_client, client, socat_containers):
         assert inspect["Config"]["Hostname"] == c.name
 
     delete_all(client, [env])
+
+
+def test_service_reconcile_stop_instance_restart_policy_always(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "always"}}
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(super_client, client, service)
+
+
+def test_service_reconcile_delete_instance_restart_policy_always(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "always"}}
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
+
+
+def test_service_reconcile_stop_instance_restart_policy_no(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "no"}}
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+
+
+def test_service_reconcile_delete_instance_restart_policy_no(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "no"}}
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+
+    # Stop 2 containers of the service
+    assert service.scale > 1
+    containers = get_service_container_list(super_client, service)
+    assert len(containers) == service.scale
+    assert service.scale > 1
+    container1 = containers[0]
+    container1 = client.wait_success(container1.stop())
+    container2 = containers[1]
+    container2 = client.wait_success(container2.stop())
+
+    service = client.wait_success(service)
+    time.sleep(30)
+    assert service.state == "active"
+
+    # Make sure that the containers continue to remain in "stopped" state
+    container1 = client.reload(container1)
+    container2 = client.reload(container2)
+    assert container1.state == 'stopped'
+    assert container2.state == 'stopped'
+
+
+def test_service_reconcile_stop_instance_restart_policy_failure(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "on-failure"}
+                     }
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(super_client, client, service)
+
+
+def test_service_reconcile_delete_instance_restart_policy_failure(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"name": "on-failure"}
+                     }
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
+
+
+def test_service_reconcile_stop_instance_restart_policy_failure_count(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"maximumRetryCount": 5,
+                                       "name": "on-failure"}
+                     }
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(super_client, client, service)
+
+
+def test_service_reconcile_delete_instance_restart_policy_failure_count(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "restartPolicy": {"maximumRetryCount": 5,
+                                       "name": "on-failure"}
+                     }
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
 
 
 def check_service_scale(super_client, client, socat_containers,
@@ -764,3 +843,41 @@ def get_service_container_list(super_client, service):
         container.append(c)
 
     return container
+
+
+def check_for_service_reconciliation_on_stop(super_client, client, service):
+    # Stop 2 containers of the service
+    assert service.scale > 1
+    containers = get_service_container_list(super_client, service)
+    assert len(containers) == service.scale
+    assert service.scale > 1
+    container1 = containers[0]
+    container1 = client.wait_success(container1.stop())
+    container2 = containers[1]
+    container2 = client.wait_success(container2.stop())
+
+    service = client.wait_success(service)
+
+    wait_for_scale_to_adjust(super_client, service)
+
+    check_container_in_service(super_client, service)
+    container1 = client.reload(container1)
+    container2 = client.reload(container2)
+    assert container1.state == 'running'
+    assert container2.state == 'running'
+
+
+def check_for_service_reconciliation_on_delete(super_client, client, service):
+    # Delete 2 containers of the service
+    containers = get_service_container_list(super_client, service)
+    container1 = containers[0]
+    container1 = client.wait_success(client.delete(container1))
+    container2 = containers[1]
+    container2 = client.wait_success(client.delete(container2))
+
+    assert container1.state == 'removed'
+    assert container2.state == 'removed'
+
+    wait_for_scale_to_adjust(super_client, service)
+
+    check_container_in_service(super_client, service)
