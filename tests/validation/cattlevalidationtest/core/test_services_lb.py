@@ -5,10 +5,11 @@ logger.setLevel(logging.DEBUG)
 
 
 def create_environment_with_lb_services(super_client, client,
-                                        service_scale, lb_scale, port):
+                                        service_scale, lb_scale, port,
+                                        internal=False):
 
     env, service, lb_service = create_env_with_svc_and_lb(
-        client, service_scale, lb_scale, port)
+        client, service_scale, lb_scale, port, internal)
 
     service.activate()
     lb_service.activate()
@@ -16,12 +17,13 @@ def create_environment_with_lb_services(super_client, client,
     service_link = {"serviceId": service.id}
     lb_service.addservicelink(serviceLink=service_link)
 
-    service = client.wait_success(service, 120)
-    lb_service = client.wait_success(lb_service, 120)
+    service = client.wait_success(service, 180)
+    lb_service = client.wait_success(lb_service, 180)
 
     assert service.state == "active"
     assert lb_service.state == "active"
-
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service], lb_service)
     return env, service, lb_service
 
 
@@ -35,9 +37,6 @@ def test_lbservice_activate_lb_activate_svc_link(
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
-
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
     delete_all(client, [env])
 
@@ -197,8 +196,6 @@ def test_lb_services_scale_up_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     service = client.update(service, scale=final_service_scale,
@@ -226,8 +223,6 @@ def test_lb_services_scale_down_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     service = client.update(service, scale=final_service_scale,
@@ -255,8 +250,6 @@ def test_lb_services_scale_up_lb_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_service = client.update(lb_service, scale=final_lb_scale,
@@ -284,8 +277,6 @@ def test_lb_services_scale_down_lb_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_service = client.update(lb_service, scale=final_lb_scale,
@@ -311,8 +302,6 @@ def test_lb_services_stop_start_instance(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Stop instance
@@ -341,8 +330,6 @@ def test_lb_services_delete_purge_instance(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Delete instance
@@ -372,8 +359,6 @@ def test_lb_services_deactivate_activate_lbservice(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_service = lb_service.deactivate()
@@ -402,8 +387,6 @@ def test_lb_services_deactivate_activate_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     service = service.deactivate()
@@ -432,8 +415,6 @@ def test_lb_services_deactivate_activate_environment(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     env = env.deactivateservices()
@@ -468,8 +449,6 @@ def test_lb_services_add_remove_servicelinks_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Add another service to environment
@@ -525,8 +504,6 @@ def test_lb_services_add_remove_servicelinks_lb(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Add another LB service to environment
@@ -579,8 +556,6 @@ def test_lb_services_delete_service_add_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Delete Service
@@ -629,9 +604,6 @@ def test_lb_services_delete_lb_service(
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
-
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     # Delete LB Service
@@ -645,8 +617,6 @@ def test_lb_services_delete_lb_service(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     delete_all(client, [env])
@@ -663,8 +633,6 @@ def test_lb_services_stop_start_lb_instance_(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_instances = get_service_container_list(super_client, lb_service)
@@ -694,8 +662,6 @@ def test_lb_services_lb_instance_restart(
 
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_instances = get_service_container_list(super_client, lb_service)
@@ -724,8 +690,6 @@ def test_lb_services_lb_instance_delete(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port)
 
-    wait_for_lb_service_to_become_active(super_client, client,
-                                         [service], lb_service)
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     lb_instances = get_service_container_list(super_client, lb_service)
@@ -743,3 +707,81 @@ def test_lb_services_lb_instance_delete(
     validate_lb_service(super_client, client, lb_service, port, [service])
 
     delete_all(client, [env])
+
+
+def test_lbservice_internal(super_client, client, socat_containers):
+
+    port = "9017"
+    con_port = "9018"
+
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+
+    lb_scale = 1
+    service_scale = 2
+    host = hosts[0]
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port, internal=True)
+
+    # Deploy container in same network to test accessibility of internal LB
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    host = hosts[0]
+
+    client_con = client.create_container(
+        name=random_str(), imageUuid=SSH_IMAGE_UUID,
+        ports=[con_port+":22/tcp"], requestedHostId=host.id)
+    client_con = client.wait_success(client_con, 120)
+    assert client_con.state == "running"
+    # Wait for exposed port to be available
+    time.sleep(5)
+    validate_internal_lb(super_client, lb_service, [service], host,
+                         con_port, port)
+
+    # Check that port in the host where LB Agent is running is not accessible
+    lb_containers = get_service_container_list(super_client, lb_service)
+    assert len(lb_containers) == lb_service.scale
+    for lb_con in lb_containers:
+        host = super_client.by_id('host', lb_con.hosts[0].id)
+        assert check_for_no_access(host, port)
+    delete_all(client, [env, client_con])
+
+
+def test_multiple_lbservice_internal_same_host_port(
+        super_client, client, socat_containers):
+
+    port = "9019"
+    con_port = "9020"
+
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+
+    lb_scale = len(hosts)
+    service_scale = 2
+    host = hosts[0]
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port, internal=True)
+
+    # Deploy container in same network to test accessibility of internal LB
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    host = hosts[0]
+
+    client_con = client.create_container(
+        name=random_str(), imageUuid=SSH_IMAGE_UUID,
+        ports=[con_port+":22/tcp"], requestedHostId=host.id)
+    client_con = client.wait_success(client_con, 120)
+    assert client_con.state == "running"
+    # Wait for exposed port to be available
+    time.sleep(5)
+    validate_internal_lb(super_client, lb_service, [service],
+                         host, con_port, port)
+
+    env2, service2, lb_service2 = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port, internal=True)
+    validate_internal_lb(super_client, lb_service2, [service2], host,
+                         con_port, port)
+
+    delete_all(client, [env, env2, client_con])

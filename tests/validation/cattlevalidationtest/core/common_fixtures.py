@@ -1021,7 +1021,7 @@ def rancher_compose_container(admin_client, client, request):
         "wget " + rancher_compose_url
     cmd2 = "tar xvf rancher-compose-linux-amd64.tar.gz"
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
     assert len(hosts) > 0
     host = hosts[0]
     port = rancher_compose_con["port"]
@@ -1096,11 +1096,15 @@ def launch_rancher_compose(client, env, testname):
     assert found
 
 
-def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port):
+def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
+                               internal=False):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
-    launch_config_lb = {"ports": [port+":80"]}
+    if internal:
+        launch_config_lb = {"expose": [port+":80"]}
+    else:
+        launch_config_lb = {"ports": [port+":80"]}
 
     # Create Environment
     env = create_env(client)
@@ -1625,3 +1629,35 @@ def get_side_kick_container(super_client, container, service, service_name):
     secondary_con = get_service_container_with_label(
         super_client, service, service_name, label)
     return secondary_con
+
+
+def validate_internal_lb(super_client, lb_service, services,
+                         host, con_port, lb_port):
+    # Access each of the LB Agent from the client container
+    lb_containers = get_service_container_list(super_client, lb_service)
+    assert len(lb_containers) == lb_service.scale
+    for lb_con in lb_containers:
+        lb_ip = lb_con.primaryIpAddress
+        target_count = 0
+        for service in services:
+            target_count = target_count + service.scale
+        expected_lb_response = get_container_names_list(super_client,
+                                                        services)
+        assert len(expected_lb_response) == target_count
+        # Validate port mapping
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host.ipAddresses()[0].address, username="root",
+                    password="root", port=int(con_port))
+
+        # Validate lb service from this container using LB agent's ip address
+        cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + lb_ip + \
+              ":"+lb_port+"/name.html;cat result.txt"
+        logger.info(cmd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+
+        response = stdout.readlines()
+        assert len(response) == 1
+        resp = response[0].strip("\n")
+        logger.info("Actual wget Response" + str(resp))
+        assert resp in (expected_lb_response)
