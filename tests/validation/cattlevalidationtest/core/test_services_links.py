@@ -4,11 +4,17 @@ logger = logging.getLogger(__name__)
 
 
 def create_environment_with_linked_services(
-        super_client, client, service_scale, consumed_service_scale, port):
+        super_client, client, service_scale, consumed_service_scale, port,
+        ssh_port="22", isnetworkModeHost_svc=False,
+        isnetworkModeHost_consumed_svc=False):
 
-    env, service, consumed_service = create_env_with_2_svc(
-        client, service_scale, consumed_service_scale, port)
-
+    if not isnetworkModeHost_svc and not isnetworkModeHost_consumed_svc:
+        env, service, consumed_service = create_env_with_2_svc(
+            client, service_scale, consumed_service_scale, port)
+    else:
+        env, service, consumed_service = create_env_with_2_svc_hostnetwork(
+            client, service_scale, consumed_service_scale, port, ssh_port,
+            isnetworkModeHost_svc, isnetworkModeHost_consumed_svc)
     service.activate()
     consumed_service.activate()
 
@@ -605,4 +611,54 @@ def test_link_services_delete_instance(super_client, client):
     wait_for_scale_to_adjust(super_client, service)
     validate_linked_service(super_client, service, [consumed_service], port)
 
+    delete_all(client, [env])
+
+
+def test_links_with_hostnetwork_1(super_client, client):
+
+    port = "323"
+
+    service_scale = 1
+    consumed_service_scale = 2
+    ssh_port = "33"
+    env, service, consumed_service = create_environment_with_linked_services(
+        super_client, client, service_scale, consumed_service_scale, port,
+        ssh_port, isnetworkModeHost_svc=False,
+        isnetworkModeHost_consumed_svc=True)
+    validate_linked_service(super_client, service, [consumed_service], port)
+    delete_all(client, [env])
+
+
+def test_links_with_hostnetwork_2(super_client, client):
+
+    port = "324"
+
+    service_scale = 1
+    consumed_service_scale = 2
+    ssh_port = "33"
+
+    env, service, consumed_service = create_environment_with_linked_services(
+        super_client, client, service_scale, consumed_service_scale, port,
+        ssh_port, isnetworkModeHost_svc=True,
+        isnetworkModeHost_consumed_svc=True)
+    validate_linked_service(
+        super_client, service, [consumed_service], ssh_port)
+
+    delete_all(client, [env])
+
+
+def test_links_with_hostnetwork_3(super_client, client):
+
+    port = "325"
+
+    service_scale = 1
+    consumed_service_scale = 2
+    ssh_port = "33"
+
+    env, service, consumed_service = create_environment_with_linked_services(
+        super_client, client, service_scale, consumed_service_scale, port,
+        ssh_port, isnetworkModeHost_svc=True,
+        isnetworkModeHost_consumed_svc=False)
+    validate_linked_service(
+        super_client, service, [consumed_service], ssh_port)
     delete_all(client, [env])
