@@ -1229,3 +1229,93 @@ def test_lbservice_external_service(super_client, client, socat_containers):
                                               lb_service, port, con_list)
 
     delete_all(client, [env])
+
+
+def test_lbservice_host_routing_tcp_only(super_client, client,
+                                         socat_containers):
+
+    port = "1011/tcp"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 2
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port], service_count)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["www.abc1.com/service1.html",
+                               "www.abc2.com/service2.html"]}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2])
+
+    validate_add_service_link(super_client, lb_service, services[0])
+    validate_add_service_link(super_client, lb_service, services[1])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         services, lb_service)
+
+    port = "1011"
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[0], services[1]])
+
+    validate_lb_service(super_client, client,
+                        lb_service, port, [services[0], services[1]])
+
+    delete_all(client, [env])
+
+
+def test_lbservice_host_routing_tcp_and_http(super_client, client,
+                                             socat_containers):
+
+    port1 = "1012/tcp"
+    port2 = "1013"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 2
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port1, port2], service_count)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["www.abc1.com/service3.html"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["www.abc1.com/service4.html"]}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2])
+
+    validate_add_service_link(super_client, lb_service, services[0])
+    validate_add_service_link(super_client, lb_service, services[1])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         services, lb_service)
+
+    port1 = "1012"
+    validate_lb_service(super_client, client,
+                        lb_service, port1,
+                        [services[0], services[1]])
+
+    validate_lb_service(super_client, client,
+                        lb_service, port1,
+                        [services[0], services[1]])
+
+    validate_lb_service(super_client, client,
+                        lb_service, port2,
+                        [services[0]],
+                        "www.abc1.com", "/service3.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port2, [services[1]],
+                        "www.abc1.com", "/service4.html")
+
+    validate_lb_service_for_no_access(client, lb_service, port2,
+                                      "www.abc2.com",
+                                      "/service3.html")
+    delete_all(client, [env])

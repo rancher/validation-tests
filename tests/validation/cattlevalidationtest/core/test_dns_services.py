@@ -6,11 +6,20 @@ logger = logging.getLogger(__name__)
 def create_environment_with_dns_services(super_client, client,
                                          service_scale,
                                          consumed_service_scale,
-                                         port, cross_linking=False):
-
-    env, service, consumed_service, consumed_service1, dns = \
-        create_env_with_2_svc_dns(
-            client, service_scale, consumed_service_scale, port, cross_linking)
+                                         port, cross_linking=False,
+                                         isnetworkModeHost_svc=False,
+                                         isnetworkModeHost_consumed_svc=False):
+    if not isnetworkModeHost_svc and not isnetworkModeHost_consumed_svc:
+        env, service, consumed_service, consumed_service1, dns = \
+            create_env_with_2_svc_dns(
+                client, service_scale, consumed_service_scale, port,
+                cross_linking)
+    else:
+        env, service, consumed_service, consumed_service1, dns = \
+            create_env_with_2_svc_dns_hostnetwork(
+                client, service_scale, consumed_service_scale, port,
+                cross_linking, isnetworkModeHost_svc,
+                isnetworkModeHost_consumed_svc)
     service.activate()
     consumed_service.activate()
     consumed_service1.activate()
@@ -817,4 +826,80 @@ def test_dns_add_remove_servicelinks_using_set(super_client, client):
 
     validate_dns_service(super_client, service, [consumed_service1], port,
                          dns.name)
+    delete_all(client, [env])
+
+
+def test_dns_svc_cosumed_service_hostnetwork(super_client, client):
+
+    port = "3118"
+
+    service_scale = 1
+    consumed_service_scale = 2
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            super_client, client, service_scale, consumed_service_scale, port)
+
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], port,
+        dns.name)
+
+    delete_all(client, [env])
+
+
+def test_dns_svc_managed_cosumed_service_hostnetwork(super_client, client):
+
+    port = "3118"
+
+    service_scale = 1
+    consumed_service_scale = 1
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            super_client, client, service_scale, consumed_service_scale, port,
+            isnetworkModeHost_svc=False, isnetworkModeHost_consumed_svc=True)
+
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], port,
+        dns.name)
+
+    delete_all(client, [env])
+
+
+def test_dns_svc_hostnetwork_cosumed_service_hostnetwork(super_client, client):
+
+    port = "3119"
+
+    service_scale = 1
+    consumed_service_scale = 1
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            super_client, client, service_scale, consumed_service_scale, port,
+            isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=True)
+
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], "33",
+        dns.name)
+
+    delete_all(client, [env])
+
+
+def test_dns_svc_hostnetwork_cosumed_service_managednetwork(
+        super_client, client):
+
+    port = "3119"
+
+    service_scale = 1
+    consumed_service_scale = 1
+
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            super_client, client, service_scale, consumed_service_scale, port,
+            isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=False)
+
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], "33",
+        dns.name)
+
     delete_all(client, [env])
