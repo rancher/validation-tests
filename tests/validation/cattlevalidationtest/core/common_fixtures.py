@@ -79,8 +79,7 @@ def create_user(admin_client, user_name, kind=None):
 
     active_cred = None
     for cred in account.credentials():
-        if cred.kind == 'apiKey' and cred.publicValue == user_name \
-                and cred.secretValue == password:
+        if cred.kind == 'apiKey' and cred.publicValue == user_name:
             active_cred = cred
             break
 
@@ -110,8 +109,7 @@ def client_for_project(project):
     active_cred = None
     account = project
     for cred in account.credentials():
-        if cred.kind == 'apiKey' and cred.publicValue == access_key\
-                and cred.secretValue == secret_key:
+        if cred.kind == 'apiKey' and cred.publicValue == access_key:
             active_cred = cred
             break
 
