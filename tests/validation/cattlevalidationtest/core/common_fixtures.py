@@ -1804,3 +1804,12 @@ def create_env_with_2_svc_dns_hostnetwork(
     dns = client.wait_success(dns)
 
     return env, service, consumed_service, consumed_service1, dns
+
+
+def base_url():
+    base_url = cattle_url()
+    if (base_url.endswith('/v1/schemas')):
+        base_url = base_url[:-7]
+    elif (not base_url.endswith('/v1/')):
+        base_url = base_url + '/v1/'
+    return base_url
