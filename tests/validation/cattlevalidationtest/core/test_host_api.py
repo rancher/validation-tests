@@ -59,7 +59,8 @@ def test_host_api_hoststats(client, admin_client):
 
 
 def test_host_api_containerstats(client):
-    container = client.create_container(name='test', imageUuid=TEST_IMAGE_UUID)
+    container = client.create_container(name=random_str(),
+                                        imageUuid=TEST_IMAGE_UUID)
     container = client.wait_success(container, timeout=600)
 
     assert len(container.hosts()) == 1
@@ -70,6 +71,7 @@ def test_host_api_containerstats(client):
     conn.close()
     assert result is not None
     assert result.startswith('[')
+    delete_all(client, [container])
 
 
 def test_host_api_service_containerstats(client):
@@ -95,3 +97,4 @@ def test_host_api_service_containerstats(client):
     conn.close()
     assert result is not None
     assert result.startswith('[')
+    delete_all(client, [env])

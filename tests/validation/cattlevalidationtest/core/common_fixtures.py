@@ -37,6 +37,7 @@ HOST_SSH_PUBLIC_PORT = 2222
 
 socat_container_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
+CONTAINER_STATES = ["running", "stopped", "stopping"]
 
 MANAGED_NETWORK = "managed"
 UNMANAGED_NETWORK = "bridge"
@@ -539,6 +540,7 @@ def get_service_container_list(super_client, service):
                                                        state="active")
     for instance_map in instance_maps:
         c = super_client.by_id('container', instance_map.instanceId)
+        assert c.state in CONTAINER_STATES
         containers = super_client.list_container(
             externalId=c.externalId,
             include="hosts")

@@ -365,6 +365,7 @@ def test_service_activate_restore_instance(
     wait_for_scale_to_adjust(super_client, service)
 
     check_container_in_service(super_client, service)
+    delete_all(client, [container1, container2])
 
 
 def test_service_scale_up(super_client, client, socat_containers):
@@ -546,6 +547,7 @@ def test_service_reconcile_stop_instance_restart_policy_always(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_stop(super_client, client, service)
+    delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_always(
@@ -556,22 +558,26 @@ def test_service_reconcile_delete_instance_restart_policy_always(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_delete(super_client, client, service)
-
-
-def test_service_reconcile_stop_instance_restart_policy_no(
-        super_client, client, socat_containers):
-    scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
-                     "restartPolicy": {"name": "no"}}
-    service, env = create_env_and_svc_activate_launch_config(
-        super_client, client, launch_config, scale)
+    delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_no(
         super_client, client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
-                     "restartPolicy": {"name": "no"}}
+                     "labels": {"io.rancher.container.start_once": True}
+                     }
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
+    delete_all(client, [env])
+
+
+def test_service_reconcile_stop_instance_restart_policy_no(
+        super_client, client, socat_containers):
+    scale = 3
+    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+                     "labels": {"io.rancher.container.start_once": True}}
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
 
@@ -594,6 +600,7 @@ def test_service_reconcile_delete_instance_restart_policy_no(
     container2 = client.reload(container2)
     assert container1.state == 'stopped'
     assert container2.state == 'stopped'
+    delete_all(client, [env])
 
 
 def test_service_reconcile_stop_instance_restart_policy_failure(
@@ -605,6 +612,7 @@ def test_service_reconcile_stop_instance_restart_policy_failure(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_stop(super_client, client, service)
+    delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_failure(
@@ -616,6 +624,7 @@ def test_service_reconcile_delete_instance_restart_policy_failure(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_delete(super_client, client, service)
+    delete_all(client, [env])
 
 
 def test_service_reconcile_stop_instance_restart_policy_failure_count(
@@ -628,6 +637,7 @@ def test_service_reconcile_stop_instance_restart_policy_failure_count(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_stop(super_client, client, service)
+    delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_failure_count(
@@ -640,6 +650,7 @@ def test_service_reconcile_delete_instance_restart_policy_failure_count(
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale)
     check_for_service_reconciliation_on_delete(super_client, client, service)
+    delete_all(client, [env])
 
 
 def check_service_scale(super_client, client, socat_containers,
