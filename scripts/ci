@@ -11,3 +11,6 @@ fi
 
 cd tests/validation
 tox -e flake8
+
+cd ../validation_v2
+tox -e flake8
