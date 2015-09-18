@@ -1104,7 +1104,7 @@ def launch_rancher_compose(client, env, testname):
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     print str(response)
-    expected_resp = "Creating environment " + project_name
+    expected_resp = "Creating stack " + project_name
     found = False
     for resp in response:
         if expected_resp in resp:
