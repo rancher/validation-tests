@@ -15,6 +15,7 @@ docker_config_stopped = [{"docker_param_name": "State.Running",
                           "docker_param_value": "false"}]
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 total_time = [0]
 shared_env = []
@@ -693,8 +694,10 @@ def check_service_activate_stop_instance_scale(super_client, client,
         container = client.wait_success(container.stop(), 300)
         # assert container.state == 'stopped'
         logger.info("Stopped container - " + container_name)
-        service = client.wait_success(service)
 
+    service = client.wait_success(service)
+
+    logger.info("service being updated - " + service.name + " - " + service.id)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
     service = client.wait_success(service, 300)
@@ -730,6 +733,8 @@ def check_service_activate_delete_instance_scale(super_client, client,
         assert container.state == 'removed'
         logger.info("Delete Container -" + container_name)
 
+    service = client.wait_success(service)
+    logger.info("service being updated " + service.name + " - " + service.id)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
     service = client.wait_success(service, 300)
