@@ -536,8 +536,13 @@ def validate_remove_service_link(super_client, service, consumedService):
 def get_service_container_list(super_client, service):
 
     container = []
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+    all_instance_maps = \
+        super_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = []
+    for instance_map in all_instance_maps:
+        if instance_map.state not in ("removed", "removing"):
+            instance_maps.append(instance_map)
+
     for instance_map in instance_maps:
         c = super_client.by_id('container', instance_map.instanceId)
         assert c.state in CONTAINER_STATES
