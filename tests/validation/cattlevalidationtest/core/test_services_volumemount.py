@@ -694,8 +694,14 @@ def test_volume_mount_services_deactivate_activate(
 def get_service_container_name_list(super_client, service, name):
 
     container = []
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+
+    all_instance_maps = \
+        super_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = []
+    for instance_map in all_instance_maps:
+        if instance_map.state not in ("removed", "removing"):
+            instance_maps.append(instance_map)
+
     nameformat = re.compile(name + "_[0-9]{1,2}")
     for instance_map in instance_maps:
         c = super_client.by_id('container', instance_map.instanceId)
