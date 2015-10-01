@@ -5,4 +5,5 @@
 **/.venv
 **/.idea
 **/.DS_Store
-**/.tox
+**/rancher_test_certs
+**/validation_v2/log
