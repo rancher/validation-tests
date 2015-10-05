@@ -1388,25 +1388,31 @@ def wait_until_instances_get_stopped(super_client, service, timeout=60):
 
 def get_service_containers_with_name(super_client, service, name):
 
-    container = []
-    all_instance_maps = \
-        super_client.list_serviceExposeMap(serviceId=service.id)
-    instance_maps = []
-    for instance_map in all_instance_maps:
-        if instance_map.state not in ("removed", "removing"):
-            instance_maps.append(instance_map)
-
     nameformat = re.compile(name + "_[0-9]{1,2}")
-    for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
-        print c.name
-        if nameformat.match(c.name):
-            containers = super_client.list_container(
-                externalId=c.externalId,
-                include="hosts")
-            assert len(containers) == 1
-            container.append(containers[0])
+    start = time.time()
+    instance_list = []
 
+    while len(instance_list) != service.scale:
+        instance_list = []
+        time.sleep(.5)
+        all_instance_maps = \
+            super_client.list_serviceExposeMap(serviceId=service.id)
+        for instance_map in all_instance_maps:
+            if instance_map.state == "active":
+                c = super_client.by_id('container', instance_map.instanceId)
+                print c.name
+                if nameformat.match(c.name):
+                    instance_list.append(c)
+        if time.time() - start > 30:
+            raise Exception('Timed out waiting for Service Expose map to be ' +
+                            'created for all instances')
+    container = []
+    for instance in instance_list:
+        containers = super_client.list_container(
+            externalId=instance.externalId,
+            include="hosts")
+        assert len(containers) == 1
+        container.append(containers[0])
     return container
 
 

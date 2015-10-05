@@ -2,16 +2,18 @@ from common_fixtures import *  # NOQA
 
 
 def create_environment_with_linked_services(
-        super_client, client, service_scale, consumed_service_scale, port,
+        testname, super_client, client, service_scale, consumed_service_scale,
+        port,
         ssh_port="22", isnetworkModeHost_svc=False,
         isnetworkModeHost_consumed_svc=False):
 
     if not isnetworkModeHost_svc and not isnetworkModeHost_consumed_svc:
         env, service, consumed_service = create_env_with_2_svc(
-            client, service_scale, consumed_service_scale, port)
+            testname, client, service_scale, consumed_service_scale, port)
     else:
         env, service, consumed_service = create_env_with_2_svc_hostnetwork(
-            client, service_scale, consumed_service_scale, port, ssh_port,
+            testname, client, service_scale, consumed_service_scale, port,
+            ssh_port,
             isnetworkModeHost_svc, isnetworkModeHost_consumed_svc)
     service.activate()
     consumed_service.activate()
@@ -28,6 +30,9 @@ def create_environment_with_linked_services(
     return env, service, consumed_service
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkActivateSvcActivateConsumedSvcLink:
 
     testname = "TestLinkActivateSvcActivateConsumedSvcLink"
@@ -36,14 +41,13 @@ class TestLinkActivateSvcActivateConsumedSvcLink:
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_activate_svc_activate_consumed_svc_link_create(self,
                                                                  super_client,
                                                                  client):
 
         env, service, consumed_service = \
             create_environment_with_linked_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
 
         data = [env.uuid, service.uuid, consumed_service.uuid]
@@ -51,42 +55,46 @@ class TestLinkActivateSvcActivateConsumedSvcLink:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_activate_svc_activate_consumed_svc_link_validate(
             self, super_client, client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service : %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service : %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkActivateConsumedSvcLinkActivate:
+
     testname = "TestLinkActivateConsumedSvcLinkActivate"
     port = "302"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_activate_consumed_svc_link_activate_svc_create(
             self, super_client, client):
 
         env, service, consumed_service = create_env_with_2_svc(
-            client, self.service_scale, self.consumed_service_scale, self.port)
+            self.testname, client, self.service_scale,
+            self.consumed_service_scale,
+            self.port)
 
         consumed_service = activate_svc(client, consumed_service)
         link_svc(super_client, service, [consumed_service])
@@ -96,43 +104,47 @@ class TestLinkActivateConsumedSvcLinkActivate:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_activate_consumed_svc_link_activate_svc(self, super_client,
                                                           client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkActivateSvcLinkActivateConsumedSvc:
+
     testname = "TestLinkActivateSvcLinkActivateConsumedSvc"
     port = "303"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_activate_svc_link_activate_consumed_svc_create(self,
                                                                  super_client,
                                                                  client):
 
         env, service, consumed_service = create_env_with_2_svc(
-            client, self.service_scale, self.consumed_service_scale, self.port)
+            self.testname, client, self.service_scale,
+            self.consumed_service_scale,
+            self.port)
 
         service = activate_svc(client, service)
         link_svc(super_client, service, [consumed_service])
@@ -143,43 +155,47 @@ class TestLinkActivateSvcLinkActivateConsumedSvc:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_activate_svc_link_activate_consumed_svc_validate(
             self, super_client, client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkLinkActivateConsumedSvcActivateSvc:
 
+    testname = "TestLinkLinkActivateConsumedSvcActivateSvc"
     port = "304"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_activate_consumed_svc_activate_svc_create(self,
                                                             super_client,
                                                             client):
 
         env, service, consumed_service = create_env_with_2_svc(
-            client, self.service_scale, self.consumed_service_scale, self.port)
+            self.testname, client, self.service_scale,
+            self.consumed_service_scale,
+            self.port)
 
         link_svc(super_client, service, [consumed_service])
         consumed_service = activate_svc(client, consumed_service)
@@ -189,43 +205,47 @@ class TestLinkLinkActivateConsumedSvcActivateSvc:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_activate_consumed_svc_activate_svc_validate(self,
                                                               super_client,
                                                               client):
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
-        validate_linked_service(super_client, self.service, [consumed_service],
+
+        validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkLinkActivateSvcActivateConsumedSvc:
 
+    testname = "TestLinkLinkActivateSvcActivateConsumedSvc"
     port = "305"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_activate_svc_activate_consumed_svc_create(self,
                                                             super_client,
                                                             client):
 
         env, service, consumed_service = create_env_with_2_svc(
-            client, self.service_scale, self.consumed_service_scale, self.port)
+            self.testname, client, self.service_scale,
+            self.consumed_service_scale,
+            self.port)
 
         link_svc(super_client, service, [consumed_service])
         service = activate_svc(client, service)
@@ -235,43 +255,47 @@ class TestLinkLinkActivateSvcActivateConsumedSvc:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_activate_svc_activate_consumed_svc_validate(self,
                                                               super_client,
                                                               client):
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
+
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkLinkWhenServicesStillActivating:
 
+    testname = "TestLinkLinkWhenServicesStillActivating"
     port = "306"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_link_when_services_still_activating_create(self,
                                                              super_client,
                                                              client):
 
         env, service, consumed_service = create_env_with_2_svc(
-            client, self.service_scale, self.consumed_service_scale, self.port)
+            self.testname, client, self.service_scale,
+            self.consumed_service_scale,
+            self.port)
 
         service.activate()
         consumed_service.activate()
@@ -288,23 +312,20 @@ class TestLinkLinkWhenServicesStillActivating:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_link_when_services_still_activating_validate(self,
                                                                super_client,
                                                                client):
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
 
         validate_add_service_link(super_client, service, consumed_service)
@@ -312,24 +333,47 @@ class TestLinkLinkWhenServicesStillActivating:
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServiceUp:
 
+    testname = "TestLinkServiceUp"
     port = "307"
     service_scale = 1
     consumed_service_scale = 2
     final_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_service_scale_up_create(self, super_client, client):
 
         env, service, consumed_service = \
             create_environment_with_linked_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_service_scale_up_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -339,48 +383,51 @@ class TestLinkServiceUp:
         service = client.wait_success(service, 120)
         assert service.state == "active"
         assert service.scale == self.final_service_scale
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_service_scale_up_validate(self, super_client, client):
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesScaleDown:
 
+    testname = "TestLinkServicesScaleDown"
     port = "308"
     service_scale = 3
     consumed_svc_scale = 2
     final_service_scale = 1
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_services_scale_down_create(self, super_client, client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_scale_down_validate(self, super_client, client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -390,105 +437,54 @@ class TestLinkServicesScaleDown:
         service = client.wait_success(service, 120)
         assert service.state == "active"
         assert service.scale == self.final_service_scale
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_services_scale_down_validate(self, super_client, client):
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkConsumedServicesScaleUp:
 
+    testname = "TestLinkConsumedServicesScaleUp"
     port = "309"
     service_scale = 1
     consumed_svc_scale = 2
     final_consumed_svc_scale = 4
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_consumed_services_scale_up_create(self, super_client,
                                                     client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
 
-        validate_linked_service(super_client, service, [consumed_service],
-                                self.port)
-
-        consumed_service = client.update(consumed_service,
-                                         scale=self.final_consumed_svc_scale,
-                                         name=consumed_service.name)
-        consumed_service = client.wait_success(consumed_service, 120)
-        assert consumed_service.state == "active"
-        assert consumed_service.scale == self.final_consumed_service_scale
         data = [env.uuid, service.uuid, consumed_service.uuid]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_consumed_services_scale_up_validate(self, super_client,
                                                       client):
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
-
-        validate_linked_service(super_client, service, [consumed_service],
-                                self.port)
-        # delete_all(client, [env])
-
-
-class TestLinkConsumedServicesScaleDown:
-
-    port = "310"
-    service_scale = 2
-    consumed_svc_scale = 3
-    final_consumed_svc_scale = 1
-
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
-    def test_link_consumed_services_scale_down_create(self, super_client,
-                                                      client):
-
-        env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
-                                                    self.service_scale,
-                                                    self.consumed_svc_scale,
-                                                    self.port)
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -499,53 +495,115 @@ class TestLinkConsumedServicesScaleDown:
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
         assert consumed_service.scale == self.final_consumed_svc_scale
+
+        validate_linked_service(super_client, service, [consumed_service],
+                                self.port)
+
+        delete_all(client, [env])
+
+
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
+class TestLinkConsumedServicesScaleDown:
+
+    testname = "TestLinkConsumedServicesScaleDown"
+    port = "310"
+    service_scale = 2
+    consumed_svc_scale = 3
+    final_consumed_svc_scale = 1
+
+    @pytest.mark.create
+    def test_link_consumed_services_scale_down_create(self, super_client,
+                                                      client):
+
+        env, service, consumed_service = \
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
+                                                    self.service_scale,
+                                                    self.consumed_svc_scale,
+                                                    self.port)
+
         data = [env.uuid, service.uuid, consumed_service.uuid]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_link_consumed_services_scale_down_validate(self, super_client,
                                                         client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
         logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
-        # delete_all(client, [env])
+        consumed_service = client.update(consumed_service,
+                                         scale=self.final_consumed_svc_scale,
+                                         name=consumed_service.name)
+        consumed_service = client.wait_success(consumed_service, 120)
+        assert consumed_service.state == "active"
+        assert consumed_service.scale == self.final_consumed_svc_scale
+
+        validate_linked_service(super_client, service, [consumed_service],
+                                self.port)
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TesLinkConsumedServicesStopStartInstance:
 
+    testname = "TesLinkConsumedServicesStopStartInstance"
     port = "311"
     service_scale = 1
     consumed_svc_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_consumed_services_stop_start_instance_create(self,
                                                                super_client,
                                                                client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_consumed_services_stop_start_instance_validate(self,
+                                                                 super_client,
+                                                                 client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -560,51 +618,54 @@ class TesLinkConsumedServicesStopStartInstance:
         service = client.wait_success(service)
 
         wait_for_scale_to_adjust(super_client, consumed_service)
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_consumed_services_stop_start_instance_validate(self,
-                                                                 super_client,
-                                                                 client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkConsumedServicesRestartInstance:
 
+    testname = "TestLinkConsumedServicesRestartInstance"
     port = "312"
     service_scale = 1
     consumed_svc_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_consumed_services_restart_instance_create(self, super_client,
                                                             client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_consumed_services_restart_instance_validate(self,
+                                                              super_client,
+                                                              client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -617,50 +678,54 @@ class TestLinkConsumedServicesRestartInstance:
         # Restart instance
         container = client.wait_success(container.restart(), 120)
         assert container.state == 'running'
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_consumed_services_restart_instance_validate(self,
-                                                              super_client,
-                                                              client):
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkConsumedServicesDeleteInstance:
 
+    testname = "TestLinkConsumedServicesDeleteInstance"
     port = "313"
     service_scale = 1
     consumed_svc_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_consumed_services_delete_instance_create(self, super_client,
                                                            client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
+                                                    client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_consumed_services_delete_instance_validate(self,
+                                                             super_client,
+                                                             client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -676,53 +741,56 @@ class TestLinkConsumedServicesDeleteInstance:
 
         wait_for_scale_to_adjust(super_client, consumed_service)
 
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_consumed_services_delete_instance_validate(self,
-                                                             super_client,
-                                                             client):
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
-
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkConsumedServicesDeactivateActivate:
 
+    testname = "TestLinkConsumedServicesDeactivateActivate"
     port = "314"
     service_scale = 1
     consumed_svc_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_consumed_services_deactivate_activate_create(self,
                                                                super_client,
                                                                client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
                                                     client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_consumed_services_deactivate_activate_validate(self,
+                                                                 super_client,
+                                                                 client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -736,52 +804,54 @@ class TestLinkConsumedServicesDeactivateActivate:
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
 
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_consumed_services_deactivate_activate_validate(self,
-                                                                 super_client,
-                                                                 client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServiceDeactivateActivate:
 
+    testname = "TestLinkServiceDeactivateActivate"
     port = "315"
     service_scale = 1
     consumed_svc_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_service_deactivate_activate_create(self, super_client,
                                                      client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
                                                     client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_service_deactivate_activate_validate(self, super_client,
+                                                       client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -795,52 +865,55 @@ class TestLinkServiceDeactivateActivate:
         service = client.wait_success(service, 120)
         assert service.state == "active"
 
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_service_deactivate_activate_validate(self, super_client,
-                                                       client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
-
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkDeactivateActivateEnvironment:
 
+    testname = "TestLinkDeactivateActivateEnvironment"
     port = "316"
     service_scale = 1
     consumed_svc_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_link_deactivate_activate_environment_self_create(self,
                                                               super_client,
                                                               client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_deactivate_activate_environment_self_validate(self,
+                                                                super_client,
+                                                                client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -861,36 +934,15 @@ class TestLinkDeactivateActivateEnvironment:
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
 
-        data = [env.uuid, service.uuid, consumed_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_link_deactivate_activate_environment_self_validate(self,
-                                                                super_client,
-                                                                client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        consumed_service = services[0]
-        logger.info("consumed service is: %s", format(consumed_service))
-
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkAddRemoveServicelinks:
 
     testname = "TestLinkAddRemoveServicelinks"
@@ -898,14 +950,41 @@ class TestLinkAddRemoveServicelinks:
     service_scale = 1
     consumed_svc_scale = 2
 
+    @pytest.mark.create
     def test_link_add_remove_servicelinks_create(self, super_client, client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
                                                     client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_add_remove_servicelinks_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service is: %s", format(consumed_service1))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -941,25 +1020,55 @@ class TestLinkAddRemoveServicelinks:
 
         validate_linked_service(super_client, service, [consumed_service1],
                                 self.port)
+
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesDeleteServiceAddService:
 
+    testname = "TestLinkServicesDeleteServiceAddService"
     port = "318"
     service_scale = 2
     consumed_svc_scale = 2
     port1 = "3180"
 
-    def test_link_services_delete_service_add_service(self, super_client,
-                                                      client):
+    @pytest.mark.create
+    def test_link_services_delete_service_add_service_create(self,
+                                                             super_client,
+                                                             client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
                                                     client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_delete_service_add_service_validate(self,
+                                                               super_client,
+                                                               client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -994,23 +1103,51 @@ class TestLinkServicesDeleteServiceAddService:
         validate_linked_service(super_client, service1, [consumed_service],
                                 self.port1)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesDeleteAndAddConsumedService:
 
+    testname = "TestLinkServicesDeleteAndAddConsumedService"
     port = "319"
     service_scale = 2
     consumed_svc_scale = 2
 
-    def test_link_services_delete_and_add_consumed_service(self, super_client,
-                                                           client):
+    @pytest.mark.create
+    def test_link_services_delete_and_add_consumed_service_create(self,
+                                                                  super_client,
+                                                                  client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_delete_and_add_consumed_service_validate(
+            self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -1045,22 +1182,51 @@ class TestLinkServicesDeleteAndAddConsumedService:
         validate_linked_service(super_client, service, [consumed_service1],
                                 self.port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesStopStartInstance:
 
+    testname = "TestLinkServicesStopStartInstance"
     port = "320"
     service_scale = 2
     consumed_svc_scale = 2
 
-    def test_link_services_stop_start_instance(self, super_client, client):
+    @pytest.mark.create
+    def test_link_services_stop_start_instance_create(self, super_client,
+                                                      client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
+                                                    client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_stop_start_instance_validate(self, super_client,
+                                                        client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -1078,22 +1244,50 @@ class TestLinkServicesStopStartInstance:
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesRestartInstance:
 
+    testname = "TestLinkServicesRestartInstance"
     port = "321"
     service_scale = 2
     consumed_svc_scale = 2
 
-    def test_link_services_restart_instance(self, super_client, client):
+    @pytest.mark.create
+    def test_link_services_restart_instance_create(self, super_client, client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client,
+                                                    client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_restart_instance_validate(self, super_client,
+                                                     client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -1110,9 +1304,12 @@ class TestLinkServicesRestartInstance:
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinkServicesDeleteInstance:
 
     testname = "TestLinkServicesDeleteInstance"
@@ -1120,13 +1317,36 @@ class TestLinkServicesDeleteInstance:
     service_scale = 2
     consumed_svc_scale = 2
 
-    def test_link_services_delete_instance(self, super_client, client):
+    @pytest.mark.create
+    def test_link_services_delete_instance_create(self, super_client, client):
 
         env, service, consumed_service = \
-            create_environment_with_linked_services(super_client, client,
+            create_environment_with_linked_services(self.testname,
+                                                    super_client, client,
                                                     self.service_scale,
                                                     self.consumed_svc_scale,
                                                     self.port)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_link_services_delete_instance_validate(self, super_client,
+                                                    client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
@@ -1144,66 +1364,144 @@ class TestLinkServicesDeleteInstance:
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinksWithHostnetwork_1:
 
-    testname = "TestLinksWithHostnetwork_1"
+    testname = "TestLinksWithHostnetwork1"
     port = "323"
     service_scale = 1
     consumed_svc_scale = 2
     ssh_port = "33"
 
-    def test_links_with_hostnetwork_1(self, super_client, client):
+    @pytest.mark.create
+    def test_links_with_hostnetwork_1_create(self, super_client, client):
 
         env, service, consumed_service = \
             create_environment_with_linked_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_svc_scale, self.port, self.ssh_port,
                 isnetworkModeHost_svc=False,
                 isnetworkModeHost_consumed_svc=True)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_links_with_hostnetwork_1_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
         validate_linked_service(super_client, service, [consumed_service],
                                 self.port)
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinksWithHostnetwork_2:
 
+    testname = "TestLinksWithHostnetwork2"
     port = "324"
     service_scale = 1
     consumed_service_scale = 2
     ssh_port = "33"
 
-    def test_links_with_hostnetwork_2(self, super_client, client):
+    @pytest.mark.create
+    def test_links_with_hostnetwork_2_create(self, super_client, client):
 
         env, service, consumed_service = \
             create_environment_with_linked_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port,
                 self.ssh_port, isnetworkModeHost_svc=True,
                 isnetworkModeHost_consumed_svc=True)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_links_with_hostnetwork_2_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
         validate_linked_service(
             super_client, service, [consumed_service], self.ssh_port)
 
-        # delete_all(client, [env])
+        delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.ServicesLinks
+@pytest.mark.incremental
 class TestLinksWithHostnetwork_3:
 
+    testname = "TestLinksWithHostnetwork3"
     port = "325"
     service_scale = 1
     consumed_service_scale = 2
     ssh_port = "33"
 
-    def test_links_with_hostnetwork_3(self, super_client, client):
+    @pytest.mark.create
+    def test_links_with_hostnetwork_3_create(self, super_client, client):
 
         env, service, consumed_service = \
             create_environment_with_linked_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port,
                 self.ssh_port, isnetworkModeHost_svc=True,
                 isnetworkModeHost_consumed_svc=False)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_links_with_hostnetwork_3_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
         validate_linked_service(
             super_client, service, [consumed_service], self.ssh_port)
+
         delete_all(client, [env])

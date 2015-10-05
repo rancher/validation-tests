@@ -10,7 +10,6 @@ import inspect
 import re
 from docker import Client
 import pickle
-import sys
 
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
@@ -26,6 +25,7 @@ SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
+SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 
 DEFAULT_TIMEOUT = 45
 
@@ -36,6 +36,7 @@ HOST_SSH_PUBLIC_PORT = 2222
 
 socat_container_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
+CONTAINER_STATES = ["running", "stopped", "stopping"]
 
 MANAGED_NETWORK = "managed"
 UNMANAGED_NETWORK = "bridge"
@@ -47,7 +48,6 @@ dns_labels = {"io.rancher.container.dns": "true",
 root_dir = os.environ.get('TEST_ROOT_DIR',
                           '/home/aruneli/validation-tests/tests/validation_v2')
 compose_template_dir = os.path.join(root_dir, 'data', 'compose')
-currentFuncName = lambda n=0: sys._getframe(n + 1).f_code.co_name
 
 log_dir = os.path.join(root_dir, 'log')
 if not os.path.exists(log_dir):
@@ -55,8 +55,8 @@ if not os.path.exists(log_dir):
 logfile = os.path.join(log_dir, 'test.log')
 FORMAT = "\n[ %(asctime)s %(levelname)s %(filename)s:%(lineno)s " \
          "- %(funcName)20s() ] %(message)s \n"
-logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, filename=logfile,
-                    format=FORMAT, datefmt='%H:%M:%S')
+logging.basicConfig(level=logging.INFO, format=FORMAT,
+                    datefmt='%a, %d %b %Y %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 
@@ -133,7 +133,6 @@ def create_user(admin_client, user_name, kind=None):
             'accountId': account.id,
             'publicValue': user_name,
             'secretValue': password
-
         })
 
     active_cred = wait_success(admin_client, active_cred)
@@ -312,12 +311,13 @@ def one_per_host(client, test_name):
 
 
 def delete_all(client, items):
+    logger.info("Deleting the env: %s", items)
     wait_for = []
     for i in items:
         client.delete(i)
         wait_for.append(client.reload(i))
 
-    wait_all_success(client, items, timeout=180)
+    wait_all_success(client, items, timeout=1800)
 
 
 def get_port_content(port, path, params={}):
@@ -516,7 +516,9 @@ def get_docker_client(host):
 
 
 def wait_for_scale_to_adjust(super_client, service):
+
     service = super_client.wait_success(service)
+    logger.info("service : %s", format(service))
     instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active")
     start = time.time()
@@ -525,6 +527,7 @@ def wait_for_scale_to_adjust(super_client, service):
         time.sleep(.5)
         instance_maps = super_client.list_serviceExposeMap(
             serviceId=service.id, state="active")
+        logger.debug("instance_maps: %s", format(instance_maps))
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
@@ -580,20 +583,26 @@ def validate_remove_service_link(super_client, service, consumedService):
 
 def get_service_container_list(super_client, service):
 
-    container = []
     logger.info("service is: %s", format(service))
-    logger.info("service id is: %s", service.id)
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
-    logger.info("instance_maps is: %s", instance_maps)
+    # logger.info("service id is: %s", service.id)
+    container = []
+    all_instance_maps = \
+        super_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = []
+    for instance_map in all_instance_maps:
+        if instance_map.state not in ("removed", "removing"):
+            instance_maps.append(instance_map)
+    logger.info("instance_maps : %s", instance_maps)
+
     for instance_map in instance_maps:
         c = super_client.by_id('container', instance_map.instanceId)
+        assert c.state in CONTAINER_STATES
         containers = super_client.list_container(
             externalId=c.externalId,
             include="hosts")
         assert len(containers) == 1
         container.append(containers[0])
-        logger.info("container is: %s", format(container[0]))
+        logger.info("container : %s", format(containers[0]))
     return container
 
 
@@ -711,8 +720,32 @@ def wait_for_lb_service_to_become_active(super_client, client,
         print "haproxy: " + haproxy.read()
 
 
+def validate_lb_service_for_external_services(super_client, client, lb_service,
+                                              port, container_list,
+                                              hostheader=None, path=None):
+    container_names = []
+    for con in container_list:
+        container_names.append(con.externalId[:12])
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names, hostheader, path)
+
+
 def validate_lb_service(super_client, client, lb_service, port,
                         target_services, hostheader=None, path=None):
+    target_count = 0
+    for service in target_services:
+        target_count = target_count + service.scale
+    container_names = get_container_names_list(super_client,
+                                               target_services)
+    logger.info(container_names)
+    assert len(container_names) == target_count
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names, hostheader, path)
+
+
+def validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names,
+                                  hostheader=None, path=None):
     lbs = client.list_loadBalancer(serviceId=lb_service.id)
     assert len(lbs) == 1
 
@@ -732,16 +765,6 @@ def validate_lb_service(super_client, client, lb_service, port,
         lb_hosts.append(host)
         logger.info("host: " + host.name)
 
-    # Build all the servers for the access url
-
-    target_count = 0
-    for service in target_services:
-        target_count = target_count + service.scale
-    container_names = get_container_names_list(super_client,
-                                               target_services)
-    logger.info(container_names)
-
-    assert len(container_names) == target_count
     for host in lb_hosts:
         wait_until_lb_is_active(host, port)
         if hostheader is not None or path is not None:
@@ -824,26 +847,32 @@ def validate_linked_service(super_client, service, consumed_services,
     containers = get_service_container_list(super_client, service)
     assert len(containers) == service.scale
 
-    for con in containers:
-        host = super_client.by_id('host', con.hosts[0].id)
+    for container in containers:
+        host = super_client.by_id('host', container.hosts[0].id)
         for consumed_service in consumed_services:
             expected_dns_list = []
             expected_link_response = []
             dns_response = []
-            containers = get_service_container_list(super_client,
-                                                    consumed_service)
+            consumed_containers = get_service_container_list(super_client,
+                                                             consumed_service)
             if exclude_instance_purged:
-                assert len(containers) == consumed_service.scale - 1
+                assert len(consumed_containers) == consumed_service.scale - 1
             else:
-                assert len(containers) == consumed_service.scale
+                assert len(consumed_containers) == consumed_service.scale
 
-            for con in containers:
+            for con in consumed_containers:
                 if (exclude_instance is not None) \
                         and (con.id == exclude_instance.id):
                     logger.info("Excluded from DNS and wget list:" + con.name)
                 else:
-                    expected_dns_list.append(con.primaryIpAddress)
-                    expected_link_response.append(con.externalId[:12])
+                    if con.networkMode == "host":
+                        con_host = super_client.by_id('host', con.hosts[0].id)
+                        expected_dns_list.append(
+                            con_host.ipAddresses()[0].address)
+                        expected_link_response.append(con_host.name)
+                    else:
+                        expected_dns_list.append(con.primaryIpAddress)
+                        expected_link_response.append(con.externalId[:12])
 
             logger.info("Expected dig response List" + str(expected_dns_list))
             logger.info("Expected wget response List" +
@@ -908,7 +937,7 @@ def validate_dns_service(super_client, service, consumed_services,
         for consumed_service in consumed_services:
             logger.info("consumed service is %s", format(consumed_service))
             cons = get_service_container_list(super_client, consumed_service)
-            logger.info("cons is: %s")
+            logger.info("cons : %s", cons)
             logger.info("containers length is %s", len(cons))
             if exclude_instance_purged:
                 assert len(cons) == consumed_service.scale - 1
@@ -923,8 +952,13 @@ def validate_dns_service(super_client, service, consumed_services,
                     and (con.id == exclude_instance.id):
                 logger.info("Excluded from DNS and wget list:" + con.name)
             else:
-                expected_dns_list.append(con.primaryIpAddress)
-                expected_link_response.append(con.externalId[:12])
+                if con.networkMode == "host":
+                    con_host = super_client.by_id('host', con.hosts[0].id)
+                    expected_dns_list.append(con_host.ipAddresses()[0].address)
+                    expected_link_response.append(con_host.name)
+                else:
+                    expected_dns_list.append(con.primaryIpAddress)
+                    expected_link_response.append(con.externalId[:12])
 
         logger.info("Expected dig response List" + str(expected_dns_list))
         logger.info("Expected wget response List" +
@@ -948,7 +982,6 @@ def validate_dns_service(super_client, service, consumed_services,
         stdin, stdout, stderr = ssh.exec_command(cmd)
 
         response = stdout.readlines()
-        logger.info("wget response is: %s", response)
         assert len(response) == 1
         resp = response[0].strip("\n")
         logger.info("Actual wget Response" + str(resp))
@@ -1035,6 +1068,36 @@ def validate_external_service(super_client, service, ext_services,
                 assert address in dns_response
 
 
+def validate_external_service_for_hostname(super_client, service, ext_services,
+                                           exposed_port):
+
+    time.sleep(5)
+
+    containers = get_service_container_list(super_client, service)
+    assert len(containers) == service.scale
+    for container in containers:
+        print "Validation for container -" + str(container.name)
+        host = super_client.by_id('host', container.hosts[0].id)
+        for ext_service in ext_services:
+            expected_link_response = "About Google"
+
+            # Validate port mapping
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host.ipAddresses()[0].address, username="root",
+                        password="root", port=int(exposed_port))
+            cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
+                  ext_service.name + ";cat result.txt"
+            print cmd
+
+            # Validate link containers mutliple times
+            for i in range(0, 10):
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                response = stdout.readlines()
+                print "Actual wget Response" + str(response)
+                assert expected_link_response in str(response)
+
+
 @pytest.fixture(scope='session')
 def rancher_compose_container(admin_client, client, request):
     if rancher_compose_con["container"] is not None:
@@ -1092,7 +1155,6 @@ def launch_rancher_compose(client, env, testname):
     secret_key = client._secret_key
     docker_filename = testname + "-docker-compose.yml"
     rancher_filename = testname + "-rancher-compose.yml"
-    # project_name = env.name + "rancher"
     project_name = env.name
     cmd1 = "export RANCHER_URL=" + cattle_url()
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
@@ -1113,7 +1175,7 @@ def launch_rancher_compose(client, env, testname):
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     print "\n\n\n response is:", str(response)
-    expected_resp = "Creating environment " + project_name
+    expected_resp = "Creating stack " + project_name
     found = False
     for resp in response:
         if expected_resp in resp:
@@ -1121,18 +1183,22 @@ def launch_rancher_compose(client, env, testname):
     assert found
 
 
-def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port, testname,
+def create_env_with_svc_and_lb(testname, client, scale_svc, scale_lb, port,
                                internal=False):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
-    launch_config_lb = {"ports": [str(port)+":80"]}
+    if internal:
+        launch_config_lb = {"expose": [port+":80"]}
+    else:
+        launch_config_lb = {"ports": [port+":80"]}
 
     # Create Environment
-    env = create_env(client)
+    env = create_env(testname, client)
 
     # Create Service
-    service_name = testname
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
     service = client.create_service(name=service_name,
                                     environmentId=env.id,
                                     launchConfig=launch_config_svc,
@@ -1142,10 +1208,11 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port, testname,
     assert service.state == "inactive"
 
     # Create LB Service
-    lb_service_name = str(testname) + "LB"
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
 
     lb_service = client.create_loadBalancerService(
-        name=lb_service_name,
+        name=service_name,
         environmentId=env.id,
         launchConfig=launch_config_lb,
         scale=scale_lb)
@@ -1156,7 +1223,31 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port, testname,
     return env, service, lb_service
 
 
-def create_env_with_2_svc(client, scale_svc, scale_consumed_svc, port):
+def create_env_with_ext_svc_and_lb(testname, client, scale_lb, port):
+
+    launch_config_lb = {"ports": [port+":80"]}
+
+    env, service, ext_service, con_list = create_env_with_ext_svc(
+        testname, client, 1, port)
+
+    # Create LB Service
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    lb_service = client.create_loadBalancerService(
+        name=service_name,
+        environmentId=env.id,
+        launchConfig=launch_config_lb,
+        scale=scale_lb)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    return env, lb_service, ext_service, con_list
+
+
+def create_env_with_2_svc(testname, client, scale_svc, scale_consumed_svc,
+                          port):
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
@@ -1164,7 +1255,7 @@ def create_env_with_2_svc(client, scale_svc, scale_consumed_svc, port):
     launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
 
     # Create Environment
-    env = create_env(client)
+    env = create_env(testname, client)
 
     # Create Service
     random_name = random_str()
@@ -1191,7 +1282,8 @@ def create_env_with_2_svc(client, scale_svc, scale_consumed_svc, port):
     return env, service, consumed_service
 
 
-def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
+def create_env_with_2_svc_dns(testname, client, scale_svc, scale_consumed_svc,
+                              port,
                               cross_linking=False):
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
@@ -1200,7 +1292,7 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
     launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
 
     # Create Environment for dns service and client service
-    env = create_env(client)
+    env = create_env(testname, client)
 
     random_name = random_str()
     service_name = random_name.replace("-", "")
@@ -1214,7 +1306,7 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
 
     # Create Consumed Service1
     if cross_linking:
-        env_id = create_env(client).id
+        env_id = create_env(testname, client).id
     else:
         env_id = env.id
 
@@ -1230,7 +1322,7 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
 
     # Create Consumed Service2
     if cross_linking:
-        env_id = create_env(client).id
+        env_id = create_env(testname, client).id
     else:
         env_id = env.id
 
@@ -1253,13 +1345,13 @@ def create_env_with_2_svc_dns(client, scale_svc, scale_consumed_svc, port,
     return env, service, consumed_service, consumed_service1, dns
 
 
-def create_env_with_ext_svc(client, scale_svc, port):
+def create_env_with_ext_svc(testname, client, scale_svc, port, hostname=False):
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
 
     # Create Environment
-    env = create_env(client)
+    env = create_env(testname, client)
 
     # Create Service
     random_name = random_str()
@@ -1272,25 +1364,36 @@ def create_env_with_ext_svc(client, scale_svc, port):
     service = client.wait_success(service)
     assert service.state == "inactive"
 
-    # Create 2 containers which would be the applications that need to be
-    # serviced by the external service
+    con_list = None
 
-    c1 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
-    c2 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
-
-    c1 = client.wait_success(c1, 120)
-    assert c1.state == "running"
-    c2 = client.wait_success(c2, 120)
-    assert c2.state == "running"
-
-    con_list = [c1, c2]
-    ips = [c1.primaryIpAddress, c2.primaryIpAddress]
     # Create external Service
     random_name = random_str()
     ext_service_name = random_name.replace("-", "")
 
-    ext_service = client.create_externalService(
-        name=ext_service_name, environmentId=env.id, externalIpAddresses=ips)
+    if not hostname:
+        # Create 2 containers which would be the applications that need to be
+        # serviced by the external service
+
+        c1 = client.create_container(name=random_str(),
+                                     imageUuid=WEB_IMAGE_UUID)
+        c2 = client.create_container(name=random_str(),
+                                     imageUuid=WEB_IMAGE_UUID)
+
+        c1 = client.wait_success(c1, 120)
+        assert c1.state == "running"
+        c2 = client.wait_success(c2, 120)
+        assert c2.state == "running"
+
+        con_list = [c1, c2]
+        ips = [c1.primaryIpAddress, c2.primaryIpAddress]
+
+        ext_service = client.create_externalService(
+            name=ext_service_name, environmentId=env.id,
+            externalIpAddresses=ips)
+
+    else:
+        ext_service = client.create_externalService(
+            name=ext_service_name, environmentId=env.id, hostname="google.com")
 
     ext_service = client.wait_success(ext_service)
     assert ext_service.state == "inactive"
@@ -1298,10 +1401,10 @@ def create_env_with_ext_svc(client, scale_svc, port):
     return env, service, ext_service, con_list
 
 
-def create_env_and_svc(client, launch_config, scale, testname):
+def create_env_and_svc(testname, client, launch_config, scale):
 
-    env = create_env(client)
-    service = create_svc(client, env, launch_config, scale, testname)
+    env = create_env(testname, client)
+    service = create_svc(client, env, launch_config, scale)
     return service, env
 
 
@@ -1318,11 +1421,14 @@ def check_container_in_service(super_client, service):
             removed_null=True)
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(container.externalId)
+        logger.info("Checked for containers running - " + container.name)
         assert inspect["State"]["Running"]
 
 
-def create_svc(client, env, launch_config, scale, testname):
-    service_name = testname
+def create_svc(client, env, launch_config, scale):
+
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
     service = client.create_service(name=service_name,
                                     environmentId=env.id,
                                     launchConfig=launch_config,
@@ -1351,8 +1457,13 @@ def wait_until_instances_get_stopped(super_client, service, timeout=60):
 def get_service_containers_with_name(super_client, service, name):
 
     container = []
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+    all_instance_maps = \
+        super_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = []
+    for instance_map in all_instance_maps:
+        if instance_map.state not in ("removed", "removing"):
+            instance_maps.append(instance_map)
+
     nameformat = re.compile(name + "_[0-9]{1,2}")
     for instance_map in instance_maps:
         c = super_client.by_id('container', instance_map.instanceId)
@@ -1468,27 +1579,35 @@ def check_round_robin_access(container_names, host, port,
             i = 0
 
 
-def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
+def create_env_with_multiple_svc_and_lb(testname, client, scale_svc, scale_lb,
                                         ports, count, crosslinking=False):
 
+    target_port = ["80", "81"]
     launch_config_svc = \
         {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
 
-    assert len(ports) > 0
-    if len(ports) == 1:
-        launch_config_lb = {"ports": [ports[0]+":80"]}
-    else:
-        launch_config_lb = {"ports": [ports[0]+":80", ports[1]+":81"]}
+    assert len(ports) in (1, 2)
+
+    launch_port = []
+    for i in range(0, len(ports)):
+        listening_port = ports[i]+":"+target_port[i]
+        if "/" in ports[i]:
+            port_mode = ports[i].split("/")
+            listening_port = port_mode[0]+":"+target_port[i]+"/"+port_mode[1]
+        launch_port.append(listening_port)
+
+    launch_config_lb = {"ports": launch_port}
+
     services = []
     # Create Environment
-    env = create_env(client)
+    env = create_env(testname, client)
 
     # Create Service
     for i in range(0, count):
         random_name = random_str()
         service_name = random_name.replace("-", "")
         if crosslinking:
-            env_serv = create_env(client)
+            env_serv = create_env(testname, client)
             env_id = env_serv.id
         else:
             env_id = env.id
@@ -1571,10 +1690,10 @@ def get_plain_id(admin_client, obj=None):
     return ret[0].id
 
 
-def create_env(client):
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
+def create_env(testname, client):
+    # random_name = random_str()
+    # env_name = testname + "-" + random_name.replace("-", "")
+    env = client.create_environment(name=testname)
     env = client.wait_success(env)
     assert env.state == "active"
     return env
@@ -1583,127 +1702,6 @@ def create_env(client):
 def get_env(super_client, service):
     e = super_client.by_id('environment', service.environmentId)
     return e
-
-
-def create_env_with_2_svc_dns_hostnetwork(
-        client, scale_svc, scale_consumed_svc, port,
-        cross_linking=False, isnetworkModeHost_svc=False,
-        isnetworkModeHost_consumed_svc=False):
-
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET}
-    launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
-
-    if isnetworkModeHost_svc:
-        launch_config_svc["networkMode"] = "host"
-        launch_config_svc["labels"] = dns_labels
-    else:
-        launch_config_svc["ports"] = [port+":33/tcp"]
-    if isnetworkModeHost_consumed_svc:
-        launch_config_consumed_svc["networkMode"] = "host"
-        launch_config_consumed_svc["labels"] = dns_labels
-        launch_config_consumed_svc["ports"] = []
-
-    # Create Environment for dns service and client service
-    env = create_env(client)
-
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-    service = client.create_service(name=service_name,
-                                    environmentId=env.id,
-                                    launchConfig=launch_config_svc,
-                                    scale=scale_svc)
-
-    service = client.wait_success(service)
-    assert service.state == "inactive"
-
-    # Force containers of 2 different services to be in different hosts
-    hosts = client.list_host(kind='docker', removed_null=True, state='active')
-    assert len(hosts) > 1
-    # Create Consumed Service1
-    if cross_linking:
-        env_id = create_env(client).id
-    else:
-        env_id = env.id
-
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-
-    launch_config_consumed_svc["requestedHostId"] = hosts[0].id
-    consumed_service = client.create_service(
-        name=service_name, environmentId=env_id,
-        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
-
-    consumed_service = client.wait_success(consumed_service)
-    assert consumed_service.state == "inactive"
-
-    # Create Consumed Service2
-    if cross_linking:
-        env_id = create_env(client).id
-    else:
-        env_id = env.id
-
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-    launch_config_consumed_svc["requestedHostId"] = hosts[1].id
-    consumed_service1 = client.create_service(
-        name=service_name, environmentId=env_id,
-        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
-
-    consumed_service1 = client.wait_success(consumed_service1)
-    assert consumed_service1.state == "inactive"
-
-    # Create DNS service
-
-    dns = client.create_dnsService(name='WEB1',
-                                   environmentId=env.id)
-    dns = client.wait_success(dns)
-
-    return env, service, consumed_service, consumed_service1, dns
-
-
-def create_env_with_2_svc_hostnetwork(
-        client, scale_svc, scale_consumed_svc, port, sshport,
-        isnetworkModeHost_svc=False,
-        isnetworkModeHost_consumed_svc=False):
-
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET}
-    launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
-
-    if isnetworkModeHost_svc:
-        launch_config_svc["networkMode"] = "host"
-        launch_config_svc["labels"] = dns_labels
-    else:
-        launch_config_svc["ports"] = [port+":"+sshport+"/tcp"]
-    if isnetworkModeHost_consumed_svc:
-        launch_config_consumed_svc["networkMode"] = "host"
-        launch_config_consumed_svc["labels"] = dns_labels
-        launch_config_consumed_svc["ports"] = []
-    # Create Environment
-    env = create_env(client)
-
-    # Create Service
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-    service = client.create_service(name=service_name,
-                                    environmentId=env.id,
-                                    launchConfig=launch_config_svc,
-                                    scale=scale_svc)
-
-    service = client.wait_success(service)
-    assert service.state == "inactive"
-
-    # Create Consumed Service
-    random_name = random_str()
-    service_name = random_name.replace("-", "")
-
-    consumed_service = client.create_service(
-        name=service_name, environmentId=env.id,
-        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
-
-    consumed_service = client.wait_success(consumed_service)
-    assert consumed_service.state == "inactive"
-
-    return env, service, consumed_service
 
 
 def get_service_container_with_label(super_client, service, name, label):
@@ -1733,3 +1731,166 @@ def get_side_kick_container(super_client, container, service, service_name):
     secondary_con = get_service_container_with_label(
         super_client, service, service_name, label)
     return secondary_con
+
+
+def validate_internal_lb(super_client, lb_service, services,
+                         host, con_port, lb_port):
+    # Access each of the LB Agent from the client container
+    lb_containers = get_service_container_list(super_client, lb_service)
+    assert len(lb_containers) == lb_service.scale
+    for lb_con in lb_containers:
+        lb_ip = lb_con.primaryIpAddress
+        target_count = 0
+        for service in services:
+            target_count = target_count + service.scale
+        expected_lb_response = get_container_names_list(super_client,
+                                                        services)
+        assert len(expected_lb_response) == target_count
+        # Validate port mapping
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host.ipAddresses()[0].address, username="root",
+                    password="root", port=int(con_port))
+
+        # Validate lb service from this container using LB agent's ip address
+        cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + lb_ip + \
+              ":"+lb_port+"/name.html;cat result.txt"
+        logger.info(cmd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+
+        response = stdout.readlines()
+        assert len(response) == 1
+        resp = response[0].strip("\n")
+        logger.info("Actual wget Response" + str(resp))
+        assert resp in (expected_lb_response)
+
+
+def create_env_with_2_svc_hostnetwork(
+        testname, client, scale_svc, scale_consumed_svc, port, sshport,
+        isnetworkModeHost_svc=False,
+        isnetworkModeHost_consumed_svc=False):
+
+    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET}
+    launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
+
+    if isnetworkModeHost_svc:
+        launch_config_svc["networkMode"] = "host"
+        launch_config_svc["labels"] = dns_labels
+    else:
+        launch_config_svc["ports"] = [port+":"+sshport+"/tcp"]
+    if isnetworkModeHost_consumed_svc:
+        launch_config_consumed_svc["networkMode"] = "host"
+        launch_config_consumed_svc["labels"] = dns_labels
+        launch_config_consumed_svc["ports"] = []
+
+    # Create Environment
+    env = create_env(testname, client)
+
+    # Create Service
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service = client.create_service(name=service_name,
+                                    environmentId=env.id,
+                                    launchConfig=launch_config_svc,
+                                    scale=scale_svc)
+
+    service = client.wait_success(service)
+    assert service.state == "inactive"
+
+    # Create Consumed Service
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+
+    consumed_service = client.create_service(
+        name=service_name, environmentId=env.id,
+        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
+
+    consumed_service = client.wait_success(consumed_service)
+    assert consumed_service.state == "inactive"
+
+    return env, service, consumed_service
+
+
+def create_env_with_2_svc_dns_hostnetwork(
+        testname, client, scale_svc, scale_consumed_svc, port,
+        cross_linking=False, isnetworkModeHost_svc=False,
+        isnetworkModeHost_consumed_svc=False):
+
+    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET}
+    launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
+
+    if isnetworkModeHost_svc:
+        launch_config_svc["networkMode"] = "host"
+        launch_config_svc["labels"] = dns_labels
+    else:
+        launch_config_svc["ports"] = [port+":33/tcp"]
+    if isnetworkModeHost_consumed_svc:
+        launch_config_consumed_svc["networkMode"] = "host"
+        launch_config_consumed_svc["labels"] = dns_labels
+        launch_config_consumed_svc["ports"] = []
+
+    # Create Environment for dns service and client service
+    env = create_env(testname, client)
+
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service = client.create_service(name=service_name,
+                                    environmentId=env.id,
+                                    launchConfig=launch_config_svc,
+                                    scale=scale_svc)
+
+    service = client.wait_success(service)
+    assert service.state == "inactive"
+
+    # Force containers of 2 different services to be in different hosts
+    hosts = client.list_host(kind='docker', removed_null=True, state='active')
+    assert len(hosts) > 1
+    # Create Consumed Service1
+    if cross_linking:
+        env_id = create_env(testname, client).id
+    else:
+        env_id = env.id
+
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+
+    launch_config_consumed_svc["requestedHostId"] = hosts[0].id
+    consumed_service = client.create_service(
+        name=service_name, environmentId=env_id,
+        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
+
+    consumed_service = client.wait_success(consumed_service)
+    assert consumed_service.state == "inactive"
+
+    # Create Consumed Service2
+    if cross_linking:
+        env_id = create_env(testname, client).id
+    else:
+        env_id = env.id
+
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    launch_config_consumed_svc["requestedHostId"] = hosts[1].id
+    consumed_service1 = client.create_service(
+        name=service_name, environmentId=env_id,
+        launchConfig=launch_config_consumed_svc, scale=scale_consumed_svc)
+
+    consumed_service1 = client.wait_success(consumed_service1)
+    assert consumed_service1.state == "inactive"
+
+    # Create DNS service
+
+    dns = client.create_dnsService(name='WEB1',
+                                   environmentId=env.id)
+    dns = client.wait_success(dns)
+
+    return env, service, consumed_service, consumed_service1, dns
+
+
+def base_url():
+    base_url = cattle_url()
+    if (base_url.endswith('/v1/schemas')):
+        base_url = base_url[:-7]
+    elif (not base_url.endswith('/v1/')):
+        base_url = base_url + '/v1/'
+    return base_url

@@ -1,5 +1,4 @@
 from common_fixtures import *  # NOQA
-import re
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
@@ -693,26 +692,11 @@ def test_volume_mount_services_deactivate_activate(
 
 def get_service_container_name_list(super_client, service, name):
 
-    container = []
-
-    all_instance_maps = \
-        super_client.list_serviceExposeMap(serviceId=service.id)
-    instance_maps = []
-    for instance_map in all_instance_maps:
-        if instance_map.state not in ("removed", "removing"):
-            instance_maps.append(instance_map)
-
-    nameformat = re.compile(name + "_[0-9]{1,2}")
-    for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
-        if nameformat.match(c.name):
-            containers = super_client.list_container(
-                externalId=c.externalId,
-                include="hosts")
-            assert len(containers) == 1
-            container.append(containers[0].externalId)
-
-    return container
+    container_extids = []
+    containers = get_service_containers_with_name(super_client, service, name)
+    for container in containers:
+        container_extids.append(container.externalId)
+    return container_extids
 
 
 def validate_volume_mount(

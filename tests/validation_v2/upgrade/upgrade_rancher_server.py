@@ -78,7 +78,7 @@ def upgrade(target, servernode, username):
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
-        logger.info(response)
+        logger.info("response of cmd %s is: %s", cmd, response)
     except:
         logger.info("Execution of cmd %s failed", cmd)
 
@@ -97,7 +97,8 @@ def upgrade(target, servernode, username):
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         tag_of_previous_rancher_server = stdout.readlines()[0].strip("\n")
-        logger.info(tag_of_previous_rancher_server)
+        logger.info("tag_of_previous_rancher_server is: %s,",
+                    tag_of_previous_rancher_server)
     except:
         logger.info("Execution of cmd %s failed", cmd)
 
@@ -108,7 +109,7 @@ def upgrade(target, servernode, username):
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
-        logger.info(response)
+        logger.info("response of cmd %s is: %s", cmd, response)
     except:
         logger.info("Execution of cmd %s failed", cmd)
 
@@ -117,7 +118,7 @@ def upgrade(target, servernode, username):
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
-        logger.info(response)
+        logger.info("response of cmd %s is: %s", cmd, response)
     except:
         logger.info("Execution of cmd %s failed", cmd)
 
@@ -127,7 +128,7 @@ def upgrade(target, servernode, username):
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
-        logger.info(response)
+        logger.info("response of cmd %s is: %s", cmd, response)
     except:
         logger.info("Execution of cmd %s failed", cmd)
 

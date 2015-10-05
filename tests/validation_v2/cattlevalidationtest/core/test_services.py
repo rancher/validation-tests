@@ -13,15 +13,15 @@ docker_config_running = [{"docker_param_name": "State.Running",
 docker_config_stopped = [{"docker_param_name": "State.Running",
                           "docker_param_value": "false"}]
 
-logger = logging.getLogger(__name__)
-
 total_time = [0]
 shared_env = []
 
 
-@pytest.fixture(scope='session', autouse=True)
-def create_env_for_activate_deactivate(request, client, super_client):
-    service, env = create_env_and_svc_activate(super_client, client, 3, False)
+# @pytest.fixture(scope='session', autouse=True)
+def create_env_for_activate_deactivate(testname, request, client,
+                                       super_client):
+    service, env = create_env_and_svc_activate(testname, super_client, client,
+                                               3, False)
     shared_env.append({"service": service,
                        "env": env})
 
@@ -56,7 +56,7 @@ def create_env_and_svc_activate(testname, super_client, client, scale,
 def create_env_and_svc_activate_launch_config(
         testname, super_client, client, launch_config, scale, check=True):
     start_time = time.time()
-    service, env = create_env_and_svc(client, launch_config, scale, testname)
+    service, env = create_env_and_svc(testname, client, launch_config, scale)
     service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
@@ -69,6 +69,9 @@ def create_env_and_svc_activate_launch_config(
     return service, env
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServicesDockerOptions:
 
     testname = "TestServicesDockerOptions"
@@ -109,7 +112,6 @@ class TestServicesDockerOptions:
                      }
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_services_docker_options_create(self, client, socat_containers):
 
         hosts = client.list_host(kind='docker', removed_null=True,
@@ -131,8 +133,9 @@ class TestServicesDockerOptions:
                               "requestedHostId": con_host.id})
         logger.info("launch_config after update is: %s", format(launch_config))
 
-        service, env = create_env_and_svc(client, self.launch_config,
-                                          self.scale, self.testname)
+        service, env = create_env_and_svc(self.testname, client,
+                                          self.launch_config,
+                                          self.scale)
 
         env = env.activateservices()
         logger.info("env is: %s", format(env))
@@ -146,17 +149,15 @@ class TestServicesDockerOptions:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_services_docker_options_validate(self, super_client, client,
                                               socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
         assert service.state == "active"
@@ -169,8 +170,8 @@ class TestServicesDockerOptions:
         container_list = get_service_container_list(super_client, service)
         for c in container_list:
             logger.info("container is: %s", format(c))
-            logger.info("container's host is: %s", c.hosts[0])
-            docker_client = get_docker_client(c.hosts[0])
+            logger.info("container's host is: %s", c.hosts()[0])
+            docker_client = get_docker_client(c.hosts()[0])
             logger.info("docker client is: %s", docker_client)
             logger.info("container's externalId is: %s", c.externalId)
             inspect = docker_client.inspect_container(c.externalId)
@@ -203,6 +204,9 @@ class TestServicesDockerOptions:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServicesPortAndLinkOptions:
 
     testname = "TestServicesPortAndLinkOptions"
@@ -211,7 +215,6 @@ class TestServicesPortAndLinkOptions:
     exposed_port = 9999
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_services_port_and_link_options_create(self, super_client, client,
                                                    socat_containers):
 
@@ -236,7 +239,8 @@ class TestServicesPortAndLinkOptions:
                          "requestedHostId": link_host.id,
                          }
 
-        service, env = create_env_and_svc(client, launch_config, 1)
+        service, env = create_env_and_svc(self.testname, client,
+                                          launch_config, 1)
 
         env = env.activateservices()
         service = client.wait_success(service, 300)
@@ -246,29 +250,27 @@ class TestServicesPortAndLinkOptions:
                                            state="running")
         assert len(containers) == 1
         con = containers[0]
+        logger.info("con: %s", con)
 
-        data = [env.uuid, service.uuid, con.uuid]
+        data = [env.uuid, service.uuid, con.name]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_services_port_and_link_options_validate(self, super_client,
                                                      client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        con = client.list_service(uuid=data[2])
+        con = client.list_container(name=data[2])[0]
         assert len(con) > 0
-        con = con[0]
-        logger.info("service is: %s", format(con))
+        logger.info("con is: %s", format(con))
 
         validate_exposed_port_and_container_link(super_client, con,
                                                  self.link_name,
@@ -278,6 +280,9 @@ class TestServicesPortAndLinkOptions:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestEnvironmentActivateDeactivateDelete:
 
     testname = "TestEnvironmentActivateDeactivateDelete"
@@ -285,12 +290,12 @@ class TestEnvironmentActivateDeactivateDelete:
     scale = 1
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_environment_activate_deactivate_delete_create(self, super_client,
                                                            client,
                                                            socat_containers):
 
-        service1, env = create_env_and_svc(client, self.launch_config,
+        service1, env = create_env_and_svc(self.testname, client,
+                                           self.launch_config,
                                            self.scale)
         service2 = create_svc(client, env, self.launch_config, self.scale)
 
@@ -310,24 +315,21 @@ class TestEnvironmentActivateDeactivateDelete:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_environment_activate_deactivate_delete_validate(self,
                                                              super_client,
                                                              client,
                                                              socat_containers):
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        service1 = client.list_service(uuid=data[1])
+        service1 = client.list_service(uuid=data[1])[0]
         assert len(service1) > 0
-        service1 = service1[0]
         logger.info("service is: %s", format(service1))
         assert service1.state == "active"
 
-        service2 = client.list_service(uuid=data[2])
+        service2 = client.list_service(uuid=data[2])[0]
         assert len(service2) > 0
-        service1 = service2[0]
         logger.info("service is: %s", format(service2))
         assert service2.state == "active"
 
@@ -370,18 +372,22 @@ class TestEnvironmentActivateDeactivateDelete:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiveActivateDeactivateDelete:
 
+    testname = "TestServiveActivateDeactivateDelete"
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_deactivate_delete_create(self, super_client,
                                                        client,
                                                        socat_containers):
 
-        service, env = create_env_and_svc(client, self.launch_config,
+        service, env = create_env_and_svc(self.testname, client,
+                                          self.launch_config,
                                           self.scale)
         # Activate Services
         service = service.activate()
@@ -395,16 +401,15 @@ class TestServiveActivateDeactivateDelete:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_deactivate_delete_validate(self, super_client,
                                                          client,
                                                          socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        service = client.list_service(uuid=data[1])
+        service = client.list_service(uuid=data[1])[0]
         assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
@@ -432,10 +437,11 @@ class TestServiveActivateDeactivateDelete:
         delete_all(client, [env])
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestServiceActivateStopInstance:
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
+    testname = "TestServiceActivateStopInstance"
+
     def test_service_activate_stop_instance_create(
             self, super_client, client, socat_containers):
 
@@ -446,16 +452,14 @@ class TestServiceActivateStopInstance:
         logger.info("data to save: %s", data)
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_stop_instance_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        service = client.list_service(uuid=data[1])
+        service = client.list_service(uuid=data[1])[0]
         assert len(service) > 0
         logger.info("service is: %s", format(service))
 
@@ -465,10 +469,9 @@ class TestServiceActivateStopInstance:
         delete_all(client, [env])
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestServiceActivateDeleteInstance:
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_create(
             self, super_client, client, socat_containers):
 
@@ -479,8 +482,6 @@ class TestServiceActivateDeleteInstance:
         logger.info("data to save: %s", data)
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_validate(
             self, super_client, client, socat_containers):
 
@@ -499,59 +500,64 @@ class TestServiceActivateDeleteInstance:
         delete_all(client, [env])
 
 
-# class TestServiceActivatePurgeInstance:
-#
-#     def test_service_activate_purge_instance(
-#             self, super_client, client, socat_containers):
-#
-#         service = shared_env[0]["service"]
-#
-#         # Purge 2 instances
-#         containers = get_service_container_list(super_client, service)
-#         container1 = containers[0]
-#         container1 = client.wait_success(client.delete(container1))
-#         container1 = client.wait_success(container1.purge())
-#         container2 = containers[1]
-#         container2 = client.wait_success(client.delete(container2))
-#         container2 = client.wait_success(container2.purge())
-#
-#         wait_for_scale_to_adjust(super_client, service)
-#
-#         check_container_in_service(super_client, service)
-#
-#
-# class TestServiveActivateRestoreInstance:
-#
-#     def test_service_activate_restore_instance(
-#             self, super_client, client, socat_containers):
-#
-#         service = shared_env[0]["service"]
-#
-#         # Restore 2 instances
-#         containers = get_service_container_list(super_client, service)
-#         container1 = containers[0]
-#         container1 = client.wait_success(client.delete(container1))
-#         container1 = client.wait_success(container1.restore())
-#         container2 = containers[1]
-#         container2 = client.wait_success(client.delete(container2))
-#         container2 = client.wait_success(container2.restore())
-#
-#         assert container1.state == "stopped"
-#         assert container2.state == "stopped"
-#
-#         wait_for_scale_to_adjust(super_client, service)
-#
-#         check_container_in_service(super_client, service)
+@pytest.mark.skipif(True, reason='Needs QA debugging')
+class TestServiceActivatePurgeInstance:
+
+    def test_service_activate_purge_instance(
+            self, super_client, client, socat_containers):
+
+        service = shared_env[0]["service"]
+
+        # Purge 2 instances
+        containers = get_service_container_list(super_client, service)
+        container1 = containers[0]
+        container1 = client.wait_success(client.delete(container1))
+        container1 = client.wait_success(container1.purge())
+        container2 = containers[1]
+        container2 = client.wait_success(client.delete(container2))
+        container2 = client.wait_success(container2.purge())
+
+        wait_for_scale_to_adjust(super_client, service)
+
+        check_container_in_service(super_client, service)
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
+class TestServiveActivateRestoreInstance:
+
+    def test_service_activate_restore_instance(
+            self, super_client, client, socat_containers):
+
+        service = shared_env[0]["service"]
+
+        # Restore 2 instances
+        containers = get_service_container_list(super_client, service)
+        container1 = containers[0]
+        container1 = client.wait_success(client.delete(container1))
+        container1 = client.wait_success(container1.restore())
+        container2 = containers[1]
+        container2 = client.wait_success(client.delete(container2))
+        container2 = client.wait_success(container2.restore())
+
+        assert container1.state == "stopped"
+        assert container2.state == "stopped"
+
+        wait_for_scale_to_adjust(super_client, service)
+
+        check_container_in_service(super_client, service)
+
+
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceScaleUp:
+
+    testname = "TestServiceScaleUp"
     initial_scale = 2
     final_scale = 4
     removed_instance_count = 0
-    testname = "TestServiceScaleUp"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_scale_up_create(self, super_client, client,
                                      socat_containers):
         service, env = create_env_and_svc_activate(self.testname,
@@ -566,15 +572,14 @@ class TestServiceScaleUp:
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_scale_up_validate(self, super_client, client,
                                        socat_containers):
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
         assert service.scale == self.final_scale
@@ -589,6 +594,9 @@ class TestServiceScaleUp:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceScaleDown:
 
     testname = "TestServiceScaleDown"
@@ -597,7 +605,6 @@ class TestServiceScaleDown:
     removed_instance_count = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_scale_down_create(self, super_client, client,
                                        socat_containers):
         service, env = create_env_and_svc_activate(self.testname, super_client,
@@ -612,17 +619,15 @@ class TestServiceScaleDown:
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_scale_down_validate(self, super_client, client,
                                          socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
         assert service.scale == self.final_scale
@@ -637,6 +642,9 @@ class TestServiceScaleDown:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleUp:
 
     testname = "TestServiceActivateDeleteInstanceScaleUp"
@@ -645,30 +653,29 @@ class TestServiceActivateDeleteInstanceScaleUp:
     delete_instance_index = [1]
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_up_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
-    def test_service_activate_delete_instance_scale_up_delete(
+    def test_service_activate_delete_instance_scale_up_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
-        assert service.scale == self.final_scale
+        assert service.scale == self.initial_scale
 
         # Delete instance
         for i in self.delete_instance_index:
@@ -700,6 +707,9 @@ class TestServiceActivateDeleteInstanceScaleUp:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateStopInstanceScaleDown:
 
     testname = "TestServiceActivateStopInstanceScaleDown"
@@ -708,30 +718,29 @@ class TestServiceActivateStopInstanceScaleDown:
     delete_instance_index = [1]
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_down_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_down_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
-        assert service.scale == self.final_scale
+        assert service.scale == self.initial_scale
 
         # Delete instance
         for i in self.delete_instance_index:
@@ -763,6 +772,9 @@ class TestServiceActivateStopInstanceScaleDown:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleDown:
 
     testname = "TestServiceActivateDeleteInstanceScaleDown"
@@ -771,30 +783,28 @@ class TestServiceActivateDeleteInstanceScaleDown:
     delete_instance_index = [1]
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_down_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_down_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
-        assert service.scale == self.final_scale
+        assert service.scale == self.initial_scale
 
         # Delete instance
         for i in self.delete_instance_index:
@@ -826,6 +836,9 @@ class TestServiceActivateDeleteInstanceScaleDown:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateStopInstanceScaleUp1:
 
     testname = "TestServiceActivateStopInstanceScaleUp1"
@@ -835,29 +848,27 @@ class TestServiceActivateStopInstanceScaleUp1:
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_stop_instance_scale_up_1_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_svc_activate_stop_instance_scale_up_1_validate(self,
                                                             super_client,
                                                             client,
                                                             socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -891,6 +902,9 @@ class TestServiceActivateStopInstanceScaleUp1:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleUp1:
 
     testname = "TestServiceActivateDeleteInstanceScaleUp1"
@@ -900,31 +914,29 @@ class TestServiceActivateDeleteInstanceScaleUp1:
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_svc_activate_dlt_instance_scale_up_1_create(self,
                                                          super_client,
                                                          client,
                                                          socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_svc_activate_dlt_instance_scale_up_1_validate(self,
                                                            super_client,
                                                            client,
                                                            socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -958,6 +970,9 @@ class TestServiceActivateDeleteInstanceScaleUp1:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiveActivateStopInstanceScaleDown:
 
     testname = "TestServiveActivateStopInstanceScaleDown"
@@ -967,28 +982,25 @@ class TestServiveActivateStopInstanceScaleDown:
     removed_instance_count = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_stop_instance_scale_down_1_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client,
+        service, env = create_env_and_svc_activate(self.testname, super_client,
                                                    client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_stop_instance_scale_down_1_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1022,6 +1034,9 @@ class TestServiveActivateStopInstanceScaleDown:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateStopInstanceScaleUp2:
 
     testname = "TestServiceActivateStopInstanceScaleUp2"
@@ -1031,30 +1046,28 @@ class TestServiceActivateStopInstanceScaleUp2:
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_svc_activate_stop_instance_scale_up_2_create(self,
                                                           super_client,
                                                           client,
                                                           socat_containers):
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_svc_activate_stop_instance_scale_up_2_validate(self,
                                                             super_client,
                                                             client,
                                                             socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1088,6 +1101,9 @@ class TestServiceActivateStopInstanceScaleUp2:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleUp2:
 
     testname = "TestServiceActivateDeleteInstanceScaleUp2"
@@ -1097,26 +1113,25 @@ class TestServiceActivateDeleteInstanceScaleUp2:
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_up_2_create(
             self, super_client, client, socat_containers):
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_up_2_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1150,35 +1165,37 @@ class TestServiceActivateDeleteInstanceScaleUp2:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateStopInstanceScaleDown2:
 
     testname = "TestServiceActivateStopInstanceScaleDown2"
     initial_scale = 3
     final_scale = 4
-    delete_instance_index = [1, 2, 3, 4]
+    stop_instance_index = [1, 2, 3, 4]
     removed_instance_count = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_up_2_create(
             self, super_client, client, socat_containers):
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_up_2_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1212,36 +1229,37 @@ class TestServiceActivateStopInstanceScaleDown2:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleDown2:
 
     testname = "TestServiceActivateDeleteInstanceScaleDown2"
-    intial_scale = 4
+    initial_scale = 4
     final_scale = 1
     delete_instance_index = [1, 2, 3, 4]
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_down_2_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_down_2_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1275,6 +1293,9 @@ class TestServiceActivateDeleteInstanceScaleDown2:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServivceActivateStopInstanceScaleUp3:
 
     testname = "TestServivceActivateStopInstanceScaleUp3"
@@ -1284,26 +1305,25 @@ class TestServivceActivateStopInstanceScaleUp3:
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_stop_instance_scale_up_3_create(
             self, super_client, client, socat_containers):
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_stop_instance_scale_up_3_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1337,36 +1357,38 @@ class TestServivceActivateStopInstanceScaleUp3:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleUp3:
 
     testname = "TestServiceActivateDeleteInstanceScaleUp3"
-    intial_scale = 4
+    initial_scale = 4
     final_scale = 1
     delete_instance_index = [1, 2, 3, 4]
     removed_instance_count = 0
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_down_2_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client,
+                                                   client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_down_2_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1400,36 +1422,37 @@ class TestServiceActivateDeleteInstanceScaleUp3:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceActivateDeleteInstanceScaleDown3:
 
     testname = "TestServiceActivateDeleteInstanceScaleDown3"
-    intial_scale = 4
+    initial_scale = 4
     final_scale = 1
     delete_instance_index = [2]
     removed_instance_count = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_delete_instance_scale_down_2_create(
             self, super_client, client, socat_containers):
 
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_delete_instance_scale_down_2_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1463,6 +1486,9 @@ class TestServiceActivateDeleteInstanceScaleDown3:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiveActivateStopInstanceScaleDown3:
 
     testname = "TestServiveActivateStopInstanceScaleDown3"
@@ -1472,26 +1498,24 @@ class TestServiveActivateStopInstanceScaleDown3:
     removed_instance_count = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_activate_stop_instance_scale_up_3_create(
             self, super_client, client, socat_containers):
-        service, env = create_env_and_svc_activate(super_client, client,
+        service, env = create_env_and_svc_activate(self.testname,
+                                                   super_client, client,
                                                    self.initial_scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_activate_stop_instance_scale_up_3_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1525,6 +1549,9 @@ class TestServiveActivateStopInstanceScaleDown3:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServicesHostnameOverride1:
 
     testname = "TestServicesHostnameOverride1"
@@ -1541,11 +1568,10 @@ class TestServicesHostnameOverride1:
     scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_services_hostname_override_1_create(self, super_client,
                                                  client, socat_containers):
 
-        service, env = create_env_and_svc(client,
+        service, env = create_env_and_svc(self.testname, client,
                                           self.launch_config,
                                           self.scale)
 
@@ -1557,17 +1583,15 @@ class TestServicesHostnameOverride1:
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_services_hostname_override_1_validate(self, super_client, client,
                                                    socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1585,6 +1609,9 @@ class TestServicesHostnameOverride1:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServicesHostnameOverride2:
 
     testname = "TestServicesHostnameOverride2"
@@ -1596,10 +1623,10 @@ class TestServicesHostnameOverride2:
     scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_services_hostname_override_2_create(self, super_client, client,
                                                  socat_containers):
-        service, env = create_env_and_svc(client, self.launch_config,
+        service, env = create_env_and_svc(self.testname, client,
+                                          self.launch_config,
                                           self.scale)
 
         env = env.activateservices()
@@ -1609,17 +1636,15 @@ class TestServicesHostnameOverride2:
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_services_hostname_override_2_validate(self, super_client, client,
                                                    socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1636,6 +1661,9 @@ class TestServicesHostnameOverride2:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileStopInstanceRestartPolicyAlways:
 
     testname = "TestServiceReconcileStopInstanceRestartPolicyAlways"
@@ -1644,27 +1672,25 @@ class TestServiceReconcileStopInstanceRestartPolicyAlways:
                      "restartPolicy": {"name": "always"}}
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_stop_instance_restart_policy_always_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_stop_instance_restart_policy_always_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1673,6 +1699,9 @@ class TestServiceReconcileStopInstanceRestartPolicyAlways:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileDeleteInstanceRestartPolicyAlways:
 
     testname = "TestServiceReconcileDeleteInstanceRestartPolicyAlways"
@@ -1681,27 +1710,25 @@ class TestServiceReconcileDeleteInstanceRestartPolicyAlways:
                      "restartPolicy": {"name": "always"}}
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_delete_instance_restart_policy_always_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_delete_instance_restart_policy_always_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1722,6 +1749,9 @@ class TestServiceReconcileDeleteInstanceRestartPolicyAlways:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileStopInstanceRestartPolicyNo:
 
     testname = "TestServiceReconcileStopInstanceRestartPolicyNo"
@@ -1730,33 +1760,34 @@ class TestServiceReconcileStopInstanceRestartPolicyNo:
                      "restartPolicy": {"name": "no"}}
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_stop_instance_restart_policy_no_create(
             self, super_client, client, socat_containers):
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
 
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_stop_instance_restart_policy_no_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileDeleteInstanceRestartPolicyNo:
 
     testname = "TestServiceReconcileDeleteInstanceRestartPolicyNo"
@@ -1765,27 +1796,25 @@ class TestServiceReconcileDeleteInstanceRestartPolicyNo:
                      "restartPolicy": {"name": "no"}}
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_delete_instance_restart_policy_no_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_delete_instance_restart_policy_no_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1812,6 +1841,9 @@ class TestServiceReconcileDeleteInstanceRestartPolicyNo:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileStopInstanceRestartPolicyFailure:
 
     testname = "TestServiceReconcileStopInstanceRestartPolicyFailure"
@@ -1820,27 +1852,25 @@ class TestServiceReconcileStopInstanceRestartPolicyFailure:
                      "restartPolicy": {"name": "on-failure"}}
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_stop_instance_restart_policy_failure_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_stop_instance_restart_policy_failure_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1867,6 +1897,9 @@ class TestServiceReconcileStopInstanceRestartPolicyFailure:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileDeleteInstanceRestartPolicyFailure:
 
     testname = "TestServiceReconcileDeleteInstanceRestartPolicyFailure"
@@ -1876,27 +1909,25 @@ class TestServiceReconcileDeleteInstanceRestartPolicyFailure:
                      }
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_reconcile_delete_instance_restart_policy_failure_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_reconcile_delete_instance_restart_policy_failure_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1917,6 +1948,9 @@ class TestServiceReconcileDeleteInstanceRestartPolicyFailure:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileDeleteStopInstanceRestartPolicyFailureCount:
 
     testname = \
@@ -1928,27 +1962,25 @@ class TestServiceReconcileDeleteStopInstanceRestartPolicyFailureCount:
                      }
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_svc_reconcile_stop_instance_restart_policy_failure_count_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_svc_reconcile_stop_instance_restart_policy_failure_count_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -1975,6 +2007,9 @@ class TestServiceReconcileDeleteStopInstanceRestartPolicyFailureCount:
         delete_all(client, [env])
 
 
+@pytest.mark.P0
+@pytest.mark.Services
+@pytest.mark.incremental
 class TestServiceReconcileDeleteInstanceRestartPolicyFailureCount:
 
     testname = "TestServiceReconcileDeleteInstanceRestartPolicyFailureCount"
@@ -1985,27 +2020,25 @@ class TestServiceReconcileDeleteInstanceRestartPolicyFailureCount:
                      }
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_svc_reconcile_dlt_instance_restart_policy_failure_count_create(
             self, super_client, client, socat_containers):
 
         service, env = create_env_and_svc_activate_launch_config(
-            super_client, client, self.launch_config, self.scale)
+            self.testname, super_client, client, self.launch_config,
+            self.scale)
         data_to_save = [env.uuid, service.uuid]
         save(data_to_save, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_svc_reconcile_dlt_instance_restart_policy_failure_count_validate(
             self, super_client, client, socat_containers):
 
         data = load(self)
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
         assert service.state == "active"
 
@@ -2116,7 +2149,7 @@ def check_service_activate_delete_instance_scale(super_client, client,
             check_container_removed_from_service(super_client, service, env,
                                                  removed_instance_count)
     """
-    # delete_all(client, [env])
+    delete_all(client, [env])
 
 
 def _validate_add_service_link(service, client, scale):
@@ -2156,7 +2189,7 @@ def check_container_removed_from_service(super_client, service, env,
     start = time.time()
 
     while len(instance_maps) != removed_count:
-        time.sleep(.5)
+        time.sleep(5)
         instance_maps = super_client.list_serviceExposeMap(
             serviceId=service.id, state="removed")
         if time.time() - start > 30:
