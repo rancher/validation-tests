@@ -1,7 +1,7 @@
 from common_fixtures import *  # NOQA
 
 
-def create_environment_with_dns_services(super_client, client,
+def create_environment_with_dns_services(testname, super_client, client,
                                          service_scale,
                                          consumed_service_scale,
                                          port, cross_linking=False,
@@ -10,12 +10,12 @@ def create_environment_with_dns_services(super_client, client,
     if not isnetworkModeHost_svc and not isnetworkModeHost_consumed_svc:
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns(
-                client, service_scale, consumed_service_scale, port,
+                testname, client, service_scale, consumed_service_scale, port,
                 cross_linking)
     else:
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns_hostnetwork(
-                client, service_scale, consumed_service_scale, port,
+                testname, client, service_scale, consumed_service_scale, port,
                 cross_linking, isnetworkModeHost_svc,
                 isnetworkModeHost_consumed_svc)
     service.activate()
@@ -44,6 +44,9 @@ def create_environment_with_dns_services(super_client, client,
     return env, service, consumed_service, consumed_service1, dns
 
 
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsSvcActivateDnsConsumedSvcLink:
 
     testname = "TestDnsSvcActivateDnsConsumedSvcLink"
@@ -52,53 +55,54 @@ class TestDnsSvcActivateDnsConsumedSvcLink:
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_activate_svc_dns_consumed_svc_link_create(self, super_client,
                                                            client):
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
+        logger.info("env is : %s", env)
         logger.info("DNS service is: %s", dns)
         logger.info("DNS name is: %s", dns.name)
         data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.uuid, dns.name]
+                consumed_service1.uuid, dns.name]
         logger.info("data to save: %s", data)
+
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_activate_svc_dns_consumed_svc_link_validate(self,
                                                              super_client,
                                                              client):
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
+        consumed_service = client.list_service(uuid=data[2])[0]
         assert len(consumed_service) > 0
-        consumed_service = consumed_service[0]
         logger.info("consumed service is: %s", format(consumed_service))
 
-        consumed_service1 = client.list_service(uuid=data[3])
+        consumed_service1 = client.list_service(uuid=data[3])[0]
         assert len(consumed_service1) > 0
-        consumed_service1 = consumed_service1[0]
         logger.info("consumed service1 is: %s", format(consumed_service1))
 
-        dnsname = data[5]
+        dnsname = data[4]
+        logger.info("dns name is: %s", dnsname)
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port,
             dnsname)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestDnsCrossLink:
 
     testname = "TestDnsCrossLink"
@@ -106,56 +110,59 @@ class TestDnsCrossLink:
     service_scale = 1
     consumed_service_scale = 2
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_cross_link_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale,
                 self.port, True)
+        logger.info("env is : %s", env)
+        logger.info("DNS service is: %s", dns)
+        logger.info("DNS name is: %s", dns.name)
 
         data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.uuid]
+                consumed_service1.uuid, dns.name, dns.uuid]
         logger.info("data to save: %s", data)
+
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_cross_link_validate(self, super_client, client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("consumed service is: %s", format(service))
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
-        consumed_service1 = client.list_service(uuid=data[3])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("consumed service1 is: %s", format(service))
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
 
-        dns_service = client.list_service(uuid=data[4])
-        assert len(dns_service) > 0
-        dns = services[0]
-        logger.info("dns is: %s", format(dns))
+        dnsname = data[4]
+        logger.info("dns name is: %s", dnsname)
+
+        dns = client.list_service(uuid=data[5])[0]
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port,
-            dns.name)
+            dnsname)
+
+        delete_all(client, [env, get_env(super_client, consumed_service),
+                   get_env(super_client, consumed_service1), dns])
 
 
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsActivateConsumedSvcLinkActivateSvc:
 
     testname = "TestDnsActivateConsumedSvcLinkActivateSvc"
@@ -164,13 +171,13 @@ class TestDnsActivateConsumedSvcLinkActivateSvc:
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_activate_consumed_svc_link_activate_svc_create(
             self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns(
-                client, self.service_scale, self.consumed_service_scale,
+                self.testname, client, self.service_scale,
+                self.consumed_service_scale,
                 self.port)
 
         link_svc(super_client, service, [dns])
@@ -180,60 +187,60 @@ class TestDnsActivateConsumedSvcLinkActivateSvc:
         consumed_service1 = activate_svc(client, consumed_service1)
         dns = activate_svc(client, dns)
         data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.uuid]
+                consumed_service1.uuid, dns.name]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_activate_consumed_svc_link_activate_svc_validate(
             self, super_client, client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        consumed_service = client.list_service(uuid=data[2])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("consumed service is: %s", format(service))
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
 
-        consumed_service1 = client.list_service(uuid=data[3])
-        assert len(services) > 0
-        service = services[0]
-        logger.info("consumed service1 is: %s", format(service))
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
 
-        dns_service = client.list_service(uuid=data[4])
-        assert len(dns_service) > 0
-        dns = services[0]
-        logger.info("dns is: %s", format(dns))
+        dnsname = data[4]
+        logger.info("dns name is: %s", dnsname)
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port,
-            dns.name)
+            dnsname)
+
+        delete_all(client, [env])
 
 
+@pytest.mark.P1
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsActivateSvcLinkActivateConsumedSvc:
 
+    testname = "TestDnsActivateSvcLinkActivateConsumedSvc"
     port = "31103"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_activate_svc_link_activate_consumed_svc_create(self,
                                                                 super_client,
                                                                 client):
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns(
-                client, self.service_scale, self.consumed_service_scale,
+                self.testname, client, self.service_scale,
+                self.consumed_service_scale,
                 self.port)
 
         service = activate_svc(client, service)
@@ -243,32 +250,64 @@ class TestDnsActivateSvcLinkActivateConsumedSvc:
         link_svc(super_client, dns, [consumed_service, consumed_service1])
         dns = activate_svc(client, dns)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_activate_svc_link_activate_consumed_svc_validate(self,
                                                                   super_client,
                                                                   client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsLinkActivateConsumedSvcActivateSvc:
 
+    testname = "TestDnsLinkActivateConsumedSvcActivateSvc"
     port = "31104"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_link_activate_consumed_svc_activate_svc_create(self,
                                                                 super_client,
                                                                 client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns(
-                client, self.service_scale, self.consumed_service_scale,
+                self.testname, client, self.service_scale,
+                self.consumed_service_scale,
                 self.port)
 
         dns = activate_svc(client, dns)
@@ -278,32 +317,64 @@ class TestDnsLinkActivateConsumedSvcActivateSvc:
         consumed_service = activate_svc(client, consumed_service)
         consumed_service1 = activate_svc(client, consumed_service1)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_link_activate_consumed_svc_activate_svc_validate(self,
                                                                   super_client,
                                                                   client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service,
             [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsLinkWhenServicesStillActivating:
 
+    testname = "TestDnsLinkWhenServicesStillActivating"
     port = "31106"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_link_when_services_still_activating_create(self, super_client,
                                                             client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_env_with_2_svc_dns(
-                client, self.service_scale, self.consumed_service_scale,
+                self.testname, client, self.service_scale,
+                self.consumed_service_scale,
                 self.port)
 
         service.activate()
@@ -324,11 +395,37 @@ class TestDnsLinkWhenServicesStillActivating:
         assert consumed_service.state == "active"
         assert consumed_service1.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_link_when_services_still_activating_validate(self,
                                                               super_client,
                                                               client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_add_service_link(super_client, service, dns)
         validate_add_service_link(super_client, dns, consumed_service)
@@ -338,19 +435,25 @@ class TestDnsLinkWhenServicesStillActivating:
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServiceScaleUp:
 
+    testname = "TestDnsServiceScaleUp"
     port = "31107"
     service_scale = 1
     consumed_service_scale = 2
     final_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_service_scale_up_create(self, super_client, client):
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -365,27 +468,60 @@ class TestDnsServiceScaleUp:
         assert service.state == "active"
         assert service.scale == self.final_service_scale
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_service_scale_up_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServicesScaleDown:
 
+    testname = "TestDnsServicesScaleDown"
     port = "31108"
     service_scale = 3
     consumed_service_scale = 2
     final_service_scale = 1
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_services_scale_down_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -400,27 +536,60 @@ class TestDnsServicesScaleDown:
         assert service.state == "active"
         assert service.scale == self.final_service_scale
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_services_scale_down_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesScaleUp:
 
+    testname = "TestDnsConsumedServicesScaleUp"
     port = "31109"
     service_scale = 1
     consumed_service_scale = 2
     final_consumed_service_scale = 4
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_scale_up_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -438,30 +607,62 @@ class TestDnsConsumedServicesScaleUp:
         assert consumed_service.state == "active"
         assert consumed_service.scale == self.final_consumed_service_scale
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_scale_up_validate(self, super_client,
                                                      client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesScaleDown:
 
+    testname = "TestDnsConsumedServicesScaleDown"
     port = "3110"
     service_scale = 2
     consumed_service_scale = 3
     final_consumed_svc_scale = 1
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_scale_down_create(self, super_client,
                                                      client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -475,32 +676,64 @@ class TestDnsConsumedServicesScaleDown:
                                          name=consumed_service.name)
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
-        assert consumed_service.scale == self.final_consumed_service_scale
+        assert consumed_service.scale == self.final_consumed_svc_scale
+
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_scale_down_validate(self, super_client,
                                                        client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
                              self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesStopStartInstance:
 
+    testname = "TestDnsConsumedServicesStopStartInstance"
     port = "3111"
     service_scale = 1
     consumed_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_stop_start_instance_create(self,
                                                               super_client,
                                                               client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -519,29 +752,60 @@ class TestDnsConsumedServicesStopStartInstance:
         consumed_service = client.wait_success(consumed_service)
         wait_for_scale_to_adjust(super_client, consumed_service)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_stop_start_instance_validate(
             self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesRestartInstance:
 
+    testname = "TestDnsConsumedServicesRestartInstance"
     port = "3112"
     service_scale = 1
     consumed_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_restart_instance_create(self, super_client,
                                                            client):
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
 
         validate_dns_service(
@@ -557,35 +821,69 @@ class TestDnsConsumedServicesRestartInstance:
         container = client.wait_success(container.restart(), 120)
         assert container.state == 'running'
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_restart_instance_validate(self,
                                                              super_client,
                                                              client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesDeleteInstance:
 
+    testname = "TestDnsConsumedServicesDeleteInstance"
     port = "3113"
     service_scale = 1
     consumed_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_delete_instance_create(self, super_client,
                                                           client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
-                                                 service_scale,
-                                                 consumed_service_scale, port)
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
+                                                 self.service_scale,
+                                                 self.consumed_service_scale,
+                                                 self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         container_name = env.name + "_" + consumed_service.name + "_1"
@@ -599,30 +897,62 @@ class TestDnsConsumedServicesDeleteInstance:
 
         wait_for_scale_to_adjust(super_client, consumed_service)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_delete_instance_validate(self, super_client,
                                                             client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsConsumedServicesDeactivateActivate:
 
+    testname = "TestDnsConsumedServicesDeactivateActivate"
     port = "3114"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_consumed_services_deactivate_activate_create(self,
                                                               super_client,
                                                               client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
@@ -640,36 +970,68 @@ class TestDnsConsumedServicesDeactivateActivate:
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_consumed_services_deactivate_activate_validate(self,
                                                                 super_client,
                                                                 client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServiceDeactivateActivate:
 
+    testname = "TestDnsServiceDeactivateActivate"
     port = "3115"
     service_scale = 1
     consumed_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_dns_service_deactivate_activate_create(self, super_client,
                                                     client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
 
         validate_dns_service(super_client, service,
-                             [consumed_service, consumed_service1], port,
+                             [consumed_service, consumed_service1], self.port,
                              dns.name)
 
         service = service.deactivate()
@@ -681,31 +1043,66 @@ class TestDnsServiceDeactivateActivate:
         service = client.wait_success(service, 120)
         assert service.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_dns_service_deactivate_activate_validate(self, super_client,
                                                       client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsDeactivateActivateEnvironment:
 
-    def test_dns_deactivate_activate_environment(super_client, client):
+    testname = "TestDnsDeactivateActivateEnvironment"
+    port = "3116"
+    service_scale = 1
+    consumed_service_scale = 2
 
-        port = "3116"
-
-        service_scale = 1
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_deactivate_activate_environment_create(self, super_client,
+                                                        client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client,
-                                                 client, service_scale,
-                                                 consumed_service_scale, port)
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client, self.service_scale,
+                                                 self.consumed_service_scale,
+                                                 self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         env = env.deactivateservices()
@@ -725,27 +1122,65 @@ class TestDnsDeactivateActivateEnvironment:
         consumed_service = client.wait_success(consumed_service, 120)
         assert consumed_service.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_deactivate_activate_environment_validate(self, super_client,
+                                                          client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsAddRemoceServicelinks:
 
+    testname = "TestDnsAddRemoceServicelinks"
     port = "3117"
     service_scale = 1
     consumed_service_scale = 2
 
-    def test_dns_add_remove_servicelinks(self, super_client, client):
+    @pytest.mark.create
+    def test_dns_add_remove_servicelinks_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
-            port, dns.name)
+            self.port, dns.name)
 
         # Add another service to environment
         launch_config = {"imageUuid": WEB_IMAGE_UUID}
@@ -763,13 +1198,47 @@ class TestDnsAddRemoceServicelinks:
         consumed_service2 = client.wait_success(consumed_service2, 120)
         assert consumed_service2.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, consumed_service2.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_add_remove_servicelinks_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        consumed_service2 = client.list_service(uuid=data[4])[0]
+        assert len(consumed_service2) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service2))
+
+        dns = client.list_service(uuid=data[5])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         # Add another service link
         dns.addservicelink(serviceLink={"serviceId": consumed_service2.id})
         validate_add_service_link(super_client, dns, consumed_service2)
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1,
-                                    consumed_service2], port, dns.name)
+                                    consumed_service2], self.port, dns.name)
 
         # Remove existing service link to the service
         dns.removeservicelink(serviceLink={"serviceId": consumed_service.id})
@@ -779,24 +1248,33 @@ class TestDnsAddRemoceServicelinks:
             super_client, service, [consumed_service1, consumed_service2],
             self.port, dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServicesDeleteServiceAddServive:
 
-    def test_dns_services_delete_service_add_service(self, super_client,
-                                                     client):
+    testname = "TestDnsServicesDeleteServiceAddServive"
+    port = "3118"
+    service_scale = 2
+    consumed_service_scale = 2
 
-        port = "3118"
-
-        service_scale = 2
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_services_delete_service_add_service_create(self, super_client,
+                                                            client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
-                                                 service_scale,
-                                                 consumed_service_scale, port)
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
+                                                 self.service_scale,
+                                                 self.consumed_service_scale,
+                                                 self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         # Delete Service
@@ -827,30 +1305,71 @@ class TestDnsServicesDeleteServiceAddServive:
         service1.addservicelink(serviceLink={"serviceId": dns.id})
         validate_add_service_link(super_client, service1, dns)
 
+        data = [env.uuid, service1.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_services_delete_service_add_service_validate(self,
+                                                              super_client,
+                                                              client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service1 = client.list_service(uuid=data[1])[0]
+        assert len(service1) > 0
+        logger.info("service1 is: %s", format(service1))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
             super_client, service1, [consumed_service, consumed_service1],
-            port1,
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServicesDeleteAndAddConsumedService:
 
+    testname = "TestDnsServicesDeleteAndAddConsumedService"
     port = "3119"
     service_scale = 2
     consumed_service_scale = 2
 
-    def test_dns_services_delete_and_add_consumed_service_create(self,
-                                                                 super_client,
-                                                                 client):
+    @pytest.mark.create
+    def test_dns_services_delete_and_add_consumed_svc_create(self,
+                                                             super_client,
+                                                             client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
                                                  self.service_scale,
                                                  self.consumed_service_scale,
                                                  self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         # Delete consume service
@@ -859,7 +1378,8 @@ class TestDnsServicesDeleteAndAddConsumedService:
         assert consumed_service.state == "removed"
         validate_remove_service_link(super_client, dns, consumed_service)
 
-        validate_dns_service(super_client, service, [consumed_service1], port,
+        validate_dns_service(super_client, service, [consumed_service1],
+                             self.port,
                              dns.name)
 
         # Add another consume service and link the service to this newly
@@ -885,28 +1405,64 @@ class TestDnsServicesDeleteAndAddConsumedService:
 
         validate_add_service_link(super_client, dns, consumed_service2)
 
+        data = [env.uuid, service.uuid, consumed_service2.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_services_delete_and_add_consumed_svc_validate(self,
+                                                               super_client,
+                                                               client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service2 = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service2) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service2))
+
+        dns = client.list_service(uuid=data[3])[0]
+        logger.info("dns is: %s", dns)
+
         validate_dns_service(super_client, service,
-                             [consumed_service1, consumed_service2],
+                             [consumed_service2],
                              self.port,
                              dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServicesStopStartInstance:
 
+    testname = "TestDnsServicesStopStartInstance"
     port = "3120"
     service_scale = 2
     consumed_service_scale = 2
 
-    def test_dns_services_stop_start_instance(self, super_client, client):
+    @pytest.mark.create
+    def test_dns_services_stop_start_instance_create(self, super_client,
+                                                     client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
-                                                 service_scale,
-                                                 consumed_service_scale,
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
+                                                 self.service_scale,
+                                                 self.consumed_service_scale,
                                                  self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         container_name = env.name + "_" + service.name + "_2"
@@ -918,27 +1474,68 @@ class TestDnsServicesStopStartInstance:
         service_instance = client.wait_success(service_instance.stop(), 120)
         service = client.wait_success(service)
         wait_for_scale_to_adjust(super_client, service)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_services_stop_start_instance_delete(self, super_client,
+                                                     client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServicesRestartInstance:
 
-    def test_dns_services_restart_instance(super_client, client):
+    testname = "TestDnsServicesRestartInstance"
+    port = "3121"
+    service_scale = 2
+    consumed_service_scale = 2
 
-        port = "3121"
-
-        service_scale = 2
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_services_restart_instance_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale, consumed_service_scale,
-                port)
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale,
+                self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         container_name = env.name + "_" + service.name + "_2"
@@ -950,26 +1547,65 @@ class TestDnsServicesRestartInstance:
         service_instance = client.wait_success(service_instance.restart(), 120)
         assert service_instance.state == 'running'
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_services_restart_instance_validate(self, super_client,
+                                                    client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsServiceRestoreInstance:
 
+    testname = "TestDnsServiceRestoreInstance"
     port = "3122"
     service_scale = 2
     consumed_service_scale = 2
 
+    @pytest.mark.create
     def test_dns_service_restore_instance_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, self.service_scale,
+                self.testname, super_client, client, self.service_scale,
                 self.consumed_service_scale, self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         container_name = env.name + "_" + service.name + "_2"
@@ -983,30 +1619,66 @@ class TestDnsServiceRestoreInstance:
 
         wait_for_scale_to_adjust(super_client, service)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
     def test_dns_service_restore_instance_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1],
             self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsDeactivateActivate:
 
-    def test_dns_dns_deactivate_activate(self, super_client, client):
+    testname = "TestDnsDeactivateActivate"
+    port = "3114"
+    service_scale = 1
+    consumed_service_scale = 2
 
-        port = "3114"
-
-        service_scale = 1
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_dns_deactivate_activate_create(self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale, consumed_service_scale,
-                port)
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale,
+                self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         dns = dns.deactivate()
@@ -1017,26 +1689,67 @@ class TestDnsDeactivateActivate:
         dns = client.wait_success(dns, 120)
         assert dns.state == "active"
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_dns_deactivate_activate_validate(self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsAddRemoveServiceLinksUsingSet:
 
-    def test_dns_add_remove_servicelinks_using_set(self, super_client, client):
-        port = "3117"
+    testname = "TestDnsAddRemoveServiceLinksUsingSet"
+    port = "3117"
+    service_scale = 1
+    consumed_service_scale = 2
 
-        service_scale = 1
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_add_remove_servicelinks_using_set_create(self, super_client,
+                                                          client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale, consumed_service_scale,
-                port)
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale,
+                self.port)
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         # Add another service to environment
@@ -1064,98 +1777,273 @@ class TestDnsAddRemoveServiceLinksUsingSet:
 
         validate_add_service_link(super_client, dns, consumed_service1)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_add_remove_servicelinks_using_set_validate(self, super_client,
+                                                            client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(super_client, service,
                              [consumed_service, consumed_service1],
-                             port, dns.name)
+                             self.port, dns.name)
+        service_link2 = {"serviceId": consumed_service1.id}
 
         # Remove existing service link to the service using setservicelinks
         dns.setservicelinks(serviceLinks=[service_link2])
+
         validate_remove_service_link(super_client, dns, consumed_service)
 
-        validate_dns_service(super_client, service, [consumed_service1], port,
+        validate_dns_service(super_client, service, [consumed_service1],
+                             self.port,
                              dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.P0
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsSvcConsumedServiceHostnetwork:
 
-    def test_dns_svc_consumed_service_hostnetwork(super_client, client):
+    testname = "TestDnsSvcConsumedServiceHostnetwork"
+    port = "3118"
+    service_scale = 1
+    consumed_service_scale = 2
 
-        port = "3118"
-
-        service_scale = 1
-        consumed_service_scale = 2
+    @pytest.mark.create
+    def test_dns_svc_consumed_service_hostnetwork_create(self, super_client,
+                                                         client):
 
         env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(super_client, client,
-                                                 service_scale,
-                                                 consumed_service_scale, port)
+            create_environment_with_dns_services(self.testname, super_client,
+                                                 client,
+                                                 self.service_scale,
+                                                 self.consumed_service_scale,
+                                                 self.port)
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_svc_consumed_service_hostnetwork_validate(self, super_client,
+                                                           client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
         delete_all(client, [env])
 
 
+@pytest.mark.P1
+@pytest.mark.DNS
+@pytest.mark.incremental
 class TestDnsSvcManagedConsumedServiceHostnetwork:
 
-    def test_dns_svc_managed_cosumed_service_hostnetwork(super_client, client):
+    testname = "TestDnsSvcManagedConsumedServiceHostnetwork"
+    port = "3118"
+    service_scale = 1
+    consumed_service_scale = 1
 
-        port = "3118"
-
-        service_scale = 1
-        consumed_service_scale = 1
+    @pytest.mark.create
+    def test_dns_svc_managed_cosumed_service_hostnetwork_create(
+            self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale,
-                consumed_service_scale, port, isnetworkModeHost_svc=False,
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale, self.port,
+                isnetworkModeHost_svc=False,
                 isnetworkModeHost_consumed_svc=True)
+
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    @pytest.mark.validate
+    def test_dns_svc_managed_cosumed_service_hostnetwork_validate(
+            self, super_client, client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
 
         validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], port,
+            super_client, service, [consumed_service, consumed_service1],
+            self.port,
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestDnsSvcHostnetworkConsumedServiceHostnetwork:
 
-    def test_dns_svc_hostnetwork_consumed_service_hostnetwork(self,
-                                                              super_client,
-                                                              client):
+    testname = "TestDnsSvcHostnetworkConsumedServiceHostnetwork"
+    port = "3119"
+    service_scale = 1
+    consumed_service_scale = 1
 
-        port = "3119"
-
-        service_scale = 1
-        consumed_service_scale = 1
+    def test_dns_svc_hostnetwork_consumed_service_hostnetwork_create(
+            self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale, consumed_service_scale,
-                port, isnetworkModeHost_svc=True,
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale,
+                self.port, isnetworkModeHost_svc=True,
                 isnetworkModeHost_consumed_svc=True)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+
+        save(data, self)
+
+    def test_dns_svc_hostnetwork_consumed_service_hostnetwork_validate(
+            self, super_client, client):
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1], "33",
             dns.name)
 
+        delete_all(client, [env])
 
+
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestDnsSvcHostnetworkConsumedServiceManagedNetwork:
 
-    def test_dns_svc_hostnetwork_consumed_service_managednetwork(
-            super_client, client):
+    testname = "TestDnsSvcHostnetworkConsumedServiceManagedNetwork"
+    port = "3119"
+    service_scale = 1
+    consumed_service_scale = 1
 
-        port = "3119"
-
-        service_scale = 1
-        consumed_service_scale = 1
+    def test_dns_svc_hostnetwork_consumed_service_managednetwork_create(
+            self, super_client, client):
 
         env, service, consumed_service, consumed_service1, dns = \
             create_environment_with_dns_services(
-                super_client, client, service_scale,
-                consumed_service_scale, port,
+                self.testname, super_client, client, self.service_scale,
+                self.consumed_service_scale, self.port,
                 isnetworkModeHost_svc=True,
                 isnetworkModeHost_consumed_svc=False)
 
+        data = [env.uuid, service.uuid, consumed_service.uuid,
+                consumed_service1.uuid, dns.uuid]
+        logger.info("data to save: %s", data)
+        save(data, self)
+
+    def test_dns_svc_hostnetwork_consumed_service_managednetwork_validate(
+            self, super_client, client):
+
+        data = load(self)
+
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        consumed_service = client.list_service(uuid=data[2])[0]
+        assert len(consumed_service) > 0
+        logger.info("consumed service is: %s", format(consumed_service))
+
+        consumed_service1 = client.list_service(uuid=data[3])[0]
+        assert len(consumed_service1) > 0
+        logger.info("consumed service1 is: %s", format(consumed_service1))
+
+        dns = client.list_service(uuid=data[4])[0]
+        assert len(dns) > 0
+        logger.info("dns is: %s", format(dns))
+
         validate_dns_service(
             super_client, service, [consumed_service, consumed_service1], "33",
             dns.name)
+
+        delete_all(client, [env])

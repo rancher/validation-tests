@@ -4,7 +4,7 @@ WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 
 
-def create_env_with_sidekick(client, service_scale, expose_port):
+def create_env_with_sidekick(testname, client, service_scale, expose_port):
     launch_config_consumed_service = {
         "imageUuid": WEB_IMAGE_UUID}
 
@@ -19,7 +19,7 @@ def create_env_with_sidekick(client, service_scale, expose_port):
         }
     }
     env, service, service_name, consumed_service_name = \
-        env_with_sidekick_config(client, service_scale,
+        env_with_sidekick_config(testname, client, service_scale,
                                  launch_config_consumed_service,
                                  launch_config_service)
 
@@ -115,7 +115,8 @@ def validate_dns(super_client, service_containers, consumed_service,
             assert address in dns_response
 
 
-def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
+def create_env_with_multiple_sidekicks(testname, client, service_scale,
+                                       expose_port):
 
     launch_config_consumed_service1 = {
         "imageUuid": WEB_IMAGE_UUID}
@@ -142,9 +143,9 @@ def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
     launch_config_consumed_service2["name"] = consumed_service_name2
 
     # Create Environment
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
+    # random_name = random_str()
+    # env_name = random_name.replace("-", "")
+    env = client.create_environment(name=testname)
     env = client.wait_success(env)
     assert env.state == "active"
 
@@ -172,13 +173,11 @@ def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
         consumed_service_name1, consumed_service_name2
 
 
-def env_with_sidekick_config(client, service_scale,
+def env_with_sidekick_config(testname, client, service_scale,
                              launch_config_consumed_service,
                              launch_config_service):
-    # Create Environment
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
+
+    env = client.create_environment(name=testname)
     env = client.wait_success(env)
     assert env.state == "active"
 
@@ -205,7 +204,7 @@ def env_with_sidekick_config(client, service_scale,
     return env, service, service_name, consumed_service_name
 
 
-def create_env_with_sidekick_for_linking(client, service_scale):
+def create_env_with_sidekick_for_linking(testname, client, service_scale):
     launch_config_consumed_service = {
         "imageUuid": WEB_IMAGE_UUID}
 
@@ -213,14 +212,14 @@ def create_env_with_sidekick_for_linking(client, service_scale):
         "imageUuid": WEB_IMAGE_UUID}
 
     env, service, service_name, consumed_service_name = \
-        env_with_sidekick_config(client, service_scale,
+        env_with_sidekick_config(testname, client, service_scale,
                                  launch_config_consumed_service,
                                  launch_config_service)
 
     return env, service, service_name, consumed_service_name
 
 
-def create_env_with_sidekick_anti_affinity(client, service_scale):
+def create_env_with_sidekick_anti_affinity(testname, client, service_scale):
     launch_config_consumed_service = {
         "imageUuid": WEB_IMAGE_UUID}
 
@@ -234,17 +233,18 @@ def create_env_with_sidekick_anti_affinity(client, service_scale):
     }
 
     env, service, service_name, consumed_service_name = \
-        env_with_sidekick_config(client, service_scale,
+        env_with_sidekick_config(testname, client, service_scale,
                                  launch_config_consumed_service,
                                  launch_config_service)
 
     return env, service, service_name, consumed_service_name
 
 
-def env_with_sidekick(super_client, client, service_scale, exposed_port):
+def env_with_sidekick(testname, super_client, client, service_scale,
+                      exposed_port):
 
     env, service, service_name, consumed_service_name = \
-        create_env_with_sidekick(client, service_scale, exposed_port)
+        create_env_with_sidekick(testname, client, service_scale, exposed_port)
 
     env = env.activateservices()
     env = client.wait_success(env, 120)
@@ -261,6 +261,9 @@ def env_with_sidekick(super_client, client, service_scale, exposed_port):
     return env, service, service_name, consumed_service_name
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSideKickActivateEnv:
 
     testname = "TestSideKickActivateEnv"
@@ -268,11 +271,10 @@ class TestSideKickActivateEnv:
     service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_activate_env_create(self, client, super_client):
 
         env, service, service_name, consumed_service_name = \
-            create_env_with_sidekick(client, self.service_scale,
+            create_env_with_sidekick(self.testname, client, self.service_scale,
                                      self.exposed_port)
 
         env = env.activateservices()
@@ -290,33 +292,34 @@ class TestSideKickActivateEnv:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_activate_env_validate(self, client, super_client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(service_name))
+        service_name = data[2]
+        logger.info("service_name is: %s", (service_name))
 
-        consumed_service_name = client.list_service(uuid=data[3])
+        consumed_service_name = data[3]
         logger.info("consumed service name is: %s",
-                    format(consumed_service_name))
+                    (consumed_service_name))
 
-        dnsname = client.list_service(uuid=data[4])
-        logger.info("dns is: %s", format(dnsname))
+        dnsname = data[4]
+        logger.info("dns is: %s", (dnsname))
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestMultipleSidekickActivateService:
 
     testname = "TestMultipleSidekickActivateService"
@@ -324,51 +327,46 @@ class TestMultipleSidekickActivateService:
     service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_multiple_sidekick_activate_service_create(self, client,
                                                        super_client):
         env, service, service_name, consumed_service1, consumed_service2 =\
             create_env_with_multiple_sidekicks(
-                client, self.service_scale, self.exposed_port)
+                self.testname, client, self.service_scale, self.exposed_port)
         env = env.activateservices()
         service = client.wait_success(service, 120)
         assert service.state == "active"
         dnsname = service.secondaryLaunchConfigs[0].name
-        data = [env.uuid, service.uuid, service_name, consumed_service1.uuid,
-                consumed_service2.uuid, dnsname]
+        data = [env.uuid, service.uuid, service_name, consumed_service1,
+                consumed_service2, dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_multiple_sidekick_activate_service_validate(self, client,
                                                          super_client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(service_name))
+        service_name = data[2]
+        logger.info("service_name is: %s", (service_name))
 
-        consumed_service1 = client.list_service(uuid=data[3])
+        consumed_service1 = data[3]
         assert len(consumed_service1) > 0
-        consumed_service1 = consumed_service1[0]
-        logger.info("consumed service1 is: %s", format(consumed_service1))
+        logger.info("consumed service1 name is: %s", (consumed_service1))
 
-        consumed_service2 = client.list_service(uuid=data[4])
+        consumed_service2 = data[4]
         assert len(consumed_service1) > 0
-        consumed_service2 = consumed_service2[0]
-        logger.info("consumed service1 is: %s", format(consumed_service2))
+        logger.info("consumed service1 is: %s", (consumed_service2))
 
-        dnsname = client.list_service(uuid=data[5])
-        logger.info("dns is: %s", format(dnsname))
+        dnsname = data[5]
+        logger.info("dns is: %s", (dnsname))
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service1, self.exposed_port, dnsname)
@@ -378,17 +376,19 @@ class TestMultipleSidekickActivateService:
                           consumed_service2, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickActivateEnv:
     testname = "TestSidekickActivateEnv"
     exposed_port = "7000"
     service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=2)
     def test_sidekick_activate_env_create(self, client, super_client):
 
         env, service, service_name, consumed_service_name = \
-            create_env_with_sidekick(client, self.service_scale,
+            create_env_with_sidekick(self.testname, client, self.service_scale,
                                      self.exposed_port)
 
         env = env.activateservices()
@@ -404,42 +404,45 @@ class TestSidekickActivateEnv:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_activate_env_validate(self, client, super_client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(service_name))
+        service_name = data[2]
+        logger.info("service_name is: %s", (service_name))
 
-        consumed_service_name = client.list_service(uuid=data[2])
+        consumed_service_name = data[3]
         logger.info("consumed_service_name is: %s",
-                    format(consumed_service_name))
+                    (consumed_service_name))
 
-        dnsname = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(dnsname))
+        dnsname = data[4]
+        logger.info("dns name : %s", (dnsname))
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekick:
 
+    testname = "TestSidekick"
     service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_create(self, client, super_client):
+
         env, service, service_name, consumed_service_name = \
-            create_env_with_sidekick_for_linking(client, self.service_scale)
+            create_env_with_sidekick_for_linking(self.testname, client,
+                                                 self.service_scale)
         env = env.activateservices()
         service = client.wait_success(service, 120)
         assert service.state == "active"
@@ -448,38 +451,41 @@ class TestSidekick:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_validate(self, client, super_client):
+
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(service_name))
+        service_name = data[2]
+        logger.info("service_name is: %s", (service_name))
 
-        consumed_service_name = client.list_service(uuid=data[2])
+        consumed_service_name = data[3]
         logger.info("consumed_service_name is: %s",
-                    format(consumed_service_name))
+                    (consumed_service_name))
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickWithAntiAffinity:
 
+    testname = "TestSidekickWithAntiAffinity"
     service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_with_anti_affinity_create(self, client, super_client):
         env, service, service_name, consumed_service_name = \
-            create_env_with_sidekick_anti_affinity(client, self.service_scale)
+            create_env_with_sidekick_anti_affinity(self.testname, client,
+                                                   self.service_scale)
         env = env.activateservices()
         service = client.wait_success(service, 120)
         assert service.state == "active"
@@ -488,17 +494,15 @@ class TestSidekickWithAntiAffinity:
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_with_anti_affinity_validate(self, client, super_client):
 
         data = load(self)
 
-        env = client.list_environment(uuid=data[0])
+        env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
 
-        services = client.list_service(uuid=data[1])
-        assert len(services) > 0
-        service = services[0]
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
         logger.info("service is: %s", format(service))
 
         service_name = client.list_service(uuid=data[2])
@@ -512,20 +516,21 @@ class TestSidekickWithAntiAffinity:
                           consumed_service_name)
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestServiceLinksToSidekick:
 
+    testname = "TestServiceLinksToSidekick"
     service_scale = 2
+    client_port = "7004"
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_service_links_to_sidekick_create(self, client, super_client):
 
         env, linked_service, linked_service_name, linked_consumed_service_name\
-            = create_env_with_sidekick_for_linking(client, self.service_scale)
+            = create_env_with_sidekick_for_linking(self.testname, client,
+                                                   self.service_scale)
 
-        client_port = "7004"
         launch_config = {"imageUuid": SSH_IMAGE_UUID,
-                         "ports": [client_port+":22/tcp"]}
+                         "ports": [self.client_port+":22/tcp"]}
 
         service = create_svc(client, env, launch_config, 1)
         link_svc(super_client, service, [linked_service])
@@ -539,24 +544,23 @@ class TestServiceLinksToSidekick:
         primary_consumed_service = get_service_containers_with_name(
             super_client, linked_service, linked_service_name)
 
-        # secondary_consumed_service = get_service_containers_with_name(
-        #     super_client, linked_service, linked_consumed_service_name)
+        secondary_consumed_service = get_service_containers_with_name(
+            super_client, linked_service, linked_consumed_service_name)
 
         dnsname = linked_service.name
         validate_dns(super_client, service_containers,
-                     primary_consumed_service, client_port, dnsname)
+                     primary_consumed_service, self.client_port, dnsname)
 
         dnsname = \
             linked_service.secondaryLaunchConfigs[0].name + "." + \
             linked_service.name
 
         data = [env.uuid, linked_service.uuid, linked_service_name,
-                linked_consumed_service_name]
+                linked_consumed_service_name,
+                secondary_consumed_service.uuid, dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_service_links_to_sidekick_validate(self, client, super_client):
 
         data = load(self)
@@ -580,18 +584,22 @@ class TestServiceLinksToSidekick:
                      secondary_consumed_service, client_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickServiceScaleUp:
 
+    testname = "TestSidekickServiceScaleUp"
     service_scale = 2
     exposed_port = "7005"
     final_service_scale = 3
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_service_scale_up_create(self, client, super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         service = client.update(service, scale=self.final_service_scale,
@@ -601,31 +609,48 @@ class TestSidekickServiceScaleUp:
         assert service.scale == self.final_service_scale
 
         dnsname = service.secondaryLaunchConfigs[0].name
-        data = [env.uuid, service.uuid, dnsname]
 
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_service_scale_up_validate(self, client, super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickScaleDown:
 
+    testname = "TestSidekickScaleDown"
     service_scale = 3
     exposed_port = "7006"
     final_service_scale = 2
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_scale_down_create(self, client, super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
-                              exposed_port)
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
+                              self.exposed_port)
 
         service = client.update(service, scale=self.final_service_scale,
                                 name=service.name)
@@ -635,32 +660,47 @@ class TestSidekickScaleDown:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_scale_down_validate(self, client, super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickConsumedServicesStopStart:
 
+    testname = "TestSidekickConsumedServicesStopStart"
     service_scale = 2
     exposed_port = "7007"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_consumed_services_stop_start_instance(self, client,
                                                             super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
-                              exposed_port)
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
+                              self.exposed_port)
 
         container_name = consumed_service_name + "_2"
         containers = client.list_container(name=container_name)
@@ -673,31 +713,47 @@ class TestSidekickConsumedServicesStopStart:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_consumed_services_stop_start_instance_validate(
             self, client, super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickConsumedServicesRestartInstance:
 
+    testname = "TestSidekickConsumedServicesRestartInstance"
     service_scale = 2
     exposed_port = "7008"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_consumed_services_restart_instance_create(self, client,
                                                                 super_client):
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
-                              exposed_port)
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
+                              self.exposed_port)
 
         container_name = consumed_service_name + "_2"
         containers = client.list_container(name=container_name)
@@ -709,31 +765,45 @@ class TestSidekickConsumedServicesRestartInstance:
         assert container.state == 'running'
 
         dnsname = service.secondaryLaunchConfigs[0].name
-        data = [env.uuid, service.uuid, dnsname]
 
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_consumed_services_restart_instance_validate(
             self, client, super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestSidekickConsumedServicesDeleteInstance:
 
+    testname = "TestSidekickConsumedServicesDeleteInstance"
     service_scale = 3
     exposed_port = "7009"
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_consumed_services_delete_instance_create(self, client,
                                                                super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         container_name = consumed_service_name + "_1"
@@ -754,36 +824,51 @@ class TestSidekickConsumedServicesDeleteInstance:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname, primary_container.name]
         logger.info("data to save: %s", data)
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_consumed_services_delete_instance_validate(self, client,
                                                                  super_client):
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
+        c = client.list_container(name=data[5])
         # Check that the consumed container is not recreated
-        primary_container = client.reload(primary_container)
+        primary_container = client.reload(c)
         print primary_container.state
         assert primary_container.state == "running"
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickDeactivateActivateEnvironment:
 
+    testname = "TestSidekickDeactivateActivateEnvironment"
     service_scale = 2
     exposed_port = "7010"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_deactivate_activate_environment_create(self, client,
                                                              super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         env = env.deactivateservices()
@@ -799,30 +884,47 @@ class TestSidekickDeactivateActivateEnvironment:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_deactivate_activate_environment_validate(self, client,
                                                                super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickServicesStopStartInstance:
 
+    testname = "TestSidekickServicesStopStartInstance"
     service_scale = 2
     exposed_port = "7011"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_services_stop_start_instance_create(self, client,
                                                           super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         container_name = env.name + "_" + service.name + "_2"
@@ -835,32 +937,48 @@ class TestSidekickServicesStopStartInstance:
         client.wait_success(service)
 
         dnsname = service.secondaryLaunchConfigs[0].name
-        data = [env.uuid, service.uuid, dnsname]
 
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_services_stop_start_instance_validate(self, client,
                                                             super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
 
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickServicesRestartInstance:
 
+    testname = "TestSidekickServicesRestartInstance"
     service_scale = 3
     exposed_port = "7012"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_services_restart_instance_create(self, client,
                                                        super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         container_name = env.name + "_" + service.name + "_2"
@@ -874,32 +992,45 @@ class TestSidekickServicesRestartInstance:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_services_restart_instance_validate(self, client,
                                                          super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port,
                           dnsname)
 
 
+@pytest.mark.skipif(True, reason='Needs QA debugging')
 class TestSidekickServicesDeleteInstance:
 
+    testname = "TestSidekickServicesDeleteInstance"
     service_scale = 2
     exposed_port = "7013"
 
-    @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_services_delete_instance_create(self, client,
                                                       super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         container_name = env.name + "_" + service.name + "_1"
@@ -920,38 +1051,51 @@ class TestSidekickServicesDeleteInstance:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname, consumed_container.name]
         logger.info("data to save: %s", data)
         save(data, self)
 
-    @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_services_delete_instance_validate(self, client,
                                                         super_client):
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
 
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port,
                           dnsname)
 
+        c = client.list_container(name=data[4])
         # Check that the consumed container is not recreated
-        consumed_container = client.reload(consumed_container)
+        consumed_container = client.reload(c)
         print consumed_container.state
         assert consumed_container.state == "running"
 
 
+@pytest.mark.P0
+@pytest.mark.Sidekick
+@pytest.mark.incremental
 class TestSidekickServicesDeactivateActivate:
 
+    testname = "TestSidekickServicesDeactivateActivate"
     service_scale = 2
     exposed_port = "7014"
 
     @pytest.mark.create
-    @pytest.mark.run(order=1)
     def test_sidekick_services_deactivate_activate_create(self, client,
                                                           super_client):
 
         env, service, service_name, consumed_service_name = \
-            env_with_sidekick(super_client, client, self.service_scale,
+            env_with_sidekick(self.testname, super_client, client,
+                              self.service_scale,
                               self.exposed_port)
 
         service = service.deactivate()
@@ -967,14 +1111,26 @@ class TestSidekickServicesDeactivateActivate:
 
         dnsname = service.secondaryLaunchConfigs[0].name
 
-        data = [env.uuid, service.uuid, dnsname]
-
+        data = [env.uuid, service.uuid, service_name, consumed_service_name,
+                dnsname]
         logger.info("data to save: %s", data)
         save(data, self)
 
     @pytest.mark.validate
-    @pytest.mark.run(order=2)
     def test_sidekick_services_deactivate_activate_validate(self, client,
                                                             super_client):
+
+        data = load(self)
+        env = client.list_environment(uuid=data[0])[0]
+        logger.info("env is: %s", format(env))
+
+        service = client.list_service(uuid=data[1])[0]
+        assert len(service) > 0
+        logger.info("service is: %s", format(service))
+
+        service_name = data[2]
+        consumed_service_name = data[3]
+        dnsname = data[4]
+
         validate_sidekick(super_client, service, service_name,
                           consumed_service_name, self.exposed_port, dnsname)

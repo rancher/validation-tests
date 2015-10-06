@@ -5,5 +5,7 @@
 **/.venv
 **/.idea
 **/.DS_Store
-**/rancher_test_certs
 **/validation_v2/log
+**/validation/.cache
+**/validation/.pytest
+tests/validation_v2/.cache
