@@ -1401,13 +1401,14 @@ def get_service_containers_with_name(super_client, service, name):
             if instance_map.state == "active":
                 c = super_client.by_id('container', instance_map.instanceId)
                 print c.name
-                if nameformat.match(c.name):
+                if nameformat.match(c.name) and c.state == "running":
                     instance_list.append(c)
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
     container = []
     for instance in instance_list:
+        assert instance.externalId is not None
         containers = super_client.list_container(
             externalId=instance.externalId,
             include="hosts")
