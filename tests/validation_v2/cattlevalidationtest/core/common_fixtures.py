@@ -46,7 +46,8 @@ dns_labels = {"io.rancher.container.dns": "true",
               "io.rancher.stack_service.name=${stack_name}/${service_name}"}
 
 root_dir = os.environ.get('TEST_ROOT_DIR',
-                          '/home/aruneli/validation-tests/tests/validation_v2')
+                          os.path.join(os.path.dirname(__file__), 'tests',
+                                       'validation_v2'))
 compose_template_dir = os.path.join(root_dir, 'data', 'compose')
 
 log_dir = os.path.join(root_dir, 'log')
