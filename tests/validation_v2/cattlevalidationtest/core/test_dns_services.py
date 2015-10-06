@@ -1335,7 +1335,8 @@ class TestDnsServicesDeleteServiceAddServive:
 
         dns = client.list_service(uuid=data[4])[0]
         assert len(dns) > 0
-        logger.info("dns is: %s", format(dns))
+        logger.info("dns: %s", format(dns))
+        logger.info("dns.name: %s", dns.name)
 
         validate_dns_service(
             super_client, service1, [consumed_service, consumed_service1],
