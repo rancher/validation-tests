@@ -1393,13 +1393,12 @@ def get_service_containers_with_name(super_client, service, name):
     instance_list = []
 
     while len(instance_list) != service.scale:
+        instance_list = []
         time.sleep(.5)
         all_instance_maps = \
             super_client.list_serviceExposeMap(serviceId=service.id)
-        instance_maps = []
         for instance_map in all_instance_maps:
-            if instance_map.state not in ("removed", "removing"):
-                instance_maps.append(instance_map)
+            if instance_map.state == "active":
                 c = super_client.by_id('container', instance_map.instanceId)
                 print c.name
                 if nameformat.match(c.name):
