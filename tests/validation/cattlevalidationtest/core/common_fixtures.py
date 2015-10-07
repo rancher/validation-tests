@@ -1394,15 +1394,16 @@ def get_service_containers_with_name(super_client, service, name):
 
     while len(instance_list) != service.scale:
         instance_list = []
+        print "sleep for .5 sec"
         time.sleep(.5)
         all_instance_maps = \
             super_client.list_serviceExposeMap(serviceId=service.id)
         for instance_map in all_instance_maps:
             if instance_map.state == "active":
                 c = super_client.by_id('container', instance_map.instanceId)
-                print c.name
                 if nameformat.match(c.name) and c.state == "running":
                     instance_list.append(c)
+                    print c.name
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
