@@ -345,30 +345,38 @@ def test_multiple_level_volume_mount_delete_services_1(client, super_client,
 
     consumed1_container = get_side_kick_container(
         super_client, container, service, consumed_service1)
-    print consumed1_container.name
 
     primary_container = get_side_kick_container(
         super_client, container, service, service_name)
-    print primary_container.name
 
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
     client.wait_success(service)
 
+    # Wait for both the consuming containers to be removed
+    print consumed1_container.name + " - " + consumed1_container.state
+    wait_for_condition(
+        super_client, consumed1_container,
+        lambda x: x.state == "removed",
+        lambda x: 'State is: ' + x.state)
+    consumed1_container = client.reload(consumed1_container)
+    assert consumed1_container.state == "removed"
+    print consumed1_container.name + " - " + consumed1_container.state
+
+    print primary_container.name + " - " + primary_container.state
+    wait_for_condition(
+        super_client, primary_container,
+        lambda x: x.state == "removed",
+        lambda x: 'State is: ' + x.state)
+    primary_container = client.reload(primary_container)
+    assert primary_container.state == "removed"
+    print primary_container.name + " - " + primary_container.state
+
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service1])
     validate_volume_mount(super_client, service, consumed_service1,
                           [consumed_service2])
-
-    # Check that both the consuming containers are recreated
-    consumed1_container = client.reload(consumed1_container)
-    print consumed1_container.state
-    assert consumed1_container.state == "removed"
-
-    primary_container = client.reload(primary_container)
-    print primary_container.state
-    assert primary_container.state == "removed"
 
     delete_all(client, [env])
 
