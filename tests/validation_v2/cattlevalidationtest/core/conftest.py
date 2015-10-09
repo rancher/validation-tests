@@ -1,8 +1,5 @@
 from common_fixtures import *  # NOQA
 import re
-import logging
-
-log = logging.getLogger(__name__)
 
 
 def pytest_configure(config):
@@ -10,12 +7,12 @@ def pytest_configure(config):
 
 
 def cleanup():
-    log.info('Running cleanup')
+    logger.info('Running cleanup')
     sc = super_client(accounts())
-    instance_name_format = re.compile('test-[0-9]{1,6}')
+    instance_name_format = re.compile('Test')
     # For cleaning up environment and instances that get disassociated
     # from services where deleted
-    env_name_format = re.compile('test[0-9]{1,6}')
+    env_name_format = re.compile('Test')
     # instance_name_format_for_services =
     # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
@@ -27,6 +24,7 @@ def cleanup():
         except AttributeError:
             pass
     delete_all(sc, to_delete_env)
+    logger.info("Environments Deleted")
 
     to_delete_lb = []
     for i in sc.list_loadBalancer(state='active'):
@@ -36,6 +34,7 @@ def cleanup():
         except AttributeError:
             pass
     delete_all(sc, to_delete_lb)
+    logger.info("LBs Deleted")
 
     to_delete_lb_config = []
     for i in sc.list_loadBalancerConfig(state='active'):
@@ -45,6 +44,7 @@ def cleanup():
         except AttributeError:
             pass
     delete_all(sc, to_delete_lb_config)
+    logger.info("LB Configs deleted")
 
     to_delete_lb_listener = []
     for i in sc.list_loadBalancerListener(state='active'):
@@ -53,8 +53,8 @@ def cleanup():
                 to_delete_lb_listener.append(i)
         except AttributeError:
             pass
-
     delete_all(sc, to_delete_lb_listener)
+    logger.info("LB listeners deleted")
 
     to_delete = []
     for i in sc.list_instance(state='running'):
@@ -69,6 +69,7 @@ def cleanup():
             pass
 
     delete_all(sc, to_delete)
+    logger.info("Running Instances deleted")
 
     to_delete = []
     for i in sc.list_instance(state='stopped'):
@@ -82,3 +83,4 @@ def cleanup():
             pass
 
     delete_all(sc, to_delete)
+    logger.info("Stopped instances deleted")

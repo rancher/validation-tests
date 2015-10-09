@@ -8,3 +8,8 @@ selenium
 websocket-client==0.23.0
 docker-py==1.2.3
 boto
+pytest-timeout==0.5
+pytest-colordots==0.1
+pytest-cov==2.1.0
+pytest-runfailed==0.5
+pytest-sugar==0.4.0

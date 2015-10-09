@@ -584,8 +584,7 @@ def validate_remove_service_link(super_client, service, consumedService):
 
 def get_service_container_list(super_client, service):
 
-    logger.info("service is: %s", format(service))
-    # logger.info("service id is: %s", service.id)
+    logger.debug("service is: %s", format(service))
     container = []
     all_instance_maps = \
         super_client.list_serviceExposeMap(serviceId=service.id)
@@ -1210,7 +1209,7 @@ def create_env_with_svc_and_lb(testname, client, scale_svc, scale_lb, port,
 
     # Create LB Service
     random_name = random_str()
-    service_name = "LB-" + random_name.replace("-", "")
+    service_name = random_name.replace("-", "") + "-LB"
 
     lb_service = client.create_loadBalancerService(
         name=service_name,
@@ -1233,7 +1232,7 @@ def create_env_with_ext_svc_and_lb(testname, client, scale_lb, port):
 
     # Create LB Service
     random_name = random_str()
-    service_name = "LB-" + random_name.replace("-", "")
+    service_name = random_name.replace("-", "") + "-LB"
 
     lb_service = client.create_loadBalancerService(
         name=service_name,
@@ -1623,7 +1622,7 @@ def create_env_with_multiple_svc_and_lb(testname, client, scale_svc, scale_lb,
 
     # Create LB Service
     random_name = random_str()
-    service_name = "LB-" + random_name.replace("-", "")
+    service_name = random_name.replace("-", "") + "-LB"
 
     lb_service = client.create_loadBalancerService(
         name=service_name,
