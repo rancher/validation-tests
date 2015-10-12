@@ -14,7 +14,7 @@ containers after upgrade.
 """
 
 
-@pytest.mark.P0
+@pytest.mark.P1
 @pytest.mark.ServiceUpgrade
 @pytest.mark.incremental
 class TestInServiceUpgradePrimaryOnly1:
@@ -713,7 +713,7 @@ intervalMillis=200
 """
 
 
-@pytest.mark.P1
+@pytest.mark.P0
 @pytest.mark.ServiceUpgrade
 @pytest.mark.incremental
 class TestInServiceUpgradeSecondaryOnlySidekick:
@@ -1141,7 +1141,7 @@ class TestInServiceUpgradeSecondaryMultipleSidekick:
 @pytest.mark.ServiceUpgrade
 @pytest.mark.incremental
 class TestInServiceUpgradeAll:
-    testname = "TestInServiceUpgradePrimary3"
+    testname = "TestInServiceUpgradeAll"
 
     restart_policy = {"name": "always"}
     env_var = {"MYSQL_ROOT_PASSWORD": "example"}
@@ -1205,8 +1205,8 @@ class TestInServiceUpgradeAll:
     scale_svc_client = 1
 
     @pytest.mark.create
-    def test_inservice_upgrade_primary3_create(self, super_client,
-                                               client, socat_containers):
+    def test_inservice_upgrade_all_create(self, super_client,
+                                          client, socat_containers):
         env = create_env(self.testname, client)
 
         service_name = "db"
@@ -1253,10 +1253,10 @@ class TestInServiceUpgradeAll:
         save(data, self)
 
     @pytest.mark.validate
-    def test_inservice_upgrade_primary3_validate(self,
-                                                 super_client,
-                                                 client,
-                                                 socat_containers, **kw):
+    def test_inservice_upgrade_all_validate(self,
+                                            super_client,
+                                            client,
+                                            socat_containers, **kw):
         data = load(self)
         env = client.list_environment(uuid=data[0])[0]
         logger.info("env is: %s", format(env))
