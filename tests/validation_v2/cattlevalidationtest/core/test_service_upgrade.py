@@ -10,7 +10,8 @@ ssh_image_uuid = "docker:sangeetha/testclient:latest"
 """
 This test performs a in-service upgrade of a service with one simple primary
 with added label and verifies service is upgraded and new labels exist in
-containers after upgrade.
+containers after upgrade. Also verifies that during upgrade, new containers are
+created first before old containers are deleted.
 """
 
 
@@ -34,7 +35,7 @@ class TestInServiceUpgradePrimaryOnly1:
                      "version": "0",
                      }
 
-    scale_svc = 25
+    scale_svc = 10
     batchSize = 2
     num_lcs = 1
     upgrade_timeout = ((num_lcs * scale_svc) / batchSize) * 120
@@ -76,13 +77,16 @@ class TestInServiceUpgradePrimaryOnly1:
         service = service.upgrade_action(
             launchConfig={'labels': {'foo': "bar"}}, )
         assert service.state == 'upgrading'
+        # This assert is to make sure during upgrade new containers are deleted
+        # first before new ones are created
+        assert len(get_container_list(super_client, service)) > self.scale_svc
         upgraded_cons = []
         while (len(upgraded_cons) < self.scale_svc):
-            container_list = get_service_container_list(super_client, service)
+            container_list = get_container_list(super_client, service)
             for container in container_list:
                 labels = {'foo': "bar"}
                 for item in labels:
-                    if (item in container.labels):
+                    if item in container.labels:
                         upgraded_cons.append(container.name)
                 logger.info(
                     "upgrade containers length: %s - %s",
@@ -97,7 +101,7 @@ class TestInServiceUpgradePrimaryOnly1:
         service = wait_for(upgrade_not_null)
         service = client.wait_success(service, self.upgrade_timeout)
         assert service.state == 'active'
-        container_list = get_service_container_list(super_client, service)
+        container_list = get_container_list(super_client, service)
         assert len(container_list) == service.scale
 
         for container in container_list:
@@ -1296,3 +1300,27 @@ def check_container_in_service(super_client, service):
         inspect = docker_client.inspect_container(container.externalId)
         logger.info("Checked for containers running - " + container.name)
         assert inspect["State"]["Running"]
+
+
+def get_container_list(super_client, service):
+
+    logger.debug("service is: %s", format(service))
+    container = []
+    all_instance_maps = \
+        super_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = []
+    for instance_map in all_instance_maps:
+        if instance_map.state not in ("removed", "removing"):
+            instance_maps.append(instance_map)
+    logger.info("instance_maps : %s", instance_maps)
+
+    for instance_map in instance_maps:
+        c = super_client.by_id('container', instance_map.instanceId)
+        logger.info("container state: %s", c.state)
+        containers = super_client.list_container(
+            externalId=c.externalId,
+            include="hosts")
+        assert len(containers) == 1
+        container.append(containers[0])
+        logger.info("container : %s", format(containers[0]))
+    return container

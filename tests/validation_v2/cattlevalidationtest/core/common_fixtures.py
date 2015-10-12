@@ -1162,8 +1162,8 @@ def launch_rancher_compose(client, env, testname):
     cmd4 = "cd rancher-compose-v*"
     cmd5 = "echo '" + docker_compose + "' > " + docker_filename
     cmd6 = "echo '" + rancher_compose + "' > " + rancher_filename
-    cmd7 = "./rancher-compose -p " + project_name + " -f " + docker_filename + \
-           " -r " + rancher_filename + " up -d"
+    cmd7 = "./rancher-compose -p " + project_name + " -f " + docker_filename\
+           + " -r " + rancher_filename + " up -d"
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
