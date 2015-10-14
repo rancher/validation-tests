@@ -698,6 +698,25 @@ def test_volume_mount_services_deactivate_activate(
     delete_all(client, [env])
 
 
+def test_volume_mount_with_start_once(client,  super_client, socat_containers):
+    launch_config_consumed_service = {
+        "imageUuid": WEB_IMAGE_UUID,
+        "labels": {"io.rancher.container.start_once": True}}
+    launch_config_service = {
+        "imageUuid": SSH_IMAGE_UUID}
+    env, service, service_name, consumed_service_name = \
+        env_with_2_svc_and_volume_mount_with_config(
+            client, 10,
+            launch_config_consumed_service, launch_config_service)
+    service = service.activate()
+    service = client.wait_success(service, 180)
+    assert service.state == "active"
+
+    validate_volume_mount(super_client, service, service_name,
+                          [consumed_service_name])
+    delete_all(client, [env])
+
+
 def get_service_container_name_list(super_client, service, name):
 
     container_extids = []

@@ -28,6 +28,7 @@ WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
+HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 
 DEFAULT_TIMEOUT = 45
 
@@ -36,6 +37,7 @@ HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
 
 socat_container_list = []
+host_container_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
@@ -452,9 +454,26 @@ def socat_containers(client, request):
             lambda x: 'State is: ' + x.state)
     time.sleep(10)
 
+    for host in hosts:
+        host_container = client.create_container(
+            name='host-%s' % random_str(),
+            networkMode="host",
+            imageUuid=HOST_ACCESS_IMAGE_UUID,
+            privileged=True,
+            requestedHostId=host.id)
+        host_container_list.append(host_container)
+
+    for host_container in host_container_list:
+        wait_for_condition(
+            client, host_container,
+            lambda x: x.state == 'running',
+            lambda x: 'State is: ' + x.state)
+
+    time.sleep(10)
+
     def remove_socat():
         delete_all(client, socat_container_list)
-
+        delete_all(client, host_container_list)
     request.addfinalizer(remove_socat)
 
 
@@ -473,7 +492,8 @@ def get_docker_client(host):
 def wait_for_scale_to_adjust(super_client, service):
     service = super_client.wait_success(service)
     instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+                                                       state="active",
+                                                       managed=1)
     start = time.time()
 
     while len(instance_maps) != service.scale:
@@ -533,11 +553,17 @@ def validate_remove_service_link(super_client, service, consumedService):
         lambda x: 'State is: ' + x.state)
 
 
-def get_service_container_list(super_client, service):
+def get_service_container_list(super_client, service, managed=None):
 
     container = []
-    all_instance_maps = \
-        super_client.list_serviceExposeMap(serviceId=service.id)
+    if managed is not None:
+        all_instance_maps = \
+            super_client.list_serviceExposeMap(serviceId=service.id,
+                                               managed=managed)
+    else:
+        all_instance_maps = \
+            super_client.list_serviceExposeMap(serviceId=service.id)
+
     instance_maps = []
     for instance_map in all_instance_maps:
         if instance_map.state not in ("removed", "removing"):
@@ -667,6 +693,21 @@ def wait_for_lb_service_to_become_active(super_client, client,
         haproxy = docker_client.copy(
             lb_con.externalId, "/etc/haproxy/haproxy.cfg")
         print "haproxy: " + haproxy.read()
+
+        # Get iptable entries from host
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host.ipAddresses()[0].address, username="root",
+                    password="root", port=44)
+
+        # Validate link containers
+        cmd = "iptables-save"
+        logger.info(cmd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+
+        responses = stdout.readlines()
+        for response in responses:
+            print response
 
 
 def validate_lb_service_for_external_services(super_client, client, lb_service,
@@ -1342,7 +1383,8 @@ def create_env_and_svc(client, launch_config, scale):
 
 def check_container_in_service(super_client, service):
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(super_client, service,
+                                                managed=1)
     assert len(container_list) == service.scale
 
     for container in container_list:
