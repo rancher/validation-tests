@@ -8,13 +8,15 @@ logger = logging.getLogger(__name__)
 
 def env_with_sidekick_config(client, service_scale,
                              launch_config_consumed_service,
-                             launch_config_service):
-    # Create Environment
-    random_name = random_str()
-    env_name = random_name.replace("-", "")
-    env = client.create_environment(name=env_name)
-    env = client.wait_success(env)
-    assert env.state == "active"
+                             launch_config_service, env=None):
+
+    if env is None:
+        # Create Environment
+        random_name = random_str()
+        env_name = random_name.replace("-", "")
+        env = client.create_environment(name=env_name)
+        env = client.wait_success(env)
+        assert env.state == "active"
 
     # Create service
 
@@ -39,7 +41,7 @@ def env_with_sidekick_config(client, service_scale,
     return env, service, service_name, consumed_service_name
 
 
-def create_env_with_sidekick(client, service_scale, expose_port):
+def create_env_with_sidekick(client, service_scale, expose_port, env=None):
     launch_config_consumed_service = {
         "imageUuid": WEB_IMAGE_UUID}
 
@@ -56,12 +58,12 @@ def create_env_with_sidekick(client, service_scale, expose_port):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick_config(client, service_scale,
                                  launch_config_consumed_service,
-                                 launch_config_service)
+                                 launch_config_service, env)
 
     return env, service, service_name, consumed_service_name
 
 
-def create_env_with_sidekick_for_linking(client, service_scale):
+def create_env_with_sidekick_for_linking(client, service_scale, env=None):
     launch_config_consumed_service = {
         "imageUuid": WEB_IMAGE_UUID}
 
@@ -71,7 +73,7 @@ def create_env_with_sidekick_for_linking(client, service_scale):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick_config(client, service_scale,
                                  launch_config_consumed_service,
-                                 launch_config_service)
+                                 launch_config_service, env)
 
     return env, service, service_name, consumed_service_name
 
@@ -256,6 +258,74 @@ def test_multiple_sidekick_activate_service(client, super_client):
     delete_all(client, [env])
 
 
+def test_sidekick_for_lb(client, super_client, socat_containers):
+    service_scale = 2
+    port = "7080"
+    env, service1, service1_name, consumed_service_name = \
+        create_env_with_sidekick_for_linking(client, service_scale)
+    env = env.activateservices()
+    service1 = client.wait_success(service1, 120)
+    assert service1.state == "active"
+
+    validate_sidekick(super_client, service1, service1_name,
+                      consumed_service_name)
+
+    env, service2, service2_name, consumed_service_name = \
+        create_env_with_sidekick_for_linking(client, service_scale, env)
+    service2 = client.wait_success(service2.activate(), 120)
+    assert service2.state == "active"
+
+    validate_sidekick(super_client, service2, service2_name,
+                      consumed_service_name)
+
+    # Add LB services
+
+    launch_config_lb = {"ports": [port+":80"]}
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    lb_service = client.create_loadBalancerService(
+        name=service_name, environmentId=env.id, launchConfig=launch_config_lb,
+        scale=1)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    lb_service.setservicelinks(
+        serviceLinks=[{"serviceId": service1.id, "ports": []},
+                      {"serviceId": service2.id, "ports": []}])
+
+    lb_service = lb_service.activate()
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
+
+    validate_add_service_link(super_client, lb_service, service1)
+
+    validate_add_service_link(super_client, lb_service, service2)
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service1, service2], lb_service)
+
+    target_count = service1.scale + service2.scale
+    container_name1 = get_service_containers_with_name(super_client,
+                                                       service1,
+                                                       service1_name)
+    container_name2 = get_service_containers_with_name(super_client,
+                                                       service2,
+                                                       service2_name)
+    containers = container_name1 + container_name2
+    container_names = []
+    for c in containers:
+        if c.state == "running":
+            container_names.append(c.externalId[:12])
+    assert len(container_names) == target_count
+
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names)
+
+    delete_all(client, [env])
+
+
 def test_sidekick(client, super_client):
     service_scale = 2
     env, service, service_name, consumed_service_name = \
@@ -266,6 +336,7 @@ def test_sidekick(client, super_client):
 
     validate_sidekick(super_client, service, service_name,
                       consumed_service_name)
+
     delete_all(client, [env])
 
 
