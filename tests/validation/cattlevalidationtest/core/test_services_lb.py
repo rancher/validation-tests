@@ -734,6 +734,9 @@ def test_lbservice_internal(super_client, client, socat_containers):
         ports=[con_port+":22/tcp"], requestedHostId=host.id)
     client_con = client.wait_success(client_con, 120)
     assert client_con.state == "running"
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service], lb_service)
     # Wait for exposed port to be available
     time.sleep(5)
     validate_internal_lb(super_client, lb_service, [service], host,
