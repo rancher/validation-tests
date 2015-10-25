@@ -352,7 +352,6 @@ def test_multiple_level_volume_mount_delete_services_1(client, super_client,
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
-    client.wait_success(service)
 
     # Wait for both the consuming containers to be removed
     print consumed1_container.name + " - " + consumed1_container.state
@@ -372,6 +371,8 @@ def test_multiple_level_volume_mount_delete_services_1(client, super_client,
     primary_container = client.reload(primary_container)
     assert primary_container.state == "removed"
     print primary_container.name + " - " + primary_container.state
+
+    client.wait_success(service)
 
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service1])
