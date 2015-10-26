@@ -95,9 +95,13 @@ def test_selectorLink(super_client, client):
                                            environmentId=env.id,
                                            launchConfig=launch_config,
                                            scale=2)
+    linked_service = client.wait_success(linked_service)
+    assert linked_service.state == "inactive"
     env = env.activateservices()
     service = client.wait_success(service, 300)
+    assert service.state == "active"
     linked_service = client.wait_success(linked_service, 300)
+    assert linked_service.state == "active"
     validate_linked_service(super_client, service, [linked_service], port)
     delete_all(client, [env])
 
