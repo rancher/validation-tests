@@ -281,6 +281,9 @@ def test_rancher_compose_lbservice_internal(super_client, client,
     validate_add_service_link(
         super_client, rancher_lb_service, rancher_service1)
 
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [rancher_service, rancher_service1],
+                                         rancher_lb_service)
     validate_internal_lb(super_client, rancher_lb_service,
                          [rancher_service, rancher_service1],
                          host, con_port, port)
