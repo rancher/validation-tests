@@ -420,6 +420,11 @@ def test_multiple_level_volume_mount_delete_services_2(client, super_client,
     assert container.state == 'removed'
     client.wait_success(service)
 
+    # Wait for primary (consuming) container to be removed
+    wait_for_condition(super_client, primary_container,
+                       lambda x: x.state == "removed",
+                       lambda x: 'State is: ' + x.state)
+
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service1])
     validate_volume_mount(super_client, service, consumed_service1,
@@ -431,10 +436,6 @@ def test_multiple_level_volume_mount_delete_services_2(client, super_client,
     consumed2_container = client.reload(consumed2_container)
     print consumed2_container.state
     assert consumed2_container.state == "running"
-
-    primary_container = client.reload(primary_container)
-    print primary_container.state
-    assert primary_container.state == "removed"
 
     delete_all(client, [env])
 
@@ -548,8 +549,8 @@ def test_volume_mount_consumed_services_delete_instance(
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
-
     print container_name
+
     primary_container = get_side_kick_container(
         super_client, container, service, service_name)
     print primary_container.name
@@ -560,13 +561,13 @@ def test_volume_mount_consumed_services_delete_instance(
 
     client.wait_success(service)
 
+    # Wait for primary (consuming) container to be removed
+    wait_for_condition(super_client, primary_container,
+                       lambda x: x.state == "removed",
+                       lambda x: 'State is: ' + x.state)
+
     validate_volume_mount(super_client, service, service_name,
                           [consumed_service_name])
-
-    # Check that consuming container was recreated
-    primary_container = client.reload(primary_container)
-    print primary_container.state
-    assert primary_container.state == "removed"
 
     delete_all(client, [env])
 
@@ -745,6 +746,7 @@ def validate_volume_mount(
         mounted_containers = get_service_container_name_list(
             super_client, primary_service, consumed_service_name)
         assert len(mounted_containers) == primary_service.scale
+
         for mounted_container in mounted_containers:
             mounted_container_names.append(mounted_container)
         consolidated_container_list.append(mounted_containers)
