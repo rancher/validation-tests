@@ -29,7 +29,7 @@ SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
-
+HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:latest"
 DEFAULT_TIMEOUT = 45
 
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
