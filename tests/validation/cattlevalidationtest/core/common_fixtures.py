@@ -1186,46 +1186,65 @@ def rancher_compose_container(admin_client, client, request):
 
     def remove_rancher_compose_container():
         delete_all(client, [rancher_compose_con["container"]])
-
     request.addfinalizer(remove_rancher_compose_container)
 
 
-def launch_rancher_compose(client, env, testname):
+def launch_rancher_compose(client, env):
     compose_configs = env.exportconfig()
     docker_compose = compose_configs["dockerComposeConfig"]
     rancher_compose = compose_configs["rancherComposeConfig"]
+    execute_rancher_compose(client, env.name + "rancher",
+                            docker_compose, rancher_compose,
+                            "up -d", "Creating stack")
 
+
+def execute_rancher_compose(client, env_name, docker_compose,
+                            rancher_compose, command, expected_resp):
     access_key = client._access_key
     secret_key = client._secret_key
-    docker_filename = testname + "-docker-compose.yml"
-    rancher_filename = testname + "-rancher-compose.yml"
-    project_name = env.name + "rancher"
+    docker_filename = env_name + "-docker-compose.yml"
+    rancher_filename = env_name + "-rancher-compose.yml"
+    project_name = env_name
 
     cmd1 = "export RANCHER_URL=" + cattle_url()
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-compose-v*"
     cmd5 = "echo '" + docker_compose + "' > " + docker_filename
-    cmd6 = "echo '" + rancher_compose + "' > " + rancher_filename
-    cmd7 = "./rancher-compose -p " + project_name + " -f " + docker_filename + \
-           " -r " + rancher_filename + " up -d"
+    if rancher_compose is not None:
+        rcmd = "echo '" + rancher_compose + "' > " + rancher_filename + ";"
+        cmd6 = rcmd + "./rancher-compose -p " + project_name + " -f " \
+            + docker_filename + " -r " + rancher_filename + \
+            " " + command
+    else:
+        cmd6 = "./rancher-compose -p " + project_name + \
+               " -f " + docker_filename + " " + command
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
         rancher_compose_con["host"].ipAddresses()[0].address, username="root",
         password="root", port=int(rancher_compose_con["port"]))
-    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6+";"+cmd7
+    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
     print cmd
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     print str(response)
-    expected_resp = "Creating stack " + project_name
     found = False
     for resp in response:
         if expected_resp in resp:
             found = True
     assert found
+
+
+def launch_rancher_compose_from_file(client, subdir, docker_compose,
+                                     env_name, command, response,
+                                     rancher_compose=None):
+    docker_compose = readDataFile(subdir, docker_compose)
+    if rancher_compose is not None:
+        rancher_compose = readDataFile(subdir, rancher_compose)
+    execute_rancher_compose(client, env_name, docker_compose,
+                            rancher_compose, command, response)
 
 
 def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
@@ -1498,7 +1517,8 @@ def wait_until_instances_get_stopped(super_client, service, timeout=60):
                 'Timed out waiting for instances to get to stopped state')
 
 
-def get_service_containers_with_name(super_client, service, name):
+def get_service_containers_with_name(
+        super_client, service, name, managed=None):
 
     nameformat = re.compile(name + "_[0-9]{1,2}")
     start = time.time()
@@ -1508,12 +1528,18 @@ def get_service_containers_with_name(super_client, service, name):
         instance_list = []
         print "sleep for .5 sec"
         time.sleep(.5)
-        all_instance_maps = \
-            super_client.list_serviceExposeMap(serviceId=service.id)
+        if managed is not None:
+            all_instance_maps = \
+                super_client.list_serviceExposeMap(serviceId=service.id,
+                                                   managed=managed)
+        else:
+            all_instance_maps = \
+                super_client.list_serviceExposeMap(serviceId=service.id)
         for instance_map in all_instance_maps:
             if instance_map.state == "active":
                 c = super_client.by_id('container', instance_map.instanceId)
-                if nameformat.match(c.name) and c.state == "running":
+                if nameformat.match(c.name) \
+                        and c.state in ("running", "stopped"):
                     instance_list.append(c)
                     print c.name
         if time.time() - start > 30:
@@ -1958,3 +1984,22 @@ def base_url():
     elif (not base_url.endswith('/v1/')):
         base_url = base_url + '/v1/'
     return base_url
+
+
+def readDataFile(data_dir, name):
+    fname = os.path.join(data_dir, name)
+    print fname
+    is_file = os.path.isfile(fname)
+    assert is_file
+    with open(fname) as f:
+        return f.read()
+
+
+def get_env_service_by_name(client, env_name, service_name):
+    env = client.list_environment(name=env_name)
+    assert len(env) == 1
+    service = client.list_service(name=service_name,
+                                  environmentId=env[0].id,
+                                  removed_null=True)
+    assert len(service) == 1
+    return env[0], service[0]

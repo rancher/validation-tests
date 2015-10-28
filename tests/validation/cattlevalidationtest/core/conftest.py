@@ -59,13 +59,14 @@ def cleanup():
     to_delete = []
     for i in sc.list_instance(state='running'):
         try:
-            if instance_name_format.match(i.name) or \
-                    i.name.startswith("socat-test") or \
-                    i.name.startswith("host-test") or \
-                    i.name.startswith("native-test") or \
-                    i.name.startswith("target-native-test-") or \
-                    i.name.startswith("rancher-compose"):
-                to_delete.append(i)
+            if i.name is not None:
+                if instance_name_format.match(i.name) or \
+                        i.name.startswith("socat-test") or \
+                        i.name.startswith("host-test") or \
+                        i.name.startswith("native-test") or \
+                        i.name.startswith("target-native-test-") or \
+                        i.name.startswith("rancher-compose"):
+                    to_delete.append(i)
         except AttributeError:
             pass
 
