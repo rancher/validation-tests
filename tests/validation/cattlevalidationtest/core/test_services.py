@@ -654,6 +654,150 @@ def test_service_reconcile_delete_instance_restart_policy_failure_count(
     delete_all(client, [env])
 
 
+def test_service_with_healthcheck(super_client, client, socat_containers):
+    scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale)
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_container_unhealthy(
+        super_client, client, socat_containers):
+    scale = 2
+    port = 9998
+
+    env, service = service_with_healthcheck_enabled(client, super_client,
+                                                    scale, port)
+
+    # Delete requestUrl from one of the containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    con = container_list[1]
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "rm /usr/share/nginx/html/name.html"
+
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con = client.reload(con)
+    assert con.healthState == "unhealthy"
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.state in ('removed', 'purged'),
+        lambda x: 'State is: ' + x.healthState)
+    wait_for_scale_to_adjust(super_client, service)
+    con = client.reload(con)
+    assert con.state in ('removed', 'purged')
+
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
+    delete_all(client, [env])
+
+
+def test_service_health_check_scale_up(super_client, client, socat_containers):
+
+    scale = 1
+    final_scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale)
+    # Scale service
+    service = client.update(service, name=service.name, scale=final_scale)
+    service = client.wait_success(service, 300)
+    assert service.state == "active"
+    assert service.scale == final_scale
+    check_container_in_service(super_client, service)
+    check_for_healthstate(client, super_client, service)
+    delete_all(client, [env])
+
+
+def test_service_health_check_reconcile_on_stop(
+        super_client, client, socat_containers):
+    scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale)
+    check_for_service_reconciliation_on_stop(super_client, client, service)
+    check_for_healthstate(client, super_client, service)
+    delete_all(client, [env])
+
+
+def test_service_health_check_reconcile_on_delete(
+        super_client, client, socat_containers):
+    scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale)
+    check_for_service_reconciliation_on_delete(super_client, client, service)
+    check_for_healthstate(client, super_client, service)
+    delete_all(client, [env])
+
+
+def test_service_health_check_with_tcp(
+        super_client, client, socat_containers):
+    scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, protocol="tcp")
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_container_tcp_unhealthy(
+        super_client, client, socat_containers):
+    scale = 2
+    port = 9997
+
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, port, protocol="tcp")
+
+    # Stop ssh service from one of the containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    con = container_list[1]
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "service ssh stop"
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con = client.reload(con)
+    assert con.healthState == "unhealthy"
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.state in ('removed', 'purged'),
+        lambda x: 'State is: ' + x.healthState)
+    wait_for_scale_to_adjust(super_client, service)
+    con = client.reload(con)
+    assert con.state in ('removed', 'purged')
+
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
+    delete_all(client, [env])
+
+
 def check_service_scale(super_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
@@ -897,3 +1041,44 @@ def check_for_service_reconciliation_on_delete(super_client, client, service):
     wait_for_scale_to_adjust(super_client, service)
 
     check_container_in_service(super_client, service)
+
+
+def service_with_healthcheck_enabled(client, super_client, scale, port=None,
+                                     protocol="http", labels=None):
+    health_check = {"name": "check1", "responseTimeout": 2000,
+                    "interval": 2000, "healthyThreshold": 2,
+                    "unhealthyThreshold": 3}
+    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID,
+                     "healthCheck": health_check
+                     }
+
+    if protocol == "http":
+        health_check["requestLine"] = "GET /name.html HTTP/1.0"
+        health_check["port"] = 80
+
+    if protocol == "tcp":
+        health_check["requestLine"] = ""
+        health_check["port"] = 22
+
+    if port is not None:
+        launch_config["ports"] = [str(port)+":22/tcp"]
+    if labels is not None:
+        launch_config["labels"] = labels
+    service, env = create_env_and_svc_activate_launch_config(
+        super_client, client, launch_config, scale)
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
+    return env, service
+
+
+def check_for_healthstate(client, super_client, service):
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
