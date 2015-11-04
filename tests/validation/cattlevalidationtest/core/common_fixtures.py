@@ -30,6 +30,7 @@ LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:latest"
+MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
 
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
@@ -605,6 +606,17 @@ def activate_svc(client, service):
     service = client.wait_success(service, 120)
     assert service.state == "active"
     return service
+
+
+def validate_exposed_port(super_client, service, public_port):
+    con_list = get_service_container_list(super_client, service)
+    assert len(con_list) == service.scale
+    time.sleep(5)
+    for con in con_list:
+        con_host = super_client.by_id('host', con.hosts[0].id)
+        for port in public_port:
+            response = get_http_response(con_host, port, "/service.html")
+            assert response == con.externalId[:12]
 
 
 def validate_exposed_port_and_container_link(super_client, con, link_name,
@@ -1571,6 +1583,19 @@ def check_for_service_unavailable(host, port, hostheader, path):
     logger.info(response)
     r.close()
     assert "503 Service Unavailable" in response
+
+
+def get_http_response(host, port, path):
+
+    url = "http://" + host.ipAddresses()[0].address +\
+          ":" + str(port) + path
+    logger.info(url)
+
+    r = requests.get(url)
+    response = r.text.strip("\n")
+    logger.info(response)
+    r.close()
+    return response
 
 
 def check_round_robin_access(container_names, host, port,
