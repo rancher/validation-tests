@@ -212,6 +212,28 @@ def test_services_port_and_link_options(super_client, client,
     delete_all(client, [env, link_container])
 
 
+def test_services_multiple_expose_port(super_client, client):
+
+    public_port = range(2080, 2092)
+    private_port = range(80, 92)
+    port_mapping = []
+    for i in range(0, len(public_port)):
+        port_mapping.append(str(public_port[i])+":" +
+                            str(private_port[i]) + "/tcp")
+    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+                     "ports": port_mapping,
+                     }
+
+    service, env = create_env_and_svc(client, launch_config, 3)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 300)
+
+    validate_exposed_port(super_client, service, public_port)
+
+    delete_all(client, [env])
+
+
 def test_environment_activate_deactivate_delete(super_client,
                                                 client,
                                                 socat_containers):

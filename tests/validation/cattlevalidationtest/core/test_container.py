@@ -212,6 +212,10 @@ def test_container_stats(client, test_name):
         delete_all(client, cleanup_items)
 
 
+def test_set_up():
+    print "Start cleanup"
+
+
 def assert_stats(container):
     stats = container.stats()
     conn = ws.create_connection(stats.url + '?token=' + stats.token,
