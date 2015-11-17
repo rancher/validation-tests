@@ -155,10 +155,10 @@ def test_services_docker_options(super_client, client, socat_containers):
         assert inspect["HostConfig"]["CapAdd"] == cap_add
         assert inspect["HostConfig"]["CapDrop"] == cap_drop
         assert inspect["Config"]["Cpuset"] == cpu_set
-        assert inspect["HostConfig"]["RestartPolicy"]["Name"] == \
-            restart_policy["name"]
-        assert inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == \
-            restart_policy["maximumRetryCount"]
+#       No support for restart
+        assert inspect["HostConfig"]["RestartPolicy"]["Name"] == ""
+        assert \
+            inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == 0
         assert inspect["Config"]["Cmd"] == command
         assert inspect["Config"]["Memory"] == memory
         assert "TEST_FILE=/etc/testpath.conf" in inspect["Config"]["Env"]
