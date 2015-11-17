@@ -505,7 +505,7 @@ class TestSidekickWithAntiAffinity:
         assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])
+        service_name = client.list_service(uuid=data[2])[0]
         logger.info("service_name is: %s", format(service_name))
 
         consumed_service_name = client.list_service(uuid=data[2])

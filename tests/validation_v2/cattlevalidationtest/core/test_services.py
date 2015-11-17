@@ -2189,7 +2189,7 @@ def check_container_removed_from_service(super_client, service, env,
     start = time.time()
 
     while len(instance_maps) != removed_count:
-        time.sleep(5)
+        time.sleep(.5)
         instance_maps = super_client.list_serviceExposeMap(
             serviceId=service.id, state="removed")
         if time.time() - start > 30:

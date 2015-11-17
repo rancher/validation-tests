@@ -41,10 +41,18 @@ copy_logs(){
 
 run_tests()
 {
+<<<<<<< HEAD
     if [ -n "$TEST_ROOT_DIR" ];then
         pushd ${TEST_ROOT_DIR}
     fi
 
+=======
+    pushd ./tests/validation
+    if [ "${CATTLE_TEST_PARALLEL_THREADS}" -gt 1 ]; then
+       echo "Running in sigle thread"
+       tox '-k test_container.py::test_set_up'
+    fi
+>>>>>>> b4390b501e05efc7ba86bfc2df6dd6be60c2e4fb
     TOX_ARGS=
     if [ "${CATTLE_TEST_PARALLEL_THREADS}" -gt 1 ]; then
        TOX_ARGS="-- -v -n ${CATTLE_TEST_PARALLEL_THREADS}"

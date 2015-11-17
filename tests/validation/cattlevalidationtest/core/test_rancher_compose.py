@@ -7,6 +7,10 @@ LB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 
 logger = logging.getLogger(__name__)
 
+if_compose_data_files = pytest.mark.skipif(
+    not os.environ.get('CATTLE_TEST_DATA_DIR'),
+    reason='Docker compose files directory location not set')
+
 
 def test_rancher_compose_service(super_client, client,
                                  rancher_compose_container,
@@ -66,7 +70,7 @@ def test_rancher_compose_service(super_client, client,
 
     service, env = create_env_and_svc(client, launch_config,
                                       scale)
-    launch_rancher_compose(client, env, "service_options")
+    launch_rancher_compose(client, env)
 
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
@@ -141,7 +145,7 @@ def test_rancher_compose_services_port_and_link_options(
 
     service, env = create_env_and_svc(client, launch_config, 1)
 
-    launch_rancher_compose(client, env, "service_link_port")
+    launch_rancher_compose(client, env)
 
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
@@ -192,7 +196,7 @@ def test_rancher_compose_lbservice(super_client, client,
     lb_service.addservicelink(serviceLink=service_link)
     validate_add_service_link(super_client, lb_service, service1)
 
-    launch_rancher_compose(client, env, "lb_service")
+    launch_rancher_compose(client, env)
 
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
@@ -260,7 +264,7 @@ def test_rancher_compose_lbservice_internal(super_client, client,
     lb_service.addservicelink(serviceLink=service_link)
     validate_add_service_link(super_client, lb_service, service1)
 
-    launch_rancher_compose(client, env, "lb_service_internal")
+    launch_rancher_compose(client, env)
 
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
@@ -281,6 +285,9 @@ def test_rancher_compose_lbservice_internal(super_client, client,
     validate_add_service_link(
         super_client, rancher_lb_service, rancher_service1)
 
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [rancher_service, rancher_service1],
+                                         rancher_lb_service)
     validate_internal_lb(super_client, rancher_lb_service,
                          [rancher_service, rancher_service1],
                          host, con_port, port)
@@ -313,7 +320,7 @@ def test_rancher_compose_service_links(super_client, client,
 
 #   Launch env using docker compose
 
-    launch_rancher_compose(client, env, "service_link")
+    launch_rancher_compose(client, env)
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
@@ -363,7 +370,7 @@ def test_rancher_compose_external_services(super_client, client,
 
 #   Launch env using docker compose
 
-    launch_rancher_compose(client, env, "ext_service")
+    launch_rancher_compose(client, env)
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
@@ -417,7 +424,7 @@ def test_rancher_compose_lbservice_host_routing(super_client, client,
         serviceLinks=[service_link1, service_link2,
                       service_link3, service_link4])
 
-    launch_rancher_compose(client, env, "lb_service_host_routing")
+    launch_rancher_compose(client, env)
 
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
@@ -487,7 +494,7 @@ def test_rancher_compose_external_services_hostname(super_client, client,
 
 #   Launch env using docker compose
 
-    launch_rancher_compose(client, env, "ext_service_hostname")
+    launch_rancher_compose(client, env)
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
@@ -529,7 +536,7 @@ def rancher_compose_dns_services(super_client, client, port,
     dns.addservicelink(serviceLink=service_link)
 
     # Launch dns env using docker compose
-    launch_rancher_compose(client, env, "service_dns")
+    launch_rancher_compose(client, env)
     rancher_envs = client.list_environment(name=env.name+"rancher")
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]

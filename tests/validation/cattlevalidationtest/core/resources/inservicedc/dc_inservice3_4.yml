@@ -1,0 +1,17 @@
+sk1:
+  image: sangeetha/testnewhostrouting
+  volumes_from:
+  - sk2
+  labels:
+    testsk1: value1
+test1:
+  labels:
+    io.rancher.sidekicks: sk1,sk2
+    test1: value1
+  image: sangeetha/testclient
+  volumes_from:
+  - sk1
+sk2:
+  image: sangeetha/testlbsd:latest
+  labels:
+    testsk2: value2
