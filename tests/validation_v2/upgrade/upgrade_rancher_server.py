@@ -7,11 +7,12 @@
 # username is the username with which you ssh to your GCE instance
 
 import argparse
-from tests.validation_v2.cattlevalidationtest.core.common_fixtures import *  # NOQA
+from common_fixtures import *  # NOQA
 import requests
 import time
 import paramiko
 import os
+import sys
 
 
 def main():
