@@ -228,8 +228,9 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
 
     if labels is not None:
         for label in host.hostLabels():
-            assert label.key in labels
-            assert labels[label.key] == label.value
+            if not label.key.startswith("io.rancher"):
+                assert label.key in labels
+                assert labels[label.key] == label.value
 
     assert droplet is not None
     assert droplet["name"] == machine.name
