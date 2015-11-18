@@ -519,7 +519,7 @@ class TestSidekickWithAntiAffinity:
 def test_service_links_to_sidekick(client, super_client):
 
     service_scale = 2
-    testname  = "TestServiceLinksToSidekick"
+    testname = "TestServiceLinksToSidekick"
     env, linked_service, linked_service_name, linked_consumed_service_name = \
         create_env_with_sidekick_for_linking(testname, client, service_scale)
 
@@ -768,7 +768,8 @@ def test_sidekick_consumed_services_delete_instance(client,  super_client):
     exposed_port = "7009"
     testname = "TestSidekickConsumedServicesDeleteInstance"
     env, service, service_name, consumed_service_name = \
-        env_with_sidekick(testname, super_client, client, service_scale, exposed_port)
+        env_with_sidekick(testname, super_client, client, service_scale,
+                          exposed_port)
 
     container_name = consumed_service_name + "_1"
     containers = client.list_container(name=container_name)
@@ -969,7 +970,8 @@ def test_sidekick_services_delete_instance(client,  super_client):
     exposed_port = "7013"
     testname = "TestSidekickServicesDeleteInstance"
     env, service, service_name, consumed_service_name = \
-        env_with_sidekick(testname, super_client, client, service_scale, exposed_port)
+        env_with_sidekick(testname, super_client, client, service_scale,
+                          exposed_port)
 
     container_name = env.name + "_" + service.name + "_1"
     containers = client.list_container(name=container_name)

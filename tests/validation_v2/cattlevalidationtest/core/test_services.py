@@ -493,7 +493,6 @@ def test_service_activate_restore_instance(
     delete_all(client, [container1, container2])
 
 
-
 @pytest.mark.P0
 @pytest.mark.Services
 @pytest.mark.incremental

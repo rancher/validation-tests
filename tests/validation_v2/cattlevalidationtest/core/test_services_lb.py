@@ -1325,7 +1325,6 @@ class TestLBServicesLBInstanceRestart:
         delete_all(client, [env])
 
 
-
 def test_lb_services_lb_instance_delete(
         super_client, client, socat_containers):
 
@@ -1333,7 +1332,7 @@ def test_lb_services_lb_instance_delete(
 
     service_scale = 2
     lb_scale = 2
-    testname  = "TestLBServicesLBInstanceDelete"
+    testname = "TestLBServicesLBInstanceDelete"
     env, service, lb_service = create_environment_with_lb_services(
         testname, super_client, client, service_scale, lb_scale, port)
 

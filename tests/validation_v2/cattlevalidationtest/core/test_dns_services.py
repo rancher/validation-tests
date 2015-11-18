@@ -111,7 +111,8 @@ def test_dns_cross_link(super_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            testname, super_client, client, service_scale, consumed_service_scale,
+            testname, super_client, client, service_scale,
+            consumed_service_scale,
             port, True)
 
     validate_dns_service(
@@ -1905,8 +1906,8 @@ class TestDnsSvcManagedConsumedServiceHostnetwork:
         delete_all(client, [env])
 
 
-
-def test_dns_svc_hostnetwork_consumed_service_hostnetwork(super_client, client):
+def test_dns_svc_hostnetwork_consumed_service_hostnetwork(
+        super_client, client):
 
     port = "3119"
     testname = "TestDnsSvcHostnetworkConsumedServiceHostnetwork"
@@ -1915,7 +1916,8 @@ def test_dns_svc_hostnetwork_consumed_service_hostnetwork(super_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            testname, super_client, client, service_scale, consumed_service_scale, port,
+            testname, super_client, client, service_scale,
+            consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=True)
 
     validate_dns_service(
@@ -1935,7 +1937,8 @@ def test_dns_svc_hostnetwork_consumed_service_managednetwork(
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            testname, super_client, client, service_scale, consumed_service_scale, port,
+            testname, super_client, client, service_scale,
+            consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=False)
 
     validate_dns_service(

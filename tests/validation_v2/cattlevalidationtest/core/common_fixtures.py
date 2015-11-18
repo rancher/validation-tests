@@ -1287,12 +1287,11 @@ def execute_rancher_compose(client, env_name, docker_compose,
     ssh.connect(
         rancher_compose_con["host"].ipAddresses()[0].address, username="root",
         password="root", port=int(rancher_compose_con["port"]))
-    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6+";"+cmd7
+    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
     print cmd
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    print "\n\n\n response is:", str(response)
-    expected_resp = "Creating stack " + project_name
+    print str(response)
     found = False
     for resp in response:
         if expected_resp in resp:
