@@ -437,114 +437,61 @@ class TestServiveActivateDeactivateDelete:
         delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestServiceActivateStopInstance:
+def test_service_activate_stop_instance(
+        super_client, client, socat_containers):
 
-    testname = "TestServiceActivateStopInstance"
-
-    def test_service_activate_stop_instance_create(
-            self, super_client, client, socat_containers):
-
-        service = shared_env[0]["service"]
-        env = shared_env[1]["env"]
-
-        data = [env.uuid, service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_service_activate_stop_instance_validate(
-            self, super_client, client, socat_containers):
-
-        data = load(self)
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        assert service.state == "active"
-        check_for_service_reconciliation_on_stop(super_client, client, service)
-
-        delete_all(client, [env])
+    service = shared_env[0]["service"]
+    check_for_service_reconciliation_on_stop(super_client, client, service)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestServiceActivateDeleteInstance:
+def test_service_activate_delete_instance(
+        super_client, client, socat_containers):
 
-    def test_service_activate_delete_instance_create(
-            self, super_client, client, socat_containers):
-
-        service = shared_env[0]["service"]
-        env = shared_env[1]["env"]
-
-        data = [env.uuid, service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_service_activate_delete_instance_validate(
-            self, super_client, client, socat_containers):
-
-        data = load(self)
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        assert service.state == "active"
-        check_for_service_reconciliation_on_delete(super_client, client,
-                                                   service)
-
-        delete_all(client, [env])
+    service = shared_env[0]["service"]
+    check_for_service_reconciliation_on_delete(super_client, client, service)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestServiceActivatePurgeInstance:
+def test_service_activate_purge_instance(
+        super_client, client, socat_containers):
 
-    def test_service_activate_purge_instance(
-            self, super_client, client, socat_containers):
+    service = shared_env[0]["service"]
 
-        service = shared_env[0]["service"]
+    # Purge 2 instances
+    containers = get_service_container_list(super_client, service)
+    container1 = containers[0]
+    container1 = client.wait_success(client.delete(container1))
+    container1 = client.wait_success(container1.purge())
+    container2 = containers[1]
+    container2 = client.wait_success(client.delete(container2))
+    container2 = client.wait_success(container2.purge())
 
-        # Purge 2 instances
-        containers = get_service_container_list(super_client, service)
-        container1 = containers[0]
-        container1 = client.wait_success(client.delete(container1))
-        container1 = client.wait_success(container1.purge())
-        container2 = containers[1]
-        container2 = client.wait_success(client.delete(container2))
-        container2 = client.wait_success(container2.purge())
+    wait_for_scale_to_adjust(super_client, service)
 
-        wait_for_scale_to_adjust(super_client, service)
-
-        check_container_in_service(super_client, service)
+    check_container_in_service(super_client, service)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestServiveActivateRestoreInstance:
+def test_service_activate_restore_instance(
+        super_client, client, socat_containers):
 
-    def test_service_activate_restore_instance(
-            self, super_client, client, socat_containers):
+    service = shared_env[0]["service"]
 
-        service = shared_env[0]["service"]
+    # Restore 2 instances
+    containers = get_service_container_list(super_client, service)
+    container1 = containers[0]
+    container1 = client.wait_success(client.delete(container1))
+    container1 = client.wait_success(container1.restore())
+    container2 = containers[1]
+    container2 = client.wait_success(client.delete(container2))
+    container2 = client.wait_success(container2.restore())
 
-        # Restore 2 instances
-        containers = get_service_container_list(super_client, service)
-        container1 = containers[0]
-        container1 = client.wait_success(client.delete(container1))
-        container1 = client.wait_success(container1.restore())
-        container2 = containers[1]
-        container2 = client.wait_success(client.delete(container2))
-        container2 = client.wait_success(container2.restore())
+    assert container1.state == "stopped"
+    assert container2.state == "stopped"
 
-        assert container1.state == "stopped"
-        assert container2.state == "stopped"
+    wait_for_scale_to_adjust(super_client, service)
 
-        wait_for_scale_to_adjust(super_client, service)
+    check_container_in_service(super_client, service)
+    delete_all(client, [container1, container2])
 
-        check_container_in_service(super_client, service)
 
 
 @pytest.mark.P0

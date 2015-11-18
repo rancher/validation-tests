@@ -1,6 +1,6 @@
 import argparse
 import subprocess as sub
-from tests.validation_v2.cattlevalidationtest.core.common_fixtures import *  # NOQA
+from common_fixtures import *  # NOQA
 
 
 def deploy_gce():

@@ -102,62 +102,24 @@ class TestDnsSvcActivateDnsConsumedSvcLink:
         delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestDnsCrossLink:
+def test_dns_cross_link(super_client, client):
 
-    testname = "TestDnsCrossLink"
     port = "31101"
+    testname = "TestDNSCrossLink"
     service_scale = 1
     consumed_service_scale = 2
 
-    def test_dns_cross_link_create(self, super_client, client):
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            testname, super_client, client, service_scale, consumed_service_scale,
+            port, True)
 
-        env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(
-                self.testname, super_client, client, self.service_scale,
-                self.consumed_service_scale,
-                self.port, True)
-        logger.info("env is : %s", env)
-        logger.info("DNS service is: %s", dns)
-        logger.info("DNS name is: %s", dns.name)
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], port,
+        dns.name)
 
-        data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.name, dns.uuid]
-        logger.info("data to save: %s", data)
-
-        save(data, self)
-
-    def test_dns_cross_link_validate(self, super_client, client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])[0]
-        assert len(consumed_service) > 0
-        logger.info("consumed service is: %s", format(consumed_service))
-
-        consumed_service1 = client.list_service(uuid=data[3])[0]
-        assert len(consumed_service1) > 0
-        logger.info("consumed service1 is: %s", format(consumed_service1))
-
-        dnsname = data[4]
-        logger.info("dns name is: %s", dnsname)
-
-        dns = client.list_service(uuid=data[5])[0]
-
-        validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1],
-            self.port,
-            dnsname)
-
-        delete_all(client, [env, get_env(super_client, consumed_service),
-                   get_env(super_client, consumed_service1), dns])
+    delete_all(client, [env, get_env(super_client, consumed_service),
+                        get_env(super_client, consumed_service1), dns])
 
 
 @pytest.mark.P0
@@ -1943,108 +1905,41 @@ class TestDnsSvcManagedConsumedServiceHostnetwork:
         delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestDnsSvcHostnetworkConsumedServiceHostnetwork:
 
+def test_dns_svc_hostnetwork_consumed_service_hostnetwork(super_client, client):
+
+    port = "3119"
     testname = "TestDnsSvcHostnetworkConsumedServiceHostnetwork"
-    port = "3119"
     service_scale = 1
     consumed_service_scale = 1
 
-    def test_dns_svc_hostnetwork_consumed_service_hostnetwork_create(
-            self, super_client, client):
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            testname, super_client, client, service_scale, consumed_service_scale, port,
+            isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=True)
 
-        env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(
-                self.testname, super_client, client, self.service_scale,
-                self.consumed_service_scale,
-                self.port, isnetworkModeHost_svc=True,
-                isnetworkModeHost_consumed_svc=True)
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], "33",
+        dns.name)
 
-        data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.uuid]
-        logger.info("data to save: %s", data)
-
-        save(data, self)
-
-    def test_dns_svc_hostnetwork_consumed_service_hostnetwork_validate(
-            self, super_client, client):
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])[0]
-        assert len(consumed_service) > 0
-        logger.info("consumed service is: %s", format(consumed_service))
-
-        consumed_service1 = client.list_service(uuid=data[3])[0]
-        assert len(consumed_service1) > 0
-        logger.info("consumed service1 is: %s", format(consumed_service1))
-
-        dns = client.list_service(uuid=data[4])[0]
-        assert len(dns) > 0
-        logger.info("dns is: %s", format(dns))
-        validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], "33",
-            dns.name)
-
-        delete_all(client, [env])
+    delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestDnsSvcHostnetworkConsumedServiceManagedNetwork:
+def test_dns_svc_hostnetwork_consumed_service_managednetwork(
+        super_client, client):
 
-    testname = "TestDnsSvcHostnetworkConsumedServiceManagedNetwork"
     port = "3119"
+    testname = "TestDnsSvcHostnetworkConsumedServiceManagednetwork"
     service_scale = 1
     consumed_service_scale = 1
 
-    def test_dns_svc_hostnetwork_consumed_service_managednetwork_create(
-            self, super_client, client):
+    env, service, consumed_service, consumed_service1, dns = \
+        create_environment_with_dns_services(
+            testname, super_client, client, service_scale, consumed_service_scale, port,
+            isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=False)
 
-        env, service, consumed_service, consumed_service1, dns = \
-            create_environment_with_dns_services(
-                self.testname, super_client, client, self.service_scale,
-                self.consumed_service_scale, self.port,
-                isnetworkModeHost_svc=True,
-                isnetworkModeHost_consumed_svc=False)
+    validate_dns_service(
+        super_client, service, [consumed_service, consumed_service1], "33",
+        dns.name)
 
-        data = [env.uuid, service.uuid, consumed_service.uuid,
-                consumed_service1.uuid, dns.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_dns_svc_hostnetwork_consumed_service_managednetwork_validate(
-            self, super_client, client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        consumed_service = client.list_service(uuid=data[2])[0]
-        assert len(consumed_service) > 0
-        logger.info("consumed service is: %s", format(consumed_service))
-
-        consumed_service1 = client.list_service(uuid=data[3])[0]
-        assert len(consumed_service1) > 0
-        logger.info("consumed service1 is: %s", format(consumed_service1))
-
-        dns = client.list_service(uuid=data[4])[0]
-        assert len(dns) > 0
-        logger.info("dns is: %s", format(dns))
-
-        validate_dns_service(
-            super_client, service, [consumed_service, consumed_service1], "33",
-            dns.name)
-
-        delete_all(client, [env])
+    delete_all(client, [env])

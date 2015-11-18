@@ -505,7 +505,7 @@ class TestSidekickWithAntiAffinity:
         assert len(service) > 0
         logger.info("service is: %s", format(service))
 
-        service_name = client.list_service(uuid=data[2])[0]
+        service_name = client.list_service(uuid=data[2])
         logger.info("service_name is: %s", format(service_name))
 
         consumed_service_name = client.list_service(uuid=data[2])
@@ -516,72 +516,43 @@ class TestSidekickWithAntiAffinity:
                           consumed_service_name)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestServiceLinksToSidekick:
+def test_service_links_to_sidekick(client, super_client):
 
-    testname = "TestServiceLinksToSidekick"
     service_scale = 2
+    testname  = "TestServiceLinksToSidekick"
+    env, linked_service, linked_service_name, linked_consumed_service_name = \
+        create_env_with_sidekick_for_linking(testname, client, service_scale)
+
     client_port = "7004"
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "ports": [client_port+":22/tcp"]}
 
-    def test_service_links_to_sidekick_create(self, client, super_client):
+    service = create_svc(client, env, launch_config, 1)
+    link_svc(super_client, service, [linked_service])
 
-        env, linked_service, linked_service_name, linked_consumed_service_name\
-            = create_env_with_sidekick_for_linking(self.testname, client,
-                                                   self.service_scale)
+    env = env.activateservices()
+    service = client.wait_success(service, 120)
+    assert service.state == "active"
 
-        launch_config = {"imageUuid": SSH_IMAGE_UUID,
-                         "ports": [self.client_port+":22/tcp"]}
+    service_containers = get_service_container_list(super_client, service)
 
-        service = create_svc(client, env, launch_config, 1)
-        link_svc(super_client, service, [linked_service])
+    primary_consumed_service = get_service_containers_with_name(
+        super_client, linked_service, linked_service_name)
 
-        env = env.activateservices()
-        service = client.wait_success(service, 120)
-        assert service.state == "active"
+    secondary_consumed_service = get_service_containers_with_name(
+        super_client, linked_service, linked_consumed_service_name)
 
-        service_containers = get_service_container_list(super_client, service)
+    dnsname = linked_service.name
+    validate_dns(super_client, service_containers, primary_consumed_service,
+                 client_port, dnsname)
 
-        primary_consumed_service = get_service_containers_with_name(
-            super_client, linked_service, linked_service_name)
+    dnsname = \
+        linked_service.secondaryLaunchConfigs[0].name + "." + \
+        linked_service.name
+    validate_dns(super_client, service_containers, secondary_consumed_service,
+                 client_port, dnsname)
 
-        secondary_consumed_service = get_service_containers_with_name(
-            super_client, linked_service, linked_consumed_service_name)
-
-        dnsname = linked_service.name
-        validate_dns(super_client, service_containers,
-                     primary_consumed_service, self.client_port, dnsname)
-
-        dnsname = \
-            linked_service.secondaryLaunchConfigs[0].name + "." + \
-            linked_service.name
-
-        data = [env.uuid, linked_service.uuid, linked_service_name,
-                linked_consumed_service_name,
-                secondary_consumed_service.uuid, dnsname]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_service_links_to_sidekick_validate(self, client, super_client):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])
-        logger.info("env is: %s", format(env))
-
-        linked_service = client.list_service(uuid=data[1])
-        assert len(linked_service) > 0
-        linked_service = linked_service[0]
-        logger.info("service is: %s", format(linked_service))
-
-        linked_service_name = client.list_service(uuid=data[2])
-        logger.info("service_name is: %s", format(linked_service_name))
-
-        consumed_service_name = client.list_service(uuid=data[2])
-        logger.info("consumed_service_name is: %s",
-                    format(consumed_service_name))
-
-        validate_dns(super_client, service_containers,
-                     secondary_consumed_service, client_port, dnsname)
+    delete_all(client, [env])
 
 
 @pytest.mark.P0
@@ -791,66 +762,40 @@ class TestSidekickConsumedServicesRestartInstance:
                           consumed_service_name, self.exposed_port, dnsname)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestSidekickConsumedServicesDeleteInstance:
+def test_sidekick_consumed_services_delete_instance(client,  super_client):
 
-    testname = "TestSidekickConsumedServicesDeleteInstance"
     service_scale = 3
     exposed_port = "7009"
+    testname = "TestSidekickConsumedServicesDeleteInstance"
+    env, service, service_name, consumed_service_name = \
+        env_with_sidekick(testname, super_client, client, service_scale, exposed_port)
 
-    def test_sidekick_consumed_services_delete_instance_create(self, client,
-                                                               super_client):
+    container_name = consumed_service_name + "_1"
+    containers = client.list_container(name=container_name)
+    assert len(containers) == 1
+    container = containers[0]
 
-        env, service, service_name, consumed_service_name = \
-            env_with_sidekick(self.testname, super_client, client,
-                              self.service_scale,
-                              self.exposed_port)
+    print container_name
+    primary_container = get_side_kick_container(
+        super_client, container, service, service_name)
+    print primary_container.name
 
-        container_name = consumed_service_name + "_1"
-        containers = client.list_container(name=container_name)
-        assert len(containers) == 1
-        container = containers[0]
+    # Delete instance
+    container = client.wait_success(client.delete(container))
+    assert container.state == 'removed'
 
-        print container_name
-        primary_container = get_side_kick_container(
-            super_client, container, service, service_name)
-        print primary_container.name
+    client.wait_success(service)
 
-        # Delete instance
-        container = client.wait_success(client.delete(container))
-        assert container.state == 'removed'
+    dnsname = service.secondaryLaunchConfigs[0].name
+    validate_sidekick(super_client, service, service_name,
+                      consumed_service_name, exposed_port, dnsname)
 
-        client.wait_success(service)
+    # Check that the consumed container is not recreated
+    primary_container = client.reload(primary_container)
+    print primary_container.state
+    assert primary_container.state == "running"
 
-        dnsname = service.secondaryLaunchConfigs[0].name
-
-        data = [env.uuid, service.uuid, service_name, consumed_service_name,
-                dnsname, primary_container.name]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_sidekick_consumed_services_delete_instance_validate(self, client,
-                                                                 super_client):
-        data = load(self)
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        service_name = data[2]
-        consumed_service_name = data[3]
-        dnsname = data[4]
-
-        validate_sidekick(super_client, service, service_name,
-                          consumed_service_name, self.exposed_port, dnsname)
-
-        c = client.list_container(name=data[5])
-        # Check that the consumed container is not recreated
-        primary_container = client.reload(c)
-        print primary_container.state
-        assert primary_container.state == "running"
+    delete_all(client, [env])
 
 
 @pytest.mark.P0
@@ -1018,66 +963,40 @@ class TestSidekickServicesRestartInstance:
                           dnsname)
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestSidekickServicesDeleteInstance:
+def test_sidekick_services_delete_instance(client,  super_client):
 
-    testname = "TestSidekickServicesDeleteInstance"
     service_scale = 2
     exposed_port = "7013"
+    testname = "TestSidekickServicesDeleteInstance"
+    env, service, service_name, consumed_service_name = \
+        env_with_sidekick(testname, super_client, client, service_scale, exposed_port)
 
-    def test_sidekick_services_delete_instance_create(self, client,
-                                                      super_client):
+    container_name = env.name + "_" + service.name + "_1"
+    containers = client.list_container(name=container_name)
+    assert len(containers) == 1
+    container = containers[0]
 
-        env, service, service_name, consumed_service_name = \
-            env_with_sidekick(self.testname, super_client, client,
-                              self.service_scale,
-                              self.exposed_port)
+    print container_name
+    consumed_container = get_side_kick_container(
+        super_client, container, service, consumed_service_name)
+    print consumed_container.name
 
-        container_name = env.name + "_" + service.name + "_1"
-        containers = client.list_container(name=container_name)
-        assert len(containers) == 1
-        container = containers[0]
+    # Delete instance
+    container = client.wait_success(client.delete(container))
+    assert container.state == 'removed'
 
-        print container_name
-        consumed_container = get_side_kick_container(
-            super_client, container, service, consumed_service_name)
-        print consumed_container.name
+    client.wait_success(service)
 
-        # Delete instance
-        container = client.wait_success(client.delete(container))
-        assert container.state == 'removed'
+    dnsname = service.secondaryLaunchConfigs[0].name
+    validate_sidekick(super_client, service, service_name,
+                      consumed_service_name, exposed_port, dnsname)
 
-        client.wait_success(service)
+    # Check that the consumed container is not recreated
+    consumed_container = client.reload(consumed_container)
+    print consumed_container.state
+    assert consumed_container.state == "running"
 
-        dnsname = service.secondaryLaunchConfigs[0].name
-
-        data = [env.uuid, service.uuid, service_name, consumed_service_name,
-                dnsname, consumed_container.name]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_sidekick_services_delete_instance_validate(self, client,
-                                                        super_client):
-        data = load(self)
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service is: %s", format(service))
-
-        service_name = data[2]
-        consumed_service_name = data[3]
-        dnsname = data[4]
-        validate_sidekick(super_client, service, service_name,
-                          consumed_service_name, self.exposed_port,
-                          dnsname)
-
-        c = client.list_container(name=data[4])
-        # Check that the consumed container is not recreated
-        consumed_container = client.reload(c)
-        print consumed_container.state
-        assert consumed_container.state == "running"
+    delete_all(client, [env])
 
 
 @pytest.mark.P0
