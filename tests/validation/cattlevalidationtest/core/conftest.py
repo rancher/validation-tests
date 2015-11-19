@@ -28,34 +28,6 @@ def cleanup():
             pass
     delete_all(sc, to_delete_env)
 
-    to_delete_lb = []
-    for i in sc.list_loadBalancer(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb.append(i)
-        except AttributeError:
-            pass
-    delete_all(sc, to_delete_lb)
-
-    to_delete_lb_config = []
-    for i in sc.list_loadBalancerConfig(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb_config.append(i)
-        except AttributeError:
-            pass
-    delete_all(sc, to_delete_lb_config)
-
-    to_delete_lb_listener = []
-    for i in sc.list_loadBalancerListener(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb_listener.append(i)
-        except AttributeError:
-            pass
-
-    delete_all(sc, to_delete_lb_listener)
-
     to_delete = []
     for i in sc.list_instance(state='running'):
         try:
