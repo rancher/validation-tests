@@ -1755,6 +1755,7 @@ def test_lbservice_external_service(super_client, client, socat_containers):
     ext_service = activate_svc(client, ext_service)
     lb_service = activate_svc(client, lb_service)
 
+
     lb_service.setservicelinks(serviceLinks=[{"serviceId": ext_service.id}])
 
     validate_add_service_link(super_client, lb_service, ext_service)
