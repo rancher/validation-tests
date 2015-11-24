@@ -48,8 +48,7 @@ def test_host_api_hoststats(client, admin_client):
     assert result is not None
     assert result.startswith('[')
 
-    project = admin_client.list_project()[0]
-
+    project = admin_client.list_project(uuid="adminProject")[0]
     stats = project.hostStats()
     conn = ws.create_connection(stats.url + '?token=' + stats.token)
     result = conn.recv()
