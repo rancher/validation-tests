@@ -54,7 +54,7 @@ def upgrade_test(base, target, servernode, username, tmp_dir, core_dir,
                  core_target_dir, core_target_checkedout_dir, script_to_test):
     logger.info("CREATING SERVICES NOW IN BASE SETUP...")
     # create_cmd = "py.test " + core_dir + "/ -v -m create -s"
-    create_cmd = "py.test " + core_dir + script_to_test+" -v -m create -s"
+    create_cmd = "py.test -s --junit-xml=results_create.xml" + core_dir + script_to_test+" -v -m create -s"
 
     logger.info("create command is: %s", create_cmd)
 
@@ -74,7 +74,7 @@ def upgrade_test(base, target, servernode, username, tmp_dir, core_dir,
 
     # validate_cmd = "py.test " + core_target_dir + "/ -v -m validate -s"
     validate_cmd =\
-        "py.test " + core_target_dir + script_to_test+" -v -m validate -s"
+        "py.test -s --junit-xml=results_validate.xml" + core_target_dir + script_to_test+" -v -m validate -s"
     logger.info(validate_cmd)
 
     os.system(validate_cmd)
