@@ -260,10 +260,10 @@ class TestLBServiceHostRouting2:
                             lb_service, self.port, [services[2]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc1.com",
                                           "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com",
                                           "/service1.html")
         delete_all(client, [env])
@@ -325,10 +325,10 @@ class TestLBServiceHostrRoutingScaleUp:
                             lb_service, self.port, [services[2]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc1.com",
                                           "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com",
                                           "/service1.html")
         final_service_scale = 3
@@ -384,10 +384,10 @@ class TestLBServiceHostrRoutingScaleUp:
                             lb_service, self.port, [final_services[2]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc1.com",
                                           "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com", "/service1.html")
 
         delete_all(client, [env])
@@ -471,10 +471,10 @@ class TestLBServiceHostRoutingScaleDown:
                             lb_service, self.port, [services[2]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc1.com",
                                           "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com",
                                           "/service1.html")
         final_service_scale = 2
@@ -507,10 +507,10 @@ class TestLBServiceHostRoutingScaleDown:
                             [final_services[2]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc1.com",
                                           "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com",
                                           "/service1.html")
 
@@ -597,7 +597,7 @@ class TestLBServiceHostRoutingOnlyPath:
                             lb_service, self.port, [services[0]],
                             None, "/service1.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc3.com", "/name.html")
 
         delete_all(client, [env])
@@ -672,7 +672,7 @@ class TestLBServiceHostRoutingOnlyHost:
                             lb_service, self.port, [services[1]],
                             "www.abc1.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com", "/name.html")
 
         delete_all(client, [env])
@@ -931,9 +931,9 @@ class TestLBServiceEditHostRoutingAddHost:
         validate_lb_service(super_client, client,
                             lb_service, self.port, [services[0]],
                             "www.abc.com", "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com", "/name.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc3.com", "/name.html")
 
         # Edit service links
@@ -953,7 +953,7 @@ class TestLBServiceEditHostRoutingAddHost:
                             lb_service, self.port, [services[0]],
                             "www.abc2.com", "/name.html")
 
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc3.com", "/name.html")
 
         delete_all(client, [env])
@@ -1015,7 +1015,7 @@ class TestLBServiceEditHostRoutingRemoveHost:
         validate_lb_service(super_client, client,
                             lb_service, self.port, [services[0]],
                             "www.abc2.com", "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc3.com", "/name.html")
 
         # Edit service links
@@ -1032,7 +1032,7 @@ class TestLBServiceEditHostRoutingRemoveHost:
         validate_lb_service(super_client, client,
                             lb_service, self.port, [services[0]],
                             "www.abc.com", "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com", "/name.html")
 
         delete_all(client, [env])
@@ -1094,7 +1094,7 @@ class TestLBServiceEditHostRoutingEditExistingHost:
         validate_lb_service(super_client, client,
                             lb_service, self.port, [services[0]],
                             "www.abc.com", "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc2.com", "/name.html")
 
         # Edit service links
@@ -1110,7 +1110,7 @@ class TestLBServiceEditHostRoutingEditExistingHost:
         validate_lb_service(super_client, client,
                             lb_service, self.port, [services[0]],
                             "www.abc2.com", "/service2.html")
-        validate_lb_service_for_no_access(client, lb_service, self.port,
+        validate_lb_service_for_no_access(super_client, lb_service, self.port,
                                           "www.abc.com", "/name.html")
 
         delete_all(client, [env])
@@ -1760,11 +1760,11 @@ def test_lbservice_external_service(super_client, client, socat_containers):
     validate_add_service_link(super_client, lb_service, ext_service)
 
     # Wait for host maps to be created
-    lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    assert len(lbs) == 1
-    lb = lbs[0]
-    host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
-    assert len(host_maps) == lb_service.scale
+    # lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    # assert len(lbs) == 1
+    # lb = lbs[0]
+    # host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
+    # assert len(host_maps) == lb_service.scale
 
     validate_lb_service_for_external_services(super_client, client,
                                               lb_service, port, con_list)
@@ -1856,7 +1856,7 @@ def test_lbservice_host_routing_tcp_and_http(super_client, client,
                         lb_service, port2, [services[1]],
                         "www.abc1.com", "/service4.html")
 
-    validate_lb_service_for_no_access(client, lb_service, port2,
+    validate_lb_service_for_no_access(super_client, lb_service, port2,
                                       "www.abc2.com",
                                       "/service3.html")
     delete_all(client, [env])

@@ -725,29 +725,30 @@ def wait_for_lb_service_to_become_active(super_client, client,
                                          services, lb_service,
                                          unmanaged_con_count=None):
 
-    lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    assert len(lbs) == 1
-
-    lb = lbs[0]
-
-    # Wait for host maps to get created and reach "active" state
-    host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
-    assert len(host_maps) == lb_service.scale
-
-    logger.info("host_maps - " + str(host_maps))
-
-    # Wait for target maps to get created and reach "active" state
-    all_target_count = 0
-    for service in services:
-        all_target_count = all_target_count + service.scale
-    if unmanaged_con_count is not None:
-        all_target_count = all_target_count + unmanaged_con_count
-    target_maps = wait_until_target_map_created(
-        client, lb, all_target_count, 60)
-    logger.info(target_maps)
-
-    wait_for_config_propagation(super_client, lb, host_maps)
-    time.sleep(5)
+    # lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    # assert len(lbs) == 1
+    #
+    # lb = lbs[0]
+    #
+    # # Wait for host maps to get created and reach "active" state
+    # host_maps = wait_until_host_map_created(client, lb, lb_service.scale, 60)
+    # assert len(host_maps) == lb_service.scale
+    #
+    # logger.info("host_maps - " + str(host_maps))
+    #
+    # # Wait for target maps to get created and reach "active" state
+    # all_target_count = 0
+    # for service in services:
+    #     all_target_count = all_target_count + service.scale
+    # if unmanaged_con_count is not None:
+    #     all_target_count = all_target_count + unmanaged_con_count
+    # target_maps = wait_until_target_map_created(
+    #     client, lb, all_target_count, 60)
+    # logger.info(target_maps)
+    #
+    # wait_for_config_propagation(super_client, lb, host_maps)
+    # time.sleep(5)
+    wait_for_config_propagation(super_client, lb_service)
 
     lb_containers = get_service_container_list(super_client, lb_service)
     assert len(lb_containers) == lb_service.scale
@@ -817,23 +818,26 @@ def validate_lb_service(super_client, client, lb_service, port,
 def validate_lb_service_con_names(super_client, client, lb_service, port,
                                   container_names,
                                   hostheader=None, path=None):
-    lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    assert len(lbs) == 1
-
-    lb = lbs[0]
-
-    host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
-                                                removed_null=True,
-                                                state="active")
-    assert len(host_maps) == lb_service.scale
-    lb_hosts = []
-
-    for host_map in host_maps:
-        host = client.by_id('host', host_map.hostId)
-        lb_hosts.append(host)
-        logger.info("host: " + host.name)
-
-    for host in lb_hosts:
+    # lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    # assert len(lbs) == 1
+    #
+    # lb = lbs[0]
+    #
+    # host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
+    #                                             removed_null=True,
+    #                                             state="active")
+    # assert len(host_maps) == lb_service.scale
+    # lb_hosts = []
+    #
+    # for host_map in host_maps:
+    #     host = client.by_id('host', host_map.hostId)
+    #     lb_hosts.append(host)
+    #     logger.info("host: " + host.name)
+    #
+    # for host in lb_hosts:
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
         wait_until_lb_is_active(host, port)
         if hostheader is not None or path is not None:
             check_round_robin_access(container_names, host, port,
@@ -842,48 +846,48 @@ def validate_lb_service_con_names(super_client, client, lb_service, port,
             check_round_robin_access(container_names, host, port)
 
 
-def wait_until_target_map_created(client, lb, count, timeout=30):
-    start = time.time()
-    target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
-                                                 removed_null=True,
-                                                 state="active")
-    while len(target_maps) != count:
-        time.sleep(.5)
-        target_maps = client. \
-            list_loadBalancerTarget(loadBalancerId=lb.id, removed_null=True,
-                                    state="active")
-        if time.time() - start > timeout:
-            raise Exception('Timed out waiting for target map creation')
-    return target_maps
-
-
-def wait_until_host_map_created(client, lb, count, timeout=30):
-    start = time.time()
-    host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
-                                                removed_null=True,
-                                                state="active")
-    while len(host_maps) != count:
-        time.sleep(.5)
-        host_maps = client. \
-            list_loadBalancerHostMap(loadBalancerId=lb.id, removed_null=True,
-                                     state="active")
-        if time.time() - start > timeout:
-            raise Exception('Timed out waiting for host map creation')
-    return host_maps
-
-
-def wait_until_target_maps_removed(super_client, lb, consumed_service):
-    instance_maps = super_client.list_serviceExposeMap(
-        serviceId=consumed_service.id)
-    for instance_map in instance_maps:
-        target_maps = super_client.list_loadBalancerTarget(
-            loadBalancerId=lb.id, instanceId=instance_map.instanceId)
-        assert len(target_maps) == 1
-        target_map = target_maps[0]
-        wait_for_condition(
-            super_client, target_map,
-            lambda x: x.state == "removed",
-            lambda x: 'State is: ' + x.state)
+# def wait_until_target_map_created(client, lb, count, timeout=30):
+#     start = time.time()
+#     target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
+#                                                  removed_null=True,
+#                                                  state="active")
+#     while len(target_maps) != count:
+#         time.sleep(.5)
+#         target_maps = client. \
+#             list_loadBalancerTarget(loadBalancerId=lb.id, removed_null=True,
+#                                     state="active")
+#         if time.time() - start > timeout:
+#             raise Exception('Timed out waiting for target map creation')
+#     return target_maps
+#
+#
+# def wait_until_host_map_created(client, lb, count, timeout=30):
+#     start = time.time()
+#     host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
+#                                                 removed_null=True,
+#                                                 state="active")
+#     while len(host_maps) != count:
+#         time.sleep(.5)
+#         host_maps = client. \
+#             list_loadBalancerHostMap(loadBalancerId=lb.id, removed_null=True,
+#                                      state="active")
+#         if time.time() - start > timeout:
+#             raise Exception('Timed out waiting for host map creation')
+#     return host_maps
+#
+#
+# def wait_until_target_maps_removed(super_client, lb, consumed_service):
+#     instance_maps = super_client.list_serviceExposeMap(
+#         serviceId=consumed_service.id)
+#     for instance_map in instance_maps:
+#         target_maps = super_client.list_loadBalancerTarget(
+#             loadBalancerId=lb.id, instanceId=instance_map.instanceId)
+#         assert len(target_maps) == 1
+#         target_map = target_maps[0]
+#         wait_for_condition(
+#             super_client, target_map,
+#             lambda x: x.state == "removed",
+#             lambda x: 'State is: ' + x.state)
 
 
 def wait_until_lb_is_active(host, port, timeout=30):
@@ -1637,24 +1641,27 @@ def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
                 'Timed out waiting for instances to get to stopped state')
 
 
-def validate_lb_service_for_no_access(client, lb_service, port,
+def validate_lb_service_for_no_access(super_client, lb_service, port,
                                       hostheader, path):
 
-    lbs = client.list_loadBalancer(serviceId=lb_service.id)
-    assert len(lbs) == 1
-
-    lb = lbs[0]
-    host_maps = wait_until_host_map_created(client, lb, lb_service.scale)
-    assert len(host_maps) == lb_service.scale
-
-    lb_hosts = []
-
-    for host_map in host_maps:
-        host = client.by_id('host', host_map.hostId)
-        lb_hosts.append(host)
-        logger.info("host: " + host.name)
-
-    for host in lb_hosts:
+    # lbs = client.list_loadBalancer(serviceId=lb_service.id)
+    # assert len(lbs) == 1
+    #
+    # lb = lbs[0]
+    # host_maps = wait_until_host_map_created(client, lb, lb_service.scale)
+    # assert len(host_maps) == lb_service.scale
+    #
+    # lb_hosts = []
+    #
+    # for host_map in host_maps:
+    #     host = client.by_id('host', host_map.hostId)
+    #     lb_hosts.append(host)
+    #     logger.info("host: " + host.name)
+    #
+    # for host in lb_hosts:
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = super_client.by_id('host', lb_con.hosts[0].id)
         wait_until_lb_is_active(host, port)
         check_for_service_unavailable(host, port, hostheader, path)
 
@@ -1727,7 +1734,7 @@ def check_round_robin_access(container_names, host, port,
             r = requests.get(url)
         response = r.text.strip("\n")
         r.close()
-        logger.info(response)
+        logger.info("Response received-" + response)
         assert response == con_hostname_ordered[i]
         i = i + 1
         if i == len(con_hostname_ordered):
@@ -1801,14 +1808,12 @@ def create_env_with_multiple_svc_and_lb(testname, client, scale_svc, scale_lb,
     return env, services, lb_service
 
 
-def wait_for_config_propagation(super_client, lb, host_maps, timeout=30):
-    for host_map in host_maps:
-        uri = 'delegate:///?lbId={}&hostMapId={}'.\
-            format(get_plain_id(super_client, lb),
-                   get_plain_id(super_client, host_map))
-        agents = super_client.list_agent(uri=uri)
-        assert len(agents) == 1
-        agent = agents[0]
+def wait_for_config_propagation(super_client, lb_service, timeout=30):
+    lb_instances = get_service_container_list(super_client, lb_service)
+    assert len(lb_instances) == lb_service.scale
+    for lb_instance in lb_instances:
+        agentId = lb_instance.agentId
+        agent = super_client.by_id('agent', agentId)
         assert agent is not None
         item = get_config_item(agent, "haproxy")
         start = time.time()
