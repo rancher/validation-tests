@@ -131,7 +131,7 @@ def test_turn_on_ldap_ui(admin_client):
     config = [
         os.environ.get('API_AUTH_LDAP_SERVER', 'ad.rancher.io'),
         os.environ.get('API_AUTH_LDAP_PORT', 389),
-        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_USERNAME','cattle'),
+        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_USERNAME', 'cattle'),
         os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
         os.environ.get('API_AUTH_LDAP_DOMAIN', "dc=rancher,dc=io"),
         os.environ.get('API_AUTH_LDAP_LOGIN_NAME', 'rancher'),
@@ -141,7 +141,7 @@ def test_turn_on_ldap_ui(admin_client):
         os.environ.get('API_AUTH_LDAP_USER_SEARCH_FIELD', 'name'),
         os.environ.get('API_AUTH_LDAP_USER_ENABLED_ATTRIBUTE',
                        'userAccountControl'),
-        os.environ.get('API_AUTH_LDAP_USER_DISABLED_BIT_MASK','2'),
+        os.environ.get('API_AUTH_LDAP_USER_DISABLED_BIT_MASK', '2'),
         os.environ.get('API_AUTH_LDAP_GROUP_OBJECT_CLASS', 'group'),
         os.environ.get('API_AUTH_LDAP_GROUP_NAME_FIELD', 'name'),
         os.environ.get('API_AUTH_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
