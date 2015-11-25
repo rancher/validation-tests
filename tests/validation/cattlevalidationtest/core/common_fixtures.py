@@ -785,7 +785,7 @@ def check_for_no_access(host, port):
 def validate_linked_service(super_client, service, consumed_services,
                             exposed_port, exclude_instance=None,
                             exclude_instance_purged=False,
-                            unmanaged_cons=None):
+                            unmanaged_cons=None, linkName=None):
     time.sleep(5)
 
     containers = get_service_container_list(super_client, service)
@@ -844,9 +844,11 @@ def validate_linked_service(super_client, service, consumed_services,
             ssh.connect(host.ipAddresses()[0].address, username="root",
                         password="root", port=int(exposed_port))
 
+            if linkName is None:
+                linkName = consumed_service.name
             # Validate link containers
             cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
-                  consumed_service.name + ":80/name.html;cat result.txt"
+                  linkName + ":80/name.html;cat result.txt"
             logger.info(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
@@ -857,7 +859,7 @@ def validate_linked_service(super_client, service, consumed_services,
             assert resp in (expected_link_response)
 
             # Validate DNS resolution using dig
-            cmd = "dig " + consumed_service.name + " +short"
+            cmd = "dig " + linkName + " +short"
             logger.info(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
