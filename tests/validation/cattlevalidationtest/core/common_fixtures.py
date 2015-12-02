@@ -1665,12 +1665,35 @@ def wait_for_config_propagation(super_client, lb_service, timeout=30):
         while item.requestedVersion != item.appliedVersion:
             print "requested_version " + str(item.requestedVersion)
             print "applied_version " + str(item.appliedVersion)
-            time.sleep(.5)
+            time.sleep(.1)
             agent = super_client.reload(agent)
             item = get_config_item(agent, "haproxy")
             if time.time() - start > timeout:
                 raise Exception('Timed out waiting for config propagation')
-            return
+
+
+def wait_for_metadata_propagation(super_client, timeout=30):
+    networkAgents = super_client.list_container(
+        name='Network Agent', removed_null=True)
+    assert len(networkAgents) == len(super_client.list_host(kind='docker',
+                                                            removed_null=True))
+    for networkAgent in networkAgents:
+        agentId = networkAgent.agentId
+        agent = super_client.by_id('agent', agentId)
+        assert agent is not None
+        item = get_config_item(agent, "hosts")
+        start = time.time()
+        print "agent_id " + str(agentId)
+        print "requested_version " + str(item.requestedVersion)
+        print "applied_version " + str(item.appliedVersion)
+        while item.requestedVersion != item.appliedVersion:
+            print "requested_version " + str(item.requestedVersion)
+            print "applied_version " + str(item.appliedVersion)
+            time.sleep(.1)
+            agent = super_client.reload(agent)
+            item = get_config_item(agent, "hosts")
+            if time.time() - start > timeout:
+                raise Exception('Timed out waiting for config propagation')
 
 
 def get_config_item(agent, config_name):
