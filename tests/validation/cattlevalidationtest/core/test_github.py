@@ -11,27 +11,67 @@ GITHUB_CLIENT_ID = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
 GITHUB_CLIENT_SECRET = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
 
 
-if_github = pytest.mark.skipif(os.environ.get('API_AUTH_GITHUB'
-                               '_CLIENT_SECRET') is None,
-                               reason='API_AUTH_GITHUB'
-                                      '_CLIENT_SECRET is not set')
+def create_client_id_and_secret(username=None, password=None):
+    port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
+    phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
+    driver = webdriver.PhantomJS(phantom_bin, port=port)
+    driver.delete_all_cookies()
+    max_wait = 60
+    driver.set_page_load_timeout(max_wait)
+    driver.set_script_timeout(max_wait)
+    driver.implicitly_wait(10)
+    driver.set_window_size(1120, 550)
 
-URL = base_url() + 'schemas'
+    driver.get('https://github.com/logout')
+    try:
+        driver.find_element_by_class_name('btn').click()
+    except:
+        pass
+    driver.get('https://github.com/login')
+    try:
+        driver.find_element_by_id('login_field').send_keys(username)
+        driver.find_element_by_id('password').send_keys(password)
+        driver.find_element_by_name('commit').click()
+    except:
+        pass
+    time.sleep(3)
+    driver.get('https://github.com/settings/applications/new')
+    url = base_url()[:-3]
+    driver.find_element_by_id('oauth_application_name').send_keys(url)
+    driver.find_element_by_id('oauth_application_url').send_keys(url)
+    driver.find_element_by_id('oauth_application_callback_url').send_keys(url)
+    driver.find_element_by_class_name('btn-primary').click()
+    time.sleep(5)
+    keys = driver.find_element_by_class_name('keys')
+    keys = keys.text.split('\n')
+    os.environ['API_AUTH_GITHUB_CLIENT_ID'] = keys[1]
+    os.environ['API_AUTH_GITHUB_CLIENT_SECRET'] = keys[3]
 
+if(GITHUB_CLIENT_ID is None and
+   os.environ.get('API_AUTH_GITHUB_TEST_USER',  None) is not None):
+    create_client_id_and_secret(
+        username=os.getenv('API_AUTH_GITHUB_TEST_USER', None),
+        password=os.getenv('API_AUTH_GITHUB_TEST_PASS', None))
+    GITHUB_CLIENT_ID = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
+    GITHUB_CLIENT_SECRET = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
 
-@pytest.fixture(scope='session', autouse=True)
-def config():
+def all_vars():
     needed_vars = [
         'API_AUTH_GITHUB_TEST_USER',
         'API_AUTH_GITHUB_TEST_PASS',
-        'API_AUTH_GITHUB_CLIENT_ID',
-        'API_AUTH_GITHUB_CLIENT_SECRET',
+        'API_AUTH_RANCHER_TEST_USER_1',
+        'API_AUTH_RANCHER_TEST_USER_2',
         'API_AUTH_RANCHER_TEST_PASS',
         'PHANTOMJS_BIN'
     ]
     for a in needed_vars:
         if os.getenv(a, None) is None:
-            raise Exception('Please set ' + a + ' in the environment')
+            return a + ' is not Set.'
+    return 'None'
+
+if_github = pytest.mark.skipif(all_vars() != 'None', reason=all_vars())
+
+URL = base_url() + 'schemas'
 
 
 @pytest.fixture(scope='session')
@@ -217,7 +257,7 @@ def test_ui_turn_on_github(admin_client, base_url=base_url()):
         driver.find_element_by_class_name('btn-primary').click()
     except:
         pass
-    time.sleep(2)
+    time.sleep(10)
     no_auth = requests.get(URL)
     assert no_auth.status_code == 401
 
