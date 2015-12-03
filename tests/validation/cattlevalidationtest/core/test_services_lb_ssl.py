@@ -523,6 +523,35 @@ def test_lb_ssl_delete_cert(
 
 
 @if_certs_available
+def test_lb_ssl_multiple_certs(
+        super_client, client, certs, socat_containers):
+
+    default_domain = dom_list[0]
+
+    port = "406"
+    ssl_port = "406"
+
+    service_scale = 2
+    lb_scale = 1
+
+    env, services, lb_service, test_ssl_client_con = \
+        create_lb_services_ssl(super_client, client,
+                               service_scale, lb_scale,
+                               port, ssl_port,
+                               default_domain, [dom_list[1], dom_list[2]])
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
+        check_cert_using_openssl(
+            host, port, default_domain, test_ssl_client_con)
+        check_cert_using_openssl(
+            host, port, dom_list[1], test_ssl_client_con)
+        check_cert_using_openssl(
+            host, port, dom_list[2], test_ssl_client_con)
+    delete_all(client, [env, test_ssl_client_con["container"]])
+
+
+@if_certs_available
 def test_lb_ssl_remove_cert(
         super_client, client, certs, socat_containers):
 

@@ -1621,6 +1621,25 @@ def check_round_robin_access(container_names, host, port,
             i = 0
 
 
+def check_cert_using_openssl(host, port, domain, test_ssl_client_con):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(test_ssl_client_con["port"]))
+
+    cmd = "openssl s_client" + \
+          " -connect " + host.ipAddresses()[0].address + ":" + port + \
+          " -servername " + domain + "</dev/null > result.out;cat result.out"
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    logger.info(response)
+    responseLen = len(response)
+    assert responseLen > 3
+    assert "CN="+domain in response[3]
+
+
 def check_round_robin_access_for_ssl(container_names, host, port, domain,
                                      test_ssl_client_con,
                                      hostheader=None, path="/name.html"):
