@@ -18,7 +18,8 @@ def create_environment_with_linked_services(
     service.activate()
     consumed_service.activate()
 
-    service.addservicelink(serviceLink={"serviceId": consumed_service.id})
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     service = client.wait_success(service, 120)
 
     consumed_service = client.wait_success(consumed_service, 120)
@@ -40,7 +41,8 @@ def test_link_activate_svc_activate_consumed_svc_link(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -56,10 +58,12 @@ def test_link_activate_consumed_svc_link_activate_svc(super_client, client):
         client, service_scale, consumed_service_scale, port)
 
     consumed_service = activate_svc(client, consumed_service)
-    link_svc(super_client, service, [consumed_service])
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     service = activate_svc(client, service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -74,10 +78,12 @@ def test_link_activate_svc_link_activate_consumed_svc(super_client, client):
         client, service_scale, consumed_service_scale, port)
 
     service = activate_svc(client, service)
-    link_svc(super_client, service, [consumed_service])
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     consumed_service = activate_svc(client, consumed_service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -91,11 +97,13 @@ def test_link_link_activate_consumed_svc_activate_svc(super_client, client):
     env, service, consumed_service = create_env_with_2_svc(
         client, service_scale, consumed_service_scale, port)
 
-    link_svc(super_client, service, [consumed_service])
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     consumed_service = activate_svc(client, consumed_service)
     service = activate_svc(client, service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -109,11 +117,13 @@ def test_link_link_activate_svc_activate_consumed_svc(super_client, client):
     env, service, consumed_service = create_env_with_2_svc(
         client, service_scale, consumed_service_scale, port)
 
-    link_svc(super_client, service, [consumed_service])
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     service = activate_svc(client, service)
     consumed_service = activate_svc(client, consumed_service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -130,7 +140,8 @@ def test_link_link_when_services_still_activating(super_client, client):
     service.activate()
     consumed_service.activate()
 
-    service.addservicelink(serviceLink={"serviceId": consumed_service.id})
+    service.setservicelinks(serviceLinks=[{"serviceId": consumed_service.id,
+                                           "name": "mylink"}])
     service = client.wait_success(service, 120)
 
     consumed_service = client.wait_success(consumed_service, 120)
@@ -139,7 +150,8 @@ def test_link_link_when_services_still_activating(super_client, client):
     assert consumed_service.state == "active"
     validate_add_service_link(super_client, service, consumed_service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -156,7 +168,8 @@ def test_link_service_scale_up(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     service = client.update(service, scale=final_service_scale,
                             name=service.name)
@@ -164,7 +177,8 @@ def test_link_service_scale_up(super_client, client):
     assert service.state == "active"
     assert service.scale == final_service_scale
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -180,7 +194,8 @@ def test_link_services_scale_down(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     service = client.update(service, scale=final_service_scale,
                             name=service.name)
@@ -188,7 +203,8 @@ def test_link_services_scale_down(super_client, client):
     assert service.state == "active"
     assert service.scale == final_service_scale
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -204,7 +220,8 @@ def test_link_consumed_services_scale_up(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     consumed_service = client.update(consumed_service,
                                      scale=final_consumed_service_scale,
@@ -213,7 +230,8 @@ def test_link_consumed_services_scale_up(super_client, client):
     assert consumed_service.state == "active"
     assert consumed_service.scale == final_consumed_service_scale
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -229,7 +247,8 @@ def test_link_consumed_services_scale_down(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     consumed_service = client.update(consumed_service,
                                      scale=final_consumed_service_scale,
@@ -238,7 +257,8 @@ def test_link_consumed_services_scale_down(super_client, client):
     assert consumed_service.state == "active"
     assert consumed_service.scale == final_consumed_service_scale
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -252,7 +272,8 @@ def test_link_consumed_services_stop_start_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + consumed_service.name + "_2"
     containers = client.list_container(name=container_name)
@@ -265,7 +286,8 @@ def test_link_consumed_services_stop_start_instance(super_client, client):
 
     wait_for_scale_to_adjust(super_client, consumed_service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -279,7 +301,8 @@ def test_link_consumed_services_restart_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + consumed_service.name + "_2"
     containers = client.list_container(name=container_name)
@@ -290,7 +313,8 @@ def test_link_consumed_services_restart_instance(super_client, client):
     container = client.wait_success(container.restart(), 120)
     assert container.state == 'running'
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -304,7 +328,8 @@ def test_link_consumed_services_delete_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + consumed_service.name + "_1"
     containers = client.list_container(name=container_name)
@@ -317,7 +342,8 @@ def test_link_consumed_services_delete_instance(super_client, client):
 
     wait_for_scale_to_adjust(super_client, consumed_service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -331,7 +357,8 @@ def test_link_consumed_services_deactivate_activate(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     consumed_service = consumed_service.deactivate()
     consumed_service = client.wait_success(consumed_service, 120)
@@ -342,7 +369,8 @@ def test_link_consumed_services_deactivate_activate(super_client, client):
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "active"
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -356,7 +384,8 @@ def test_link_service_deactivate_activate(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     service = service.deactivate()
     service = client.wait_success(service, 120)
@@ -367,7 +396,8 @@ def test_link_service_deactivate_activate(super_client, client):
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -381,7 +411,8 @@ def test_link_deactivate_activate_environment(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     env = env.deactivateservices()
     service = client.wait_success(service, 120)
@@ -399,7 +430,8 @@ def test_link_deactivate_activate_environment(super_client, client):
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "active"
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -412,7 +444,8 @@ def test_link_add_remove_servicelinks(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     # Add another service to environment
     launch_config = {"imageUuid": WEB_IMAGE_UUID}
@@ -431,17 +464,25 @@ def test_link_add_remove_servicelinks(super_client, client):
     assert consumed_service1.state == "active"
 
     # Add another service link
-    service.addservicelink(serviceLink={"serviceId": consumed_service1.id})
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"},
+                      {"serviceId": consumed_service1.id, "name": "mylink2"}])
+    validate_add_service_link(super_client, service, consumed_service)
     validate_add_service_link(super_client, service, consumed_service1)
 
     validate_linked_service(super_client, service,
-                            [consumed_service, consumed_service1], port)
+                            [consumed_service], port,
+                            linkName="mylink")
+    validate_linked_service(super_client, service,
+                            [consumed_service1], port,
+                            linkName="mylink2")
 
     # Remove existing service link to the service
-    service.removeservicelink(serviceLink={"serviceId": consumed_service.id})
-    validate_remove_service_link(super_client, service, consumed_service)
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service1.id, "name": "mylink2"}])
 
-    validate_linked_service(super_client, service, [consumed_service1], port)
+    validate_linked_service(super_client, service, [consumed_service1], port,
+                            linkName="mylink2")
     delete_all(client, [env])
 
 
@@ -455,7 +496,8 @@ def test_link_services_delete_service_add_service(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     # Delete Service
 
@@ -482,10 +524,12 @@ def test_link_services_delete_service_add_service(super_client, client):
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    service1.addservicelink(serviceLink={"serviceId": consumed_service.id})
+    service1.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
     validate_add_service_link(super_client, service1, consumed_service)
 
-    validate_linked_service(super_client, service1, [consumed_service], port1)
+    validate_linked_service(super_client, service1, [consumed_service], port1,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -500,7 +544,8 @@ def test_link_services_delete_and_add_consumed_service(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     # Delete consume service
 
@@ -526,10 +571,13 @@ def test_link_services_delete_and_add_consumed_service(super_client, client):
     consumed_service1 = client.wait_success(consumed_service1, 120)
     assert consumed_service1.state == "active"
 
-    service.addservicelink(serviceLink={"serviceId": consumed_service1.id})
+    service.setservicelinks(
+        serviceLinks=[{"serviceId": consumed_service1.id,
+                       "name": "mylink1"}])
     validate_add_service_link(super_client, service, consumed_service1)
 
-    validate_linked_service(super_client, service, [consumed_service1], port)
+    validate_linked_service(super_client, service, [consumed_service1], port,
+                            linkName="mylink1")
 
     delete_all(client, [env])
 
@@ -544,7 +592,8 @@ def test_link_services_stop_start_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + service.name + "_2"
     containers = client.list_container(name=container_name)
@@ -556,7 +605,8 @@ def test_link_services_stop_start_instance(super_client, client):
     service = client.wait_success(service)
     wait_for_scale_to_adjust(super_client, service)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -571,7 +621,8 @@ def test_link_services_restart_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + service.name + "_2"
     containers = client.list_container(name=container_name)
@@ -582,7 +633,8 @@ def test_link_services_restart_instance(super_client, client):
     service_instance = client.wait_success(service_instance.restart(), 120)
     assert service_instance.state == 'running'
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -597,7 +649,8 @@ def test_link_services_delete_instance(super_client, client):
     env, service, consumed_service = create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     container_name = env.name + "_" + service.name + "_2"
     containers = client.list_container(name=container_name)
@@ -609,7 +662,8 @@ def test_link_services_delete_instance(super_client, client):
     assert container.state == 'removed'
 
     wait_for_scale_to_adjust(super_client, service)
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
 
     delete_all(client, [env])
 
@@ -625,7 +679,8 @@ def test_links_with_hostnetwork_1(super_client, client):
         super_client, client, service_scale, consumed_service_scale, port,
         ssh_port, isnetworkModeHost_svc=False,
         isnetworkModeHost_consumed_svc=True)
-    validate_linked_service(super_client, service, [consumed_service], port)
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink")
     delete_all(client, [env])
 
 
@@ -642,7 +697,7 @@ def test_links_with_hostnetwork_2(super_client, client):
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=True)
     validate_linked_service(
-        super_client, service, [consumed_service], ssh_port)
+        super_client, service, [consumed_service], ssh_port, linkName="mylink")
 
     delete_all(client, [env])
 
@@ -660,5 +715,5 @@ def test_links_with_hostnetwork_3(super_client, client):
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
-        super_client, service, [consumed_service], ssh_port)
+        super_client, service, [consumed_service], ssh_port, linkName="mylink")
     delete_all(client, [env])
