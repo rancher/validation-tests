@@ -1,4 +1,5 @@
 from cattle import from_env
+
 import pytest
 import random
 import requests
@@ -33,6 +34,9 @@ HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:latest"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
 
+SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                              'resources/sslcerts')
+
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
@@ -41,6 +45,8 @@ socat_container_list = []
 host_container_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 CONTAINER_STATES = ["running", "stopped", "stopping"]
+
+cert_list = {}
 
 MANAGED_NETWORK = "managed"
 UNMANAGED_NETWORK = "bridge"
@@ -721,6 +727,7 @@ def validate_lb_service_for_external_services(super_client, client, lb_service,
 
 def validate_lb_service(super_client, client, lb_service, port,
                         target_services, hostheader=None, path=None,
+                        domain=None, test_ssl_client_con=None,
                         unmanaged_cons=None):
     target_count = 0
     for service in target_services:
@@ -744,26 +751,51 @@ def validate_lb_service(super_client, client, lb_service, port,
         assert len(container_names) == target_count
 
     validate_lb_service_con_names(super_client, client, lb_service, port,
-                                  container_names, hostheader, path)
+                                  container_names, hostheader, path, domain,
+                                  test_ssl_client_con)
 
 
 def validate_lb_service_con_names(super_client, client, lb_service, port,
                                   container_names,
-                                  hostheader=None, path=None):
+                                  hostheader=None, path=None, domain=None,
+                                  test_ssl_client_con=None):
     lb_containers = get_service_container_list(super_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
-        wait_until_lb_is_active(host, port)
-        if hostheader is not None or path is not None:
-            check_round_robin_access(container_names, host, port,
-                                     hostheader, path)
+        if domain:
+            # Validate for ssl listeners
+            # wait_until_lb_is_active(host, port, is_ssl=True)
+            if hostheader is not None or path is not None:
+                check_round_robin_access_for_ssl(container_names, host, port,
+                                                 domain, test_ssl_client_con,
+                                                 hostheader, path)
+            else:
+                check_round_robin_access_for_ssl(container_names, host, port,
+                                                 domain, test_ssl_client_con)
+
         else:
-            check_round_robin_access(container_names, host, port)
+            wait_until_lb_is_active(host, port)
+            if hostheader is not None or path is not None:
+                check_round_robin_access(container_names, host, port,
+                                         hostheader, path)
+            else:
+                check_round_robin_access(container_names, host, port)
 
 
-def wait_until_lb_is_active(host, port, timeout=30):
+def validate_cert_error(super_client, client, lb_service, port, domain,
+                        default_domain, cert,
+                        hostheader=None, path=None,
+                        test_ssl_client_con=None):
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
+        check_for_cert_error(host, port, domain, default_domain, cert,
+                             test_ssl_client_con)
+
+
+def wait_until_lb_is_active(host, port, timeout=30, is_ssl=False):
     start = time.time()
-    while check_for_no_access(host, port):
+    while check_for_no_access(host, port, is_ssl):
         time.sleep(.5)
         print "No access yet"
         if time.time() - start > timeout:
@@ -771,10 +803,13 @@ def wait_until_lb_is_active(host, port, timeout=30):
     return
 
 
-def check_for_no_access(host, port):
+def check_for_no_access(host, port, is_ssl=False):
+    if is_ssl:
+        protocol = "https://"
+    else:
+        protocol = "http://"
     try:
-        url = "http://" + host.ipAddresses()[0].address + ":" +\
-              port + "/name.html"
+        url = protocol+host.ipAddresses()[0].address+":"+port+"/name.html"
         requests.get(url)
         return False
     except requests.ConnectionError:
@@ -1586,6 +1621,92 @@ def check_round_robin_access(container_names, host, port,
             i = 0
 
 
+def check_round_robin_access_for_ssl(container_names, host, port, domain,
+                                     test_ssl_client_con,
+                                     hostheader=None, path="/name.html"):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(test_ssl_client_con["port"]))
+
+    cmd = "echo '" + host.ipAddresses()[0].address + \
+          " " + domain + "'> /etc/hosts;grep " + domain + " /etc/hosts"
+    response = execute_command(ssh, cmd)
+    logger.info(response)
+
+    domain_cert = domain + ".crt "
+    cert_str = " --ca-certificate=" + domain_cert
+    host_header_str = "--header=host:" + hostheader + " "
+    url_str = " https://" + domain + ":" + port + path
+    cmd = "wget -O result.txt --timeout=20 --tries=1" + \
+          cert_str + host_header_str + url_str + ";cat result.txt"
+
+    con_hostname = container_names[:]
+    con_hostname_ordered = []
+
+    for n in range(0, len(con_hostname)):
+        response = execute_command(ssh, cmd)
+        assert response in con_hostname
+        con_hostname.remove(response)
+        con_hostname_ordered.append(response)
+
+    logger.info(con_hostname_ordered)
+
+    i = 0
+    for n in range(0, 5):
+        response = execute_command(ssh, cmd)
+        logger.info(response)
+        assert response == con_hostname_ordered[i]
+        i = i + 1
+        if i == len(con_hostname_ordered):
+            i = 0
+
+
+def check_for_cert_error(host, port, domain, default_domain, cert,
+                         test_ssl_client_con, path="/name.html"):
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(test_ssl_client_con["port"]))
+
+    cmd = "echo '" + host.ipAddresses()[0].address + \
+          " " + domain + "'> /etc/hosts;grep " + domain + " /etc/hosts"
+    response = execute_command(ssh, cmd)
+    logger.info(response)
+
+    domain_cert = cert + ".crt "
+    cert_str = " --ca-certificate=" + domain_cert
+    url_str = " https://" + domain + ":" + port + path
+    cmd = "wget -O result.txt --timeout=20 --tries=1" + \
+          cert_str + url_str + ";cat result.txt"
+
+    error_string = "ERROR: cannot verify " + domain + "'s certificate"
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    errors = stderr.readlines()
+    logger.info(errors)
+    found_error = False
+    for error in errors:
+        if error_string in error:
+            found_error = True
+    assert found_error
+
+
+def execute_command(ssh, cmd):
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    logger.info(response)
+    assert len(response) == 1
+    resp = response[0].strip("\n")
+    logger.info("Response" + str(resp))
+    return resp
+
+
 def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
                                         ports, count, crosslinking=False):
 
@@ -1647,6 +1768,74 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
         for service in services:
             service = client.wait_success(service, 120)
             assert service.state == "active"
+
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
+    return env, services, lb_service
+
+
+def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
+                                            ports, count, ssl_ports,
+                                            default_cert, certs=[]):
+    target_port = ["80", "81"]
+    launch_config_svc = \
+        {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
+
+    assert len(ports) in (1, 2)
+
+    launch_port = []
+    for i in range(0, len(ports)):
+        listening_port = ports[i]+":"+target_port[i]
+        if "/" in ports[i]:
+            port_mode = ports[i].split("/")
+            listening_port = port_mode[0]+":"+target_port[i]+"/"+port_mode[1]
+        launch_port.append(listening_port)
+
+    launch_config_lb = {"ports": launch_port,
+                        "labels":
+                            {'io.rancher.loadbalancer.ssl.ports': ssl_ports}}
+
+    services = []
+    # Create Environment
+    env = create_env(client)
+
+    # Create Service
+    for i in range(0, count):
+        random_name = random_str()
+        service_name = random_name.replace("-", "")
+        service = client.create_service(name=service_name,
+                                        environmentId=env.id,
+                                        launchConfig=launch_config_svc,
+                                        scale=scale_svc)
+
+        service = client.wait_success(service)
+        assert service.state == "inactive"
+        services.append(service)
+
+    # Create LB Service
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    supported_cert_list = []
+    for cert in certs:
+        supported_cert_list.append(cert.id)
+    lb_service = client.create_loadBalancerService(
+        name=service_name,
+        environmentId=env.id,
+        launchConfig=launch_config_lb,
+        scale=scale_lb,
+        certificateIds=supported_cert_list,
+        defaultCertificateId=default_cert.id)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    env = env.activateservices()
+    env = client.wait_success(env, 120)
+
+    for service in services:
+        service = client.wait_success(service, 120)
+        assert service.state == "active"
 
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
@@ -1912,6 +2101,109 @@ def create_env_with_2_svc_dns_hostnetwork(
     dns = client.wait_success(dns)
 
     return env, service, consumed_service, consumed_service1, dns
+
+
+def cleanup_images(client, delete_images):
+    hosts = client.list_host(kind='docker', removed_null=True, state='active')
+    print "To delete" + delete_images[0]
+    for host in hosts:
+        docker_client = get_docker_client(host)
+        images = docker_client.images()
+        for image in images:
+            print image["RepoTags"][0]
+            if image["RepoTags"][0] in delete_images:
+                print "Found Match"
+                docker_client.remove_image(image, True)
+        images = docker_client.images()
+        for image in images:
+            assert ["RepoTags"][0] not in delete_images
+
+
+@pytest.fixture(scope='session')
+def certs(client, super_client, request):
+
+    if len(cert_list.keys()) > 0:
+        return
+
+    domain_list = get_domains()
+    print domain_list
+    for domain in domain_list:
+        cert = create_cert(client, domain)
+        cert_list[domain] = cert
+
+    def remove_certs():
+        delete_all(client, cert_list.values())
+    request.addfinalizer(remove_certs)
+
+
+def get_cert(domain):
+    return cert_list[domain]
+
+
+def create_client_container_for_ssh(client, port):
+    test_client_con = {}
+    domain_list = get_domains()
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    host = hosts[0]
+    c = client.create_container(name="lb-test-client" + port,
+                                networkMode=MANAGED_NETWORK,
+                                imageUuid="docker:sangeetha/testclient",
+                                ports=[port+":22/tcp"],
+                                requestedHostId=host.id
+                                )
+
+    c = client.wait_success(c, 120)
+    assert c.state == "running"
+    time.sleep(5)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host.ipAddresses()[0].address, username="root",
+                password="root", port=int(port))
+    cmd = ""
+    for domain in domain_list:
+        cert, key, certChain = get_cert_for_domain(domain)
+        if certChain:
+            cp_cmd_cert = "echo '"+cert+"' > "+domain+"_chain.crt;"
+        else:
+            cp_cmd_cert = "echo '"+cert+"' >  "+domain+".crt;"
+
+        cmd = cmd + cp_cmd_cert
+    print cmd
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    print response
+    test_client_con["container"] = c
+    test_client_con["host"] = host
+    test_client_con["port"] = port
+    return test_client_con
+
+
+def create_cert(client, name):
+    cert, key, certChain = get_cert_for_domain(name)
+    cert1 = client. \
+        create_certificate(name=random_str(),
+                           cert=cert,
+                           key=key,
+                           certChain=certChain)
+    cert1 = client.wait_success(cert1)
+    assert cert1.state == 'active'
+    return cert1
+
+
+def get_cert_for_domain(name):
+    cert = readDataFile(SSLCERT_SUBDIR, name+".crt")
+    key = readDataFile(SSLCERT_SUBDIR, name+".key")
+    certChain = None
+    if os.path.isfile(os.path.join(SSLCERT_SUBDIR, name + "_chain.crt")):
+        certChain = readDataFile(SSLCERT_SUBDIR, name+"_chain.crt")
+    return cert, key, certChain
+
+
+def get_domains():
+    domain_list_str = readDataFile(SSLCERT_SUBDIR, "certlist.txt").rstrip()
+    domain_list = domain_list_str.split(",")
+    return domain_list
 
 
 def base_url():
