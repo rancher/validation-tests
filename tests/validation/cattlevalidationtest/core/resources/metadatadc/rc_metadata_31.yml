@@ -1,0 +1,10 @@
+test3:
+  scale: 2
+  metadata:
+    test1:
+      name: t2name
+      value: t1value
+    test2:
+      name: [1,2,5]
+    test3:
+      name: t3name
