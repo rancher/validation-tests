@@ -24,52 +24,23 @@ def cleanup():
         except AttributeError:
             pass
     delete_all(sc, to_delete_env)
-    logger.info("Environments Deleted")
-
-    to_delete_lb = []
-    for i in sc.list_loadBalancer(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb.append(i)
-        except AttributeError:
-            pass
-    delete_all(sc, to_delete_lb)
-    logger.info("LBs Deleted")
-
-    to_delete_lb_config = []
-    for i in sc.list_loadBalancerConfig(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb_config.append(i)
-        except AttributeError:
-            pass
-    delete_all(sc, to_delete_lb_config)
-    logger.info("LB Configs deleted")
-
-    to_delete_lb_listener = []
-    for i in sc.list_loadBalancerListener(state='active'):
-        try:
-            if instance_name_format.match(i.name):
-                to_delete_lb_listener.append(i)
-        except AttributeError:
-            pass
-    delete_all(sc, to_delete_lb_listener)
-    logger.info("LB listeners deleted")
 
     to_delete = []
     for i in sc.list_instance(state='running'):
         try:
-            if instance_name_format.match(i.name) or \
-                    i.name.startswith("socat-test") or \
-                    i.name.startswith("native-test") or \
-                    i.name.startswith("target-native-test-") or \
-                    i.name.startswith("rancher-compose"):
-                to_delete.append(i)
+            if i.name is not None:
+                if instance_name_format.match(i.name) or \
+                        i.name.startswith("socat-test") or \
+                        i.name.startswith("host-test") or \
+                        i.name.startswith("native-test") or \
+                        i.name.startswith("target-native-test-") or \
+                        i.name.startswith("lb-test-client") or \
+                        i.name.startswith("rancher-compose"):
+                    to_delete.append(i)
         except AttributeError:
             pass
 
     delete_all(sc, to_delete)
-    logger.info("Running Instances deleted")
 
     to_delete = []
     for i in sc.list_instance(state='stopped'):
@@ -77,10 +48,20 @@ def cleanup():
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
                         i.name.startswith("native-test") or \
+                        i.name.startswith("host-test") or \
                         i.name.startswith("target-native-test-"):
                     to_delete.append(i)
         except AttributeError:
             pass
 
     delete_all(sc, to_delete)
-    logger.info("Stopped instances deleted")
+
+    # Delete all apiKeys created by test runs
+    account = sc.list_project(uuid="adminProject")[0]
+    for cred in account.credentials():
+        if cred.kind == 'apiKey' and \
+                instance_name_format.match(cred.publicValue) \
+                and cred.state == "active":
+            print cred.id
+            cred = sc.wait_success(cred.deactivate())
+            sc.delete(cred)
