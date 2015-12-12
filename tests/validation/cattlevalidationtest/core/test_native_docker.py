@@ -255,8 +255,8 @@ def test_native_ip_inject(client, socat_containers, native_name,
                                                      'ip addr show eth0'])
     rancher_container, _ = start_and_wait(client, docker_container,
                                           docker_client, native_name)
-
-    assert_ip_inject(rancher_container)
+    wait_for_state(client, 'running', rancher_container.id)
+    assert_ip_inject(client.reload(rancher_container))
 
 
 def test_native_container_stats(client, socat_containers, native_name,
@@ -314,7 +314,7 @@ def common_network_asserts(rancher_container, docker_container,
 def wait_on_rancher_container(client, name, timeout=None):
     def check():
         containers = client.list_container(name=name)
-        return len(containers) > 0
+        return len(containers) > 0 and containers[0].state != 'requested'
 
     wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
     r_containers = client.list_container(name=name)
