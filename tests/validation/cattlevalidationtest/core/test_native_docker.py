@@ -241,6 +241,7 @@ def test_native_exec(client, socat_containers, native_name, pull_images):
     assert_execute(rancher_container, test_msg)
 
 
+@pytest.mark.skipif(True, reason="Skip")
 def test_native_ip_inject(client, socat_containers, native_name,
                           pull_images):
     docker_client = get_docker_client(host(client))
