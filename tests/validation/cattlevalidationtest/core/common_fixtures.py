@@ -1084,23 +1084,19 @@ def validate_external_service_for_hostname(super_client, service, ext_services,
         print "Validation for container -" + str(container.name)
         host = super_client.by_id('host', container.hosts[0].id)
         for ext_service in ext_services:
-            expected_link_response = "About Google"
-
             # Validate port mapping
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(host.ipAddresses()[0].address, username="root",
                         password="root", port=int(exposed_port))
-            cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
-                  ext_service.name + ";cat result.txt"
+            cmd = "ping -c 2 " + ext_service.name + \
+                  "> result.txt;cat result.txt"
             print cmd
-
-            # Validate link containers mutliple times
-            for i in range(0, 10):
-                stdin, stdout, stderr = ssh.exec_command(cmd)
-                response = stdout.readlines()
-                print "Actual wget Response" + str(response)
-                assert expected_link_response in str(response)
+            stdin, stdout, stderr = ssh.exec_command(cmd)
+            response = stdout.readlines()
+            print "Actual wget Response" + str(response)
+            assert ext_service.hostname in str(response) and \
+                "0% packet loss" in str(response)
 
 
 @pytest.fixture(scope='session')
