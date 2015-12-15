@@ -347,7 +347,7 @@ def test_native_fields(socat_containers, client, pull_images):
                                                       hostname='hostname1',
                                                       domainname='domainname1',
                                                       user='root',
-                                                      mem_limit='4MB',
+                                                      mem_limit='16MB',
                                                       memswap_limit='8MB',
                                                       cpu_shares=1024,
                                                       cpuset='0',
