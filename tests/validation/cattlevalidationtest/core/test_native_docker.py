@@ -348,7 +348,7 @@ def test_native_fields(socat_containers, client, pull_images):
                                                       domainname='domainname1',
                                                       user='root',
                                                       mem_limit='16MB',
-                                                      memswap_limit='8MB',
+                                                      memswap_limit='32MB',
                                                       cpu_shares=1024,
                                                       cpuset='0',
                                                       tty=True,
@@ -361,22 +361,12 @@ def test_native_fields(socat_containers, client, pull_images):
                                                       entrypoint=['/bin/sh'],
                                                       host_config=host_config)
 
-    docker_client.start(docker_container)
-
-    def check():
-        containers = client.list_container(name=name)
-        return len(containers) > 0
-
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
-
-    r_containers = client.list_container(name=name)
-    assert len(r_containers) == 1
-    rancher_container = r_containers[0]
-    rancher_container = client.wait_success(rancher_container)
+    rancher_container, _ = start_and_wait(client, docker_container,
+                                          docker_client, name)
     assert rancher_container.hostname == 'hostname1'
     assert rancher_container.domainName == 'domainname1'
     assert rancher_container.user == 'root'
-    assert rancher_container.memory == 4194304
+    assert rancher_container.memory == 16777216
     assert rancher_container.cpuShares == 1024
     assert rancher_container.cpuSet == '0'
     assert rancher_container.tty is True
