@@ -241,7 +241,6 @@ def test_native_exec(client, socat_containers, native_name, pull_images):
     assert_execute(rancher_container, test_msg)
 
 
-@pytest.mark.skipif(True, reason="Skip")
 def test_native_ip_inject(client, socat_containers, native_name,
                           pull_images):
     docker_client = get_docker_client(host(client))
@@ -252,11 +251,12 @@ def test_native_ip_inject(client, socat_containers, native_name,
                          tty=True,
                          stdin_open=True,
                          detach=True,
-                         command=['/bin/bash', '-c', 'sleep 10; '
-                                                     'ip addr show eth0'])
+                         command=['/bin/bash', '-c', 'until $(ip addr show | '
+                                                     'grep -q 10.42); '
+                                                     'do sleep 1 && echo .; '
+                                                     'done; ip addr show'])
     rancher_container, _ = start_and_wait(client, docker_container,
                                           docker_client, native_name)
-    wait_for_state(client, 'running', rancher_container.id)
     assert_ip_inject(client.reload(rancher_container))
 
 
