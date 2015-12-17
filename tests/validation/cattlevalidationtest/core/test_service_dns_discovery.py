@@ -390,6 +390,8 @@ def test_dns_discovery_services_delete_instance(super_client, client):
 
 def test_dns_discoverys_with_hostnetwork_1(super_client, client):
 
+    # Verify if able to resolve to containers of service in host network
+    # from containers that belong to another service in managed network.
     port = "419"
 
     service_scale = 1
@@ -405,6 +407,9 @@ def test_dns_discoverys_with_hostnetwork_1(super_client, client):
 
 def test_dns_discoverys_with_hostnetwork_2(super_client, client):
 
+    # Verify if able to resolve to container of service in host network
+    # from containers that belong to another service in host network in the
+    # same stack
     port = "420"
 
     service_scale = 1
@@ -423,6 +428,9 @@ def test_dns_discoverys_with_hostnetwork_2(super_client, client):
 
 def test_dns_discoverys_with_hostnetwork_3(super_client, client):
 
+    # Verify if able to resolve to containers of service in managed
+    # network from containers that belong to another service in host network.
+
     port = "421"
 
     service_scale = 1
@@ -435,4 +443,68 @@ def test_dns_discoverys_with_hostnetwork_3(super_client, client):
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
         super_client, service, [consumed_service], ssh_port)
+    delete_all(client, [env])
+
+
+def test_dns_discoverys_with_hostnetwork_externalService(super_client, client):
+
+    # Verify if able to resolve external services from containers
+    # that belong to another service in host network.
+
+    port = "422"
+    env, service, ext_service, con_list = \
+        create_env_with_ext_svc(client, 1, port)
+
+    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET,
+                         "networkMode": "host",
+                         "labels": dns_labels}
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    host_service = client.create_service(name=service_name,
+                                         environmentId=env.id,
+                                         launchConfig=launch_config_svc,
+                                         scale=1)
+    host_service = client.wait_success(host_service)
+    host_service.activate()
+    ext_service.activate()
+    host_service = client.wait_success(host_service, 120)
+    ext_service = client.wait_success(ext_service, 120)
+    assert host_service.state == "active"
+    assert ext_service.state == "active"
+
+    validate_external_service(
+        super_client, host_service, [ext_service], 33, con_list)
+    con_list.append(env)
+    delete_all(client, con_list)
+
+
+def test_dns_discoverys_with_hostnetwork_externalService_cname(
+        super_client, client):
+
+    # Verify if able to resolve external services from containers
+    # that belong to another service in host network.
+
+    port = "423"
+    env, service, ext_service, con_list = \
+        create_env_with_ext_svc(client, 1, port, True)
+
+    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET,
+                         "networkMode": "host",
+                         "labels": dns_labels}
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    host_service = client.create_service(name=service_name,
+                                         environmentId=env.id,
+                                         launchConfig=launch_config_svc,
+                                         scale=1)
+    host_service = client.wait_success(host_service)
+    host_service.activate()
+    ext_service.activate()
+    host_service = client.wait_success(host_service, 120)
+    ext_service = client.wait_success(ext_service, 120)
+    assert host_service.state == "active"
+    assert ext_service.state == "active"
+
+    validate_external_service_for_hostname(super_client, host_service,
+                                           [ext_service], 33)
     delete_all(client, [env])

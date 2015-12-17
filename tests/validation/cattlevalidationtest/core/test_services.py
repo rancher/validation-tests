@@ -1,4 +1,5 @@
 from common_fixtures import *  # NOQA
+from cattle import ApiError
 
 TEST_SERVICE_OPT_IMAGE = 'ibuildthecloud/helloworld'
 TEST_SERVICE_OPT_IMAGE_LATEST = TEST_SERVICE_OPT_IMAGE + ':latest'
@@ -817,6 +818,59 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
             client, con,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
+    delete_all(client, [env])
+
+
+def test_service_name_unique(super_client, client):
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    service, env = create_env_and_svc(client, launch_config, 1)
+    service_name = service.name
+
+    # Should not be allowed to create service with name when service name is
+    # already used by a service in the same stack
+    with pytest.raises(ApiError) as e:
+        service = client.wait_success(client.create_service(name=service_name,
+                                      environmentId=env.id,
+                                      launchConfig=launch_config,
+                                      scale=1))
+    assert e.value.error.status == 422
+    assert e.value.error.code == 'NotUnique'
+    assert e.value.error.fieldName == "name"
+    delete_all(client, [env])
+
+
+def test_service_name_unique_create_after_delete(super_client, client):
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    service, env = create_env_and_svc(client, launch_config, 1)
+    service_name = service.name
+    # Should be allowed to create service with name when service name is
+    # used by service which is already deleted in the same stack
+    client.wait_success(client.delete(service))
+    service = client.wait_success(client.create_service(name=service_name,
+                                  environmentId=env.id,
+                                  launchConfig=launch_config,
+                                  scale=1))
+    assert service.state == "inactive"
+    delete_all(client, [env])
+
+
+def test_service_name_unique_edit(super_client, client):
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    service, env = create_env_and_svc(client, launch_config, 1)
+    service_name = service.name
+
+    # Should not be allowed to edit existing service and set its name
+    # to a service name that already exist in the same stack
+    service = client.wait_success(client.create_service(name=random_str(),
+                                  environmentId=env.id,
+                                  launchConfig=launch_config,
+                                  scale=1))
+    with pytest.raises(ApiError) as e:
+        service = client.wait_success(client.update(service, name=service_name,
+                                                    scale=1))
+    assert e.value.error.status == 422
+    assert e.value.error.code == 'NotUnique'
+    assert e.value.error.fieldName == "name"
     delete_all(client, [env])
 
 

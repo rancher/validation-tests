@@ -6,10 +6,10 @@ logger.setLevel(logging.DEBUG)
 
 def create_environment_with_lb_services(super_client, client,
                                         service_scale, lb_scale, port,
-                                        internal=False):
+                                        internal=False, lb_config=None):
 
     env, service, lb_service = create_env_with_svc_and_lb(
-        client, service_scale, lb_scale, port, internal)
+        client, service_scale, lb_scale, port, internal, lb_config)
 
     service.activate()
     lb_service.activate()
@@ -788,3 +788,70 @@ def test_multiple_lbservice_internal_same_host_port(
                          con_port, port)
 
     delete_all(client, [env, env2, client_con])
+
+
+def test_lbservice_custom_haproxy(
+        super_client, client, socat_containers):
+
+    port = "9021"
+    lb_scale = 1
+    service_scale = 2
+
+    haproxy_cfg = {"defaults": "balance first", "global": "group haproxy"}
+    lb_config = {"name": random_str(), "haproxyConfig": haproxy_cfg}
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port,
+        lb_config=lb_config)
+    check_for_balancer_first(super_client, client, lb_service, port, [service])
+    delete_all(client, [env])
+
+
+def test_lbservice_appcookie(
+        super_client, client, socat_containers):
+
+    port = "9022"
+    lb_scale = 1
+    service_scale = 2
+
+    cookie_name = "test"
+    appcookie_policy = {"mode": "query_string",
+                        "requestLearn": True,
+                        "timeout": 3600000,
+                        "cookie": cookie_name,
+                        "maxLength": 40,
+                        "prefix": False
+                        }
+
+    lb_config = {"name": random_str(),
+                 "appCookieStickinessPolicy": appcookie_policy}
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port,
+        lb_config=lb_config)
+    check_for_appcookie_policy(super_client, client, lb_service, port,
+                               [service], cookie_name)
+    delete_all(client, [env])
+
+
+def test_lbservice_lbcookie(
+        super_client, client, socat_containers):
+
+    port = "9023"
+    lb_scale = 1
+    service_scale = 2
+    lbcookie_policy = {"mode": "insert",
+                       "cookie": "cookie-1",
+                       "indirect": True,
+                       "nocache": True,
+                       "postonly": False
+                       }
+    lb_config = {"name": random_str(),
+                 "lbCookieStickinessPolicy": lbcookie_policy}
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port,
+        lb_config=lb_config)
+    check_for_lbcookie_policy(super_client, client,
+                              lb_service, port, [service])
+    delete_all(client, [env])

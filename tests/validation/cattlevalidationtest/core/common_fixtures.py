@@ -1207,7 +1207,7 @@ def launch_rancher_compose_from_file(client, subdir, docker_compose,
 
 
 def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
-                               internal=False):
+                               internal=False, lb_config=None):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
@@ -1238,7 +1238,8 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
         name=service_name,
         environmentId=env.id,
         launchConfig=launch_config_lb,
-        scale=scale_lb)
+        scale=scale_lb,
+        loadBalancerConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -2250,3 +2251,75 @@ def get_env_service_by_name(client, env_name, service_name):
                                   removed_null=True)
     assert len(service) == 1
     return env[0], service[0]
+
+
+def check_for_appcookie_policy(super_client, client, lb_service, port,
+                               target_services, cookie_name):
+    container_names = get_container_names_list(super_client,
+                                               target_services)
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
+
+        url = "http://" + host.ipAddresses()[0].address + \
+              ":" + port + "/name.html"
+        headers = {"Cookie": cookie_name + "=test123"}
+
+        check_for_stickiness(url, container_names, headers=headers)
+
+
+def check_for_lbcookie_policy(super_client, client, lb_service, port,
+                              target_services):
+    container_names = get_container_names_list(super_client,
+                                               target_services)
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
+
+        url = "http://" + host.ipAddresses()[0].address + \
+              ":" + port + "/name.html"
+
+        session = requests.Session()
+        r = session.get(url)
+        sticky_response = r.text.strip("\n")
+        logger.info("request: " + url)
+        logger.info(sticky_response)
+        r.close()
+        assert sticky_response in container_names
+
+        for n in range(0, 10):
+            r = session.get(url)
+            response = r.text.strip("\n")
+            r.close()
+            logger.info("request: " + url)
+            logger.info(response)
+            assert response == sticky_response
+
+
+def check_for_balancer_first(super_client, client, lb_service, port,
+                             target_services):
+    container_names = get_container_names_list(super_client,
+                                               target_services)
+    lb_containers = get_service_container_list(super_client, lb_service)
+    for lb_con in lb_containers:
+        host = client.by_id('host', lb_con.hosts[0].id)
+
+        url = "http://" + host.ipAddresses()[0].address + \
+              ":" + port + "/name.html"
+        check_for_stickiness(url, container_names)
+
+
+def check_for_stickiness(url, expected_responses, headers=None):
+        r = requests.get(url, headers=headers)
+        sticky_response = r.text.strip("\n")
+        logger.info(sticky_response)
+        r.close()
+        assert sticky_response in expected_responses
+
+        for n in range(0, 10):
+            r = requests.get(url, headers=headers)
+            response = r.text.strip("\n")
+            r.close()
+            logger.info("request: " + url + " Header -" + str(headers))
+            logger.info(response)
+            assert response == sticky_response
