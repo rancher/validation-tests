@@ -1321,3 +1321,129 @@ def test_lbservice_host_routing_tcp_and_http(super_client, client,
                                       "www.abc2.com",
                                       "/service3.html")
     delete_all(client, [env])
+
+
+def test_lbservice_host_routing_wildcard(
+        super_client, client, socat_containers):
+
+    port = "1014"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 3
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port], service_count)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["*.domain.com"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["domain.*"]}
+    service_link3 = {"serviceId": services[2].id,
+                     "ports": ["abc.domain.com"]}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2, service_link3])
+
+    validate_add_service_link(super_client, lb_service, services[0])
+    validate_add_service_link(super_client, lb_service, services[1])
+    validate_add_service_link(super_client, lb_service, services[2])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         services, lb_service)
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[0]],
+                        "abc.domain.com", "/name.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[0]],
+                        "abc.def.domain.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[1]],
+                        "domain.abc.def.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[1]],
+                        "domain.abc.com", "/name.html")
+    """
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[2]],
+                        "abc.domain.com", "/service1.html")
+    """
+    delete_all(client, [env])
+
+
+def test_lbservice_host_routing_wildcard_order(
+        super_client, client, socat_containers):
+
+    port = "1014"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 5
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port], service_count)
+
+    service_link1 = {"serviceId": services[0].id,
+                     "ports": ["*.domain.com"]}
+    service_link2 = {"serviceId": services[1].id,
+                     "ports": ["domain.*"]}
+    service_link3 = {"serviceId": services[2].id,
+                     "ports": ["abc.domain.com"]}
+    service_link4 = {"serviceId": services[3].id,
+                     "ports": ["abc.domain.com/service1.html"]}
+    service_link5 = {"serviceId": services[4].id,
+                     "ports": ["*.domain.com/service1.html"]}
+
+    lb_service.setservicelinks(
+        serviceLinks=[service_link1, service_link2,
+                      service_link3, service_link4, service_link5])
+
+    validate_add_service_link(super_client, lb_service, services[0])
+    validate_add_service_link(super_client, lb_service, services[1])
+    validate_add_service_link(super_client, lb_service, services[2])
+    validate_add_service_link(super_client, lb_service, services[3])
+    validate_add_service_link(super_client, lb_service, services[4])
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         services, lb_service)
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[4]],
+                        "abc.def.domain.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[0]],
+                        "abc.def.domain.com", "/name.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[1]],
+                        "domain.abc.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[1]],
+                        "domain.def.com", "/service1.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[2]],
+                        "abc.domain.com", "/name.html")
+
+    validate_lb_service(super_client, client,
+                        lb_service, port,
+                        [services[3]],
+                        "abc.domain.com", "/service1.html")
+
+    delete_all(client, [env])
