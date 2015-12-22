@@ -174,7 +174,7 @@ def test_lb_ssl_scale_up_lb_service(
                                port, ssl_port,
                                domain)
     lb_service = client.update(lb_service, scale=final_lb_scale,
-                               name=services[0].name)
+                               name=lb_service.name)
 
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
@@ -205,7 +205,7 @@ def test_lb_ssl_scale_up_lb_service_passing_cert(
                                port, ssl_port,
                                domain)
     lb_service = client.update(lb_service, scale=final_lb_scale,
-                               name=services[0].name,
+                               name=lb_service.name,
                                default_domain_cert_id=get_cert(domain).id)
 
     lb_service = client.wait_success(lb_service, 120)
@@ -237,7 +237,7 @@ def test_lb_ssl_scale_down_lb_service(
                                port, ssl_port,
                                domain)
     lb_service = client.update(lb_service, scale=final_lb_scale,
-                               name=services[0].name)
+                               name=lb_service.name)
 
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
@@ -277,7 +277,7 @@ def test_lb_ssl_edit_add_cert(
     new_cert = get_cert(new_domain)
     default_domain_cert_id = get_cert(default_domain).id
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                defaultCertificateId=default_domain_cert_id,
                                certificateIds=[new_cert.id])
 
@@ -325,7 +325,7 @@ def test_lb_ssl_edit_edit_cert(
     new_cert = get_cert(new_domain)
     default_domain_cert_id = get_cert(default_domain).id
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                defaultCertificateId=default_domain_cert_id,
                                certificateIds=[new_cert.id])
 
@@ -361,7 +361,7 @@ def test_lb_ssl_swap_default_and_alternate_cert(
     default_domain_cert_id = get_cert(default_domain).id
     alternate_domain_cert_id = get_cert(domain).id
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                defaultCertificateId=alternate_domain_cert_id,
                                certificateIds=[default_domain_cert_id])
 
@@ -400,7 +400,7 @@ def test_lb_ssl_edit_add_more_cert(
     new_cert = get_cert(new_domain)
     default_domain_cert_id = get_cert(default_domain).id
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                defaultCertificateId=default_domain_cert_id,
                                certificateIds=[existing_cert.id, new_cert.id])
 
@@ -439,7 +439,7 @@ def test_lb_ssl_edit_remove_cert(
     existing_cert1 = get_cert(domain1)
     default_domain_cert_id = get_cert(default_domain).id
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                defaultCertificateId=default_domain_cert_id,
                                certificateIds=[existing_cert1.id])
 
@@ -473,7 +473,7 @@ def test_lb_ssl_edit_add_cert_without_setting_default_cert(
     new_domain = dom_list[1]
     new_cert = get_cert(new_domain)
 
-    lb_service = client.update(lb_service, name=services[0].name,
+    lb_service = client.update(lb_service, name=lb_service.name,
                                certificateIds=[new_cert.id])
 
     lb_service = client.wait_success(lb_service, 120)
