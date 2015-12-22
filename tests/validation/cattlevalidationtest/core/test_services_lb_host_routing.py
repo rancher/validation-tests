@@ -1354,7 +1354,7 @@ def test_lbservice_host_routing_wildcard(
 
     validate_lb_service(super_client, client,
                         lb_service, port,
-                        [services[0]],
+                        [services[2]],
                         "abc.domain.com", "/name.html")
 
     validate_lb_service(super_client, client,
@@ -1371,12 +1371,6 @@ def test_lbservice_host_routing_wildcard(
                         lb_service, port,
                         [services[1]],
                         "domain.abc.com", "/name.html")
-    """
-    validate_lb_service(super_client, client,
-                        lb_service, port,
-                        [services[2]],
-                        "abc.domain.com", "/service1.html")
-    """
     delete_all(client, [env])
 
 
