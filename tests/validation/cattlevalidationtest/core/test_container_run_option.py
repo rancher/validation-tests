@@ -25,7 +25,7 @@ def test_container_run_with_options_1(client, test_name,
     cap_drop = ["KILL"]
     user = "root"
     restart_policy = {"maximumRetryCount": 5, "name": "on-failure"}
-    memory = 8000000
+    memory = 16000000
     memory_swap = 16000000
     cpu_set = "0"
     cpu_shares = 400

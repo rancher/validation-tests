@@ -251,12 +251,13 @@ def test_native_ip_inject(client, socat_containers, native_name,
                          tty=True,
                          stdin_open=True,
                          detach=True,
-                         command=['/bin/bash', '-c', 'sleep 10; '
-                                                     'ip addr show eth0'])
+                         command=['/bin/bash', '-c', 'until $(ip addr show | '
+                                                     'grep -q 10.42); '
+                                                     'do sleep 1 && echo .; '
+                                                     'done; ip addr show'])
     rancher_container, _ = start_and_wait(client, docker_container,
                                           docker_client, native_name)
-
-    assert_ip_inject(rancher_container)
+    assert_ip_inject(client.reload(rancher_container))
 
 
 def test_native_container_stats(client, socat_containers, native_name,
@@ -314,7 +315,7 @@ def common_network_asserts(rancher_container, docker_container,
 def wait_on_rancher_container(client, name, timeout=None):
     def check():
         containers = client.list_container(name=name)
-        return len(containers) > 0
+        return len(containers) > 0 and containers[0].state != 'requested'
 
     wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
     r_containers = client.list_container(name=name)
@@ -346,8 +347,8 @@ def test_native_fields(socat_containers, client, pull_images):
                                                       hostname='hostname1',
                                                       domainname='domainname1',
                                                       user='root',
-                                                      mem_limit='4MB',
-                                                      memswap_limit='8MB',
+                                                      mem_limit='16MB',
+                                                      memswap_limit='32MB',
                                                       cpu_shares=1024,
                                                       cpuset='0',
                                                       tty=True,
@@ -360,22 +361,12 @@ def test_native_fields(socat_containers, client, pull_images):
                                                       entrypoint=['/bin/sh'],
                                                       host_config=host_config)
 
-    docker_client.start(docker_container)
-
-    def check():
-        containers = client.list_container(name=name)
-        return len(containers) > 0
-
-    wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
-
-    r_containers = client.list_container(name=name)
-    assert len(r_containers) == 1
-    rancher_container = r_containers[0]
-    rancher_container = client.wait_success(rancher_container)
+    rancher_container, _ = start_and_wait(client, docker_container,
+                                          docker_client, name)
     assert rancher_container.hostname == 'hostname1'
     assert rancher_container.domainName == 'domainname1'
     assert rancher_container.user == 'root'
-    assert rancher_container.memory == 4194304
+    assert rancher_container.memory == 16777216
     assert rancher_container.cpuShares == 1024
     assert rancher_container.cpuSet == '0'
     assert rancher_container.tty is True

@@ -1,0 +1,2 @@
+testextip:
+  image: rancher/external-service

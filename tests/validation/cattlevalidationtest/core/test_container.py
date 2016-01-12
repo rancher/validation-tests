@@ -138,7 +138,7 @@ def test_ip_inject(client, test_name):
 def assert_ip_inject(container):
     ip = container.primaryIpAddress
     logs = container.logs()
-    conn = ws.create_connection(logs.url + '?token=' + logs.token)
+    conn = ws.create_connection(logs.url + '?token=' + logs.token, timeout=10)
     count = 0
     found_ip = False
     while count <= 100:
