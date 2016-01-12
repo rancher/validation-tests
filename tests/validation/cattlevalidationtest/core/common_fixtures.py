@@ -30,7 +30,7 @@ SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
-HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:latest"
+HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
 
