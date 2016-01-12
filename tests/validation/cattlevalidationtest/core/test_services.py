@@ -235,6 +235,31 @@ def test_services_multiple_expose_port(super_client, client):
     delete_all(client, [env])
 
 
+def test_services_random_expose_port(super_client, client):
+
+    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+                     "ports": ["80/tcp", "81/tcp"]
+                     }
+
+    service, env = create_env_and_svc(client, launch_config, 3)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 300)
+
+    port = service.launchConfig["ports"][0]
+    exposedPort1 = int(port[0:port.index(":")])
+    assert exposedPort1 in range(49153, 65535)
+
+    port = service.launchConfig["ports"][1]
+    exposedPort2 = int(port[0:port.index(":")])
+    assert exposedPort2 in range(49153, 65535)
+
+    print service.publicEndpoints
+    validate_exposed_port(super_client, service, [exposedPort1, exposedPort2])
+
+    delete_all(client, [env])
+
+
 def test_environment_activate_deactivate_delete(super_client,
                                                 client,
                                                 socat_containers):
@@ -684,6 +709,29 @@ def test_service_with_healthcheck(super_client, client, socat_containers):
     delete_all(client, [env])
 
 
+def test_service_with_healthcheck_none(super_client, client, socat_containers):
+    scale = 3
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, strategy="none")
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_recreate(
+        super_client, client, socat_containers):
+    scale = 10
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, strategy="recreate")
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_recreateOnQuorum(
+        super_client, client, socat_containers):
+    scale = 10
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, strategy="recreateOnQuorum", qcount=5)
+    delete_all(client, [env])
+
+
 def test_service_with_healthcheck_container_unhealthy(
         super_client, client, socat_containers):
     scale = 2
@@ -696,16 +744,7 @@ def test_service_with_healthcheck_container_unhealthy(
     # failure and service reconcile
     container_list = get_service_container_list(super_client, service)
     con = container_list[1]
-    hostIpAddress = con.dockerHostIp
-
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostIpAddress, username="root",
-                password="root", port=port)
-    cmd = "rm /usr/share/nginx/html/name.html"
-
-    logger.info(cmd)
-    stdin, stdout, stderr = ssh.exec_command(cmd)
+    mark_container_unhealthy(con, port)
 
     wait_for_condition(
         client, con,
@@ -728,6 +767,202 @@ def test_service_with_healthcheck_container_unhealthy(
             client, con,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_none_container_unhealthy(
+        super_client, client, socat_containers):
+    scale = 3
+    port = 801
+
+    env, service = service_with_healthcheck_enabled(client, super_client,
+                                                    scale, port,
+                                                    strategy="none")
+
+    # Delete requestUrl from one of the containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    con1 = container_list[1]
+    mark_container_unhealthy(con1, port)
+
+    # Validate that the container is marked unhealthy
+    wait_for_condition(
+        client, con1,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con1 = client.reload(con1)
+    assert con1.healthState == "unhealthy"
+
+    # Make sure that the container continues to be marked unhealthy
+    # and is in "Running" state
+
+    time.sleep(10)
+    con1 = client.reload(con1)
+    assert con1.healthState == "unhealthy"
+    assert con1.state == "running"
+
+    mark_container_healthy(container_list[1], port)
+    # Make sure that the container gets marked healthy
+
+    wait_for_condition(
+        client, con1,
+        lambda x: x.healthState == 'healthy',
+        lambda x: 'State is: ' + x.healthState)
+    con1 = client.reload(con1)
+    assert con1.healthState == "healthy"
+    assert con1.state == "running"
+
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_quorum_containers_unhealthy_1(
+        super_client, client, socat_containers):
+    scale = 2
+    port = 802
+
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, port, strategy="recreateOnQuorum",
+        qcount=1)
+
+    # Make 1 container unhealthy , so there is 1 container that is healthy
+    container_list = get_service_container_list(super_client, service)
+    con1 = container_list[1]
+    mark_container_unhealthy(con1, port)
+
+    # Validate that the container is marked unhealthy
+    wait_for_condition(
+        client, con1,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con1 = client.reload(con1)
+    assert con1.healthState == "unhealthy"
+
+    # Validate that the containers get removed
+    wait_for_condition(
+        client, con1,
+        lambda x: x.state in ('removed', 'purged'),
+        lambda x: 'State is: ' + x.healthState)
+    wait_for_scale_to_adjust(super_client, service)
+    con = client.reload(con1)
+    assert con.state in ('removed', 'purged')
+
+    # Validate that the service reconciles
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_quorum_container_unhealthy_2(
+        super_client, client, socat_containers):
+    scale = 3
+    port = 803
+
+    env, service = service_with_healthcheck_enabled(
+        client, super_client, scale, port, strategy="recreateOnQuorum",
+        qcount=2)
+
+    # Make 2 containers unhealthy , so 1 container is healthy state
+    container_list = get_service_container_list(super_client, service)
+
+    unhealthy_containers = [container_list[1],
+                            container_list[2]]
+
+    for con in unhealthy_containers:
+        mark_container_unhealthy(con, port)
+
+    # Validate that the container is marked unhealthy
+    for con in unhealthy_containers:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'unhealthy',
+            lambda x: 'State is: ' + x.healthState)
+        con = client.reload(con)
+        assert con.healthState == "unhealthy"
+
+    # Make sure that the container continues to be marked unhealthy
+    # and is in "Running" state
+    time.sleep(10)
+    for con in unhealthy_containers:
+        con = client.reload(con)
+        assert con.healthState == "unhealthy"
+        assert con.state == "running"
+
+    delete_all(client, [env])
+
+
+def test_dns_service_with_healthcheck_none_container_unhealthy(
+        super_client, client, socat_containers):
+
+    scale = 3
+    port = 804
+    cport = 805
+
+    # Create HealthCheck enabled Service
+    env, service = service_with_healthcheck_enabled(client, super_client,
+                                                    scale, port,
+                                                    strategy="none")
+    # Create Client Service for DNS access check
+    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+                         "ports": [str(cport)+":22/tcp"]}
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    client_service = client.create_service(name=service_name,
+                                           environmentId=env.id,
+                                           launchConfig=launch_config_svc,
+                                           scale=1)
+    client_service = client.wait_success(client_service)
+    assert client_service.state == "inactive"
+    client_service = client.wait_success(client_service.activate())
+    assert client_service.state == "active"
+
+    # Check for DNS resolution
+    validate_linked_service(super_client, client_service, [service], cport)
+
+    # Delete requestUrl from one of the containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    con1 = container_list[1]
+    mark_container_unhealthy(con1, port)
+
+    # Validate that the container is marked unhealthy
+    wait_for_condition(
+        client, con1,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con1 = client.reload(con1)
+    assert con1.healthState == "unhealthy"
+
+    # Check for DNS resolution
+    validate_linked_service(super_client, client_service, [service],
+                            cport, exclude_instance=con1)
+
+    # Make sure that the container continues to be marked unhealthy
+    # and is in "Running" state
+
+    time.sleep(10)
+    con1 = client.reload(con1)
+    assert con1.healthState == "unhealthy"
+    assert con1.state == "running"
+
+    mark_container_healthy(container_list[1], port)
+
+    # Make sure that the container gets marked healthy
+
+    wait_for_condition(
+        client, con1,
+        lambda x: x.healthState == 'healthy',
+        lambda x: 'State is: ' + x.healthState)
+    con1 = client.reload(con1)
+    assert con1.healthState == "healthy"
+    assert con1.state == "running"
+
+    # Check for DNS resolution
+    validate_linked_service(super_client, client_service, [service], cport)
+
     delete_all(client, [env])
 
 
@@ -1120,7 +1355,8 @@ def check_for_service_reconciliation_on_delete(super_client, client, service):
 
 
 def service_with_healthcheck_enabled(client, super_client, scale, port=None,
-                                     protocol="http", labels=None):
+                                     protocol="http", labels=None,
+                                     strategy=None, qcount=None):
     health_check = {"name": "check1", "responseTimeout": 2000,
                     "interval": 2000, "healthyThreshold": 2,
                     "unhealthyThreshold": 3}
@@ -1136,6 +1372,10 @@ def service_with_healthcheck_enabled(client, super_client, scale, port=None,
         health_check["requestLine"] = ""
         health_check["port"] = 22
 
+    if strategy is not None:
+        health_check["strategy"] = strategy
+        if strategy == "recreateOnQuorum":
+            health_check['recreateOnQuorumStrategyConfig'] = {"quorum": qcount}
     if port is not None:
         launch_config["ports"] = [str(port)+":22/tcp"]
     if labels is not None:
@@ -1158,3 +1398,29 @@ def check_for_healthstate(client, super_client, service):
             client, con,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
+
+
+def mark_container_unhealthy(con, port):
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "mv /usr/share/nginx/html/name.html name1.html"
+
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+
+
+def mark_container_healthy(con, port):
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "mv name1.html /usr/share/nginx/html/name.html"
+
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
