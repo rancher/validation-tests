@@ -78,7 +78,8 @@ def get_authed_token(username=None,
         driver.find_element_by_class_name('btn').click()
     except:
         pass
-    urlx = "https://github.com/login/oauth/authorize?response_type=code&client_id=" +\
+    urlx = "https://github.com/login/oauth/authorize?" + \
+           "response_type=code&client_id=" +\
            GITHUB_CLIENT_ID + "&scope=read:org"
     driver.get('https://github.com/login')
     try:

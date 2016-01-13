@@ -240,7 +240,6 @@ def test_services_random_expose_port(super_client, client):
     launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports": ["80/tcp", "81/tcp"]
                      }
-
     service, env = create_env_and_svc(client, launch_config, 3)
 
     env = env.activateservices()
@@ -258,6 +257,74 @@ def test_services_random_expose_port(super_client, client):
     validate_exposed_port(super_client, service, [exposedPort1, exposedPort2])
 
     delete_all(client, [env])
+
+
+def test_services_random_expose_port_exhaustrange(
+        super_client, admin_client, client):
+
+    # Set random port range to 6 ports and exhaust 5 of them by creating a
+    # service that has 5 random ports exposed
+    project = admin_client.list_project()[0]
+    admin_client.update(
+        project, servicesPortRange={"startPort": 65500, "endPort": 65505})
+
+    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+                     "ports":
+                         ["80/tcp", "81/tcp", "82/tcp", "83/tcp", "84/tcp"]
+                     }
+
+    service, env = create_env_and_svc(client, launch_config, 3)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 60)
+    assert service.publicEndpoints is not None
+    assert len(service.publicEndpoints) == 15
+
+    exposedPorts = []
+    for i in range(0, 5):
+        port = service.launchConfig["ports"][0]
+        exposedPort = int(port[0:port.index(":")])
+        exposedPorts.append(exposedPort)
+        assert exposedPort in range(65500, 65506)
+
+    validate_exposed_port(super_client, service, exposedPorts)
+
+    # Create a service that has 2 random exposed ports when there is only 1
+    # free port available in the random port range
+    # Validate that the service gets created with no ports exposed
+
+    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+                     "ports":
+                         ["80/tcp", "81/tcp"]
+                     }
+
+    service1, env1 = create_env_and_svc(client, launch_config, 3)
+    env1 = env1.activateservices()
+    service1 = client.wait_success(service1, 60)
+    assert service1.publicEndpoints is None
+
+    # Delete the service that consumed 5 random ports
+    delete_all(client, [env])
+
+    # Create a service that has 2 random exposed ports and validate that
+    # the service gets exposed in 2 random ports from the range
+
+    service2, env2 = create_env_and_svc(client, launch_config, 3)
+    env2 = env2.activateservices()
+    service2 = client.wait_success(service2, 60)
+    assert service2.publicEndpoints is not None
+    assert len(service2.publicEndpoints) == 6
+
+    exposedPorts = []
+    for i in range(0, 2):
+        port = service2.launchConfig["ports"][0]
+        exposedPort = int(port[0:port.index(":")])
+        exposedPorts.append(exposedPort)
+        assert exposedPort in range(65500, 65506)
+
+    validate_exposed_port(super_client, service2, exposedPorts)
+
+    delete_all(client, [env1, env2])
 
 
 def test_environment_activate_deactivate_delete(super_client,
@@ -812,6 +879,61 @@ def test_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "healthy"
     assert con1.state == "running"
 
+    delete_all(client, [env])
+
+
+def test_service_with_healthcheck_none_container_unhealthy_delete(
+        super_client, client, socat_containers):
+    scale = 3
+    port = 801
+
+    env, service = service_with_healthcheck_enabled(client, super_client,
+                                                    scale, port,
+                                                    strategy="none")
+
+    # Delete requestUrl from containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    unhealthy_containers = [container_list[0],
+                            container_list[1]]
+
+    for con in unhealthy_containers:
+        mark_container_unhealthy(con, port)
+
+    # Validate that the container is marked unhealthy
+    for con in unhealthy_containers:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'unhealthy',
+            lambda x: 'State is: ' + x.healthState)
+        con = client.reload(con)
+        assert con.healthState == "unhealthy"
+
+    # Make sure that the container continues to be marked unhealthy
+    # and is in "Running" state
+
+    time.sleep(10)
+    for con in unhealthy_containers:
+        con = client.reload(con)
+        assert con.healthState == "unhealthy"
+        assert con.state == "running"
+
+    # Delete 2 containers that are unhealthy
+    for con in unhealthy_containers:
+        container = client.wait_success(client.delete(con))
+        assert container.state == 'removed'
+
+    # Validate that the service reconciles on deletion of unhealthy containers
+    wait_for_scale_to_adjust(super_client, service)
+    check_container_in_service(super_client, service)
+
+    # Validate that all containers of the service get to "healthy" state
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
     delete_all(client, [env])
 
 

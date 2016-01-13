@@ -82,7 +82,8 @@ def github_request_code(config, cattle_url, admin_client, request, user=None):
                                      accessMode='unrestricted',
                                      clientId=config['client_id'],
                                      clientSecret=config['client_secret'])
-    urlx = "https://github.com/login/oauth/authorize?response_type=code&client_id=" +\
+    urlx = "https://github.com/login/oauth/authorize?" +\
+           "response_type=code&client_id=" +\
            config['client_id'] + "&scope=read:org"
     driver.get(urlx)
     driver.find_element_by_id('login_field').send_keys(username)
@@ -143,11 +144,11 @@ def diff_members(members, got_members):
     members_a = set([])
     members_b = set([])
     for member in members:
-        members_a.add(member['externalId'] + '  ' + member['externalIdType']
-                      + '  ' + member['role'])
+        members_a.add(member['externalId'] + '  ' + member['externalIdType'] +
+                      '  ' + member['role'])
     for member in got_members:
-        members_b.add(member['externalId'] + '  ' + member['externalIdType']
-                      + '  ' + member['role'])
+        members_b.add(member['externalId'] + '  ' + member['externalIdType'] +
+                      '  ' + member['role'])
     assert members_a == members_b
 
 
