@@ -1325,61 +1325,34 @@ class TestLBServicesLBInstanceRestart:
         delete_all(client, [env])
 
 
-@pytest.mark.skipif(True, reason='Needs QA debugging')
-class TestLBServicesLBInstanceDelete:
+def test_lb_services_lb_instance_delete(
+        super_client, client, socat_containers):
 
-    testname = "TestLBServicesLBInstanceDelete"
     port = "9016"
+
     service_scale = 2
     lb_scale = 2
+    testname = "TestLBServicesLBInstanceDelete"
+    env, service, lb_service = create_environment_with_lb_services(
+        testname, super_client, client, service_scale, lb_scale, port)
 
-    def test_lb_services_lb_instance_delete_create(
-            self, super_client, client, socat_containers):
+    validate_lb_service(super_client, client, lb_service, port, [service])
 
-        env, service, lb_service = create_environment_with_lb_services(
-            self.testname, super_client, client, self.service_scale,
-            self.lb_scale, self.port)
+    lb_instances = get_service_container_list(super_client, lb_service)
+    assert len(lb_instances) == lb_scale
+    lb_instance = lb_instances[0]
 
-        validate_lb_service(super_client, client, lb_service, self.port,
-                            [service])
+    # delete lb instance
+    lb_instance = client.wait_success(client.delete(lb_instance))
+    assert lb_instance.state == 'removed'
 
-        lb_instances = get_service_container_list(super_client, lb_service)
-        assert len(lb_instances) == self.lb_scale
-        lb_instance = lb_instances[0]
+    wait_for_scale_to_adjust(super_client, lb_service)
 
-        # delete lb instance
-        lb_instance = client.wait_success(client.delete(lb_instance))
-        assert lb_instance.state == 'removed'
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service], lb_service)
+    validate_lb_service(super_client, client, lb_service, port, [service])
 
-        wait_for_scale_to_adjust(super_client, lb_service)
-
-        wait_for_lb_service_to_become_active(super_client, client,
-                                             [service], lb_service)
-
-        data = [env.uuid, service.uuid, lb_service.uuid]
-        logger.info("data to save: %s", data)
-        save(data, self)
-
-    def test_lb_services_lb_instance_delete_validate(
-            self, super_client, client, socat_containers):
-
-        data = load(self)
-
-        env = client.list_environment(uuid=data[0])[0]
-        logger.info("env is: %s", format(env))
-
-        service = client.list_service(uuid=data[1])[0]
-        assert len(service) > 0
-        logger.info("service1 is: %s", format(service))
-
-        lb_service = client.list_service(uuid=data[2])[0]
-        assert len(lb_service) > 0
-        logger.info("lb service is: %s", format(lb_service))
-
-        validate_lb_service(super_client, client, lb_service, self.port,
-                            [service])
-
-        delete_all(client, [env])
+    delete_all(client, [env])
 
 
 @pytest.mark.P0

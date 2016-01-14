@@ -11,8 +11,7 @@ import argparse
 import os
 import paramiko
 import requests
-
-logger = logging.getLogger(__name__)
+import sys
 
 
 def main():
@@ -21,6 +20,9 @@ def main():
     parser.add_argument('-t', help='target version')
     parser.add_argument('-s', help='server node')
     parser.add_argument('-u', help='ssh username of rancher server host')
+    parser.add_argument('-script',
+                        help='provide the script or give "/" for all tests')
+
     args = parser.parse_args()
 
     tmp_dir = os.path.join(root_dir, 'tmp')
@@ -45,14 +47,14 @@ def main():
     logger.info("core_target_dir is: %s", core_target_dir)
 
     upgrade_test(args.b, args.t, args.s, args.u, tmp_dir, core_dir,
-                 core_target_dir, core_target_checkedout_dir)
+                 core_target_dir, core_target_checkedout_dir, args.script)
 
 
 def upgrade_test(base, target, servernode, username, tmp_dir, core_dir,
-                 core_target_dir, core_target_checkedout_dir):
+                 core_target_dir, core_target_checkedout_dir, script_to_test):
     logger.info("CREATING SERVICES NOW IN BASE SETUP...")
     # create_cmd = "py.test " + core_dir + "/ -v -m create -s"
-    create_cmd = "py.test " + core_dir + "/test_services_lb.py -v -m create -s"
+    create_cmd = "py.test -s --junit-xml=results_create.xml " + core_dir + script_to_test+" -v -m create -s"
 
     logger.info("create command is: %s", create_cmd)
 
@@ -65,12 +67,14 @@ def upgrade_test(base, target, servernode, username, tmp_dir, core_dir,
     #           "https://github.com/aruneli/rancher-tests.git")
     logger.info("COPYING TARGET LIBRARIES in core_target folder...")
 
-    os.system(("cp -r " + tmp_dir + "/*.py " + core_target_dir))
+    os.system(("cp -r " + tmp_dir + "/test_*.py " + core_target_dir))
+    os.system(("cp -r " + tmp_dir + "/common_fixtures.py " + core_target_dir))
+
     logger.info("VALIDATING UPGRADED SETUP NOW WITH TARGET")
 
     # validate_cmd = "py.test " + core_target_dir + "/ -v -m validate -s"
-    validate_cmd = "py.test " + core_target_dir + \
-                   "/test_services_lb.py -v -m validate -s"
+    validate_cmd =\
+        "py.test -s --junit-xml=results_validate.xml " + core_target_dir + script_to_test+" -v -m validate -s"
     logger.info(validate_cmd)
 
     os.system(validate_cmd)
@@ -117,6 +121,7 @@ def upgrade_rancher_server(base, target, servernode, username):
     try:
         cmd = "sudo docker ps"
         # Send the command (non-blocking)
+        logger.info("command being executed %s:", cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
         logger.info(response)
@@ -126,83 +131,72 @@ def upgrade_rancher_server(base, target, servernode, username):
     try:
         cmd = "sudo docker stop $(sudo docker ps -q | awk '{print $1}')"
         # Send the command (non-blocking)
+        logger.info("command being executed %s:", cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         server_container_id = stdout.readlines()[0].strip("\n")
         logger.info(server_container_id)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker ps -a | awk ' NR>1 {print $2}' | cut -d \: -f 2" \
               " | cut -d \\v -f 2"
         # Send the command (non-blocking)
+        logger.info("command being executed %s:", cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         tag_of_previous_rancher_server = stdout.readlines()[0].strip("\n")
         logger.info(tag_of_previous_rancher_server)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker create --volumes-from " + server_container_id + \
               " --name rancher-data rancher/server:v"\
               + tag_of_previous_rancher_server
+        logger.info("command being executed %s:", cmd)
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
         logger.info(response)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker pull rancher/server:v" + target
+        logger.info("command being executed %s:", cmd)
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
         logger.info(response)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker run -d --volumes-from rancher-data " \
               "--restart=always -p 8080:8080 rancher/server:v" + target
+        logger.info("command being executed %s:", cmd)
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
         logger.info(response)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker ps | awk ' NR>1 {print $2}' | cut -d \: -f 2| " \
               "cut -d \\v -f 2"
+        logger.info("command being executed %s:", cmd)
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         tag_of_rancher_version_after_upgrade = \
             stdout.readlines()[0].strip("\n")
         logger.info("tag_of_rancher_version_after_upgrade is: %s",
                     tag_of_rancher_version_after_upgrade)
-    except:
-        logger.info("Execution of cmd %s failed", cmd)
 
-    try:
         cmd = "sudo docker ps | awk ' NR>1 {print $8}' "
+        logger.info("command being executed %s:", cmd)
         # Send the command (non-blocking)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         state_of_rancher_server_container_after_upgrade = \
             stdout.readlines()[0].strip("\n")
         logger.info("state_of_rancher_server_container_after_upgrade is: %s",
                     state_of_rancher_server_container_after_upgrade)
+
+        time.sleep(90)
+
+        if tag_of_rancher_version_after_upgrade == target and \
+                state_of_rancher_server_container_after_upgrade == "Up":
+            server = 'http://' + servernode + ":8080"
+            if requests.get(server).status_code == 200:
+                logger.info(
+                    "UPGRADE RANCHER SERVER TO TARGET COMPLETE AND SUCCESSFUL")
     except:
         logger.info("Execution of cmd %s failed", cmd)
-
-    time.sleep(90)
-
-    if tag_of_rancher_version_after_upgrade == target and \
-            state_of_rancher_server_container_after_upgrade == "Up":
-        server = 'http://' + servernode + ":8080"
-        if requests.get(server).status_code == 200:
-            logger.info(
-                "UPGRADE RANCHER SERVER TO TARGET COMPLETE AND SUCCESSFUL")
 
     ssh.close()
 
