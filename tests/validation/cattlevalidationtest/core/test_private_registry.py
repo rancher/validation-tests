@@ -27,10 +27,10 @@ if_quay_creds_available = pytest.mark.skipif(
            'or tests are run in parallel')
 
 if_docker_creds_available = pytest.mark.skipif(
-    None in dockerhub_creds.values() or "" in dockerhub_creds.values()
-    or multiThreaded,
-    reason='Not all Docker credentials are avaialable '
-           'or tests are run in parallel')
+    None in dockerhub_creds.values() or
+    "" in dockerhub_creds.values() or
+    multiThreaded, reason='Not all Docker credentials are avaialable' +
+                          'or tests are run in parallel')
 
 print quay_creds.values()
 print dockerhub_creds.values()

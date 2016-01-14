@@ -239,8 +239,8 @@ def test_lb_add_target(client):
         loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
-    logger.info("Check LB access after adding target with container name: "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after adding target with container name: " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
@@ -279,8 +279,8 @@ def test_lb_remove_target(client):
         loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_add_target(client, con1, lb)
 
-    logger.info("Check LB access after adding target with container name: "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after adding target with container name: " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
@@ -291,8 +291,8 @@ def test_lb_remove_target(client):
         loadBalancerTarget={"instanceId": con1.id, "ports": ["80"]})
     validate_remove_target(client, con1, lb)
 
-    logger.info("Check LB access after removing target with container name: "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after removing target with container name: " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
@@ -488,8 +488,8 @@ def test_lb_container_lifecycle_stop_start(client):
     con1 = client.wait_success(con1.stop())
     assert con1.state == 'stopped'
 
-    logger.info("Check LB access after stopping container "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after stopping container " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
@@ -498,8 +498,8 @@ def test_lb_container_lifecycle_stop_start(client):
     con1 = client.wait_success(con1.start())
     assert con1.state == 'running'
 
-    logger.info("Check LB access after starting container "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after starting container " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
@@ -552,8 +552,8 @@ def test_lb_container_lifecycle_delete_restore(client):
     con1 = client.wait_success(client.delete(con1))
     assert con1.state == 'removed'
 
-    logger.info("Check LB access after deleting container "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after deleting container " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
@@ -565,8 +565,8 @@ def test_lb_container_lifecycle_delete_restore(client):
     con1 = client.wait_success(con1.start())
     assert con1.state == 'running'
 
-    logger.info("Check LB access after restoring container "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after restoring container " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES
     check_round_robin_access(con_hostname, host, port)
@@ -594,8 +594,8 @@ def test_lb_container_lifecycle_delete_purge(client):
 
     con1 = client.wait_success(con1.purge())
 
-    logger.info("Check LB access after purging container "
-                + CONTAINER_HOST_NAMES[2])
+    logger.info("Check LB access after purging container " +
+                CONTAINER_HOST_NAMES[2])
 
     con_hostname = CONTAINER_HOST_NAMES[0:2]
     check_round_robin_access(con_hostname, host, port)
