@@ -1,9 +1,12 @@
 #!/usr/bin/python
 
-import time, errno, subprocess, os, random, datetime
+import os
+import random
+import subprocess
+import time
+from datetime import datetime
 from socket import error as socket_error
-from time import localtime, strftime
-from datetime import datetime, timedelta
+
 
 def log(msg):
     sys.stdout.write(datetime.now().strftime("%H:%M:%S : ") + msg + "\n")
@@ -115,7 +118,6 @@ os.system("rm -f big*")
 #  - this thing must be run from the $objdir
 sys.path.append('libs/block')
 sys.path.append('3rd-party/protobuf/python')
-import block_pb2
 
 # Enable core dump generation. 
 # Note: the 'setrlimit' call below fails if the 'ulimit -c' is not set to 'unlimited' 

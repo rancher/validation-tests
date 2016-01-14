@@ -76,7 +76,8 @@ Commands:
         parser.error("Need a <command> at the end of the command line!")
 
     return (opt, args)
-                        
+
+
 class Connection:
     def __init__(self, debug):
         self.s_ = socket.socket()
