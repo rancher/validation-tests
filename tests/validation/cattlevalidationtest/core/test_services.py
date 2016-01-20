@@ -840,7 +840,7 @@ def test_service_with_healthcheck_container_unhealthy(
 def test_service_with_healthcheck_none_container_unhealthy(
         super_client, client, socat_containers):
     scale = 3
-    port = 801
+    port = 800
 
     env, service = service_with_healthcheck_enabled(client, super_client,
                                                     scale, port,
