@@ -264,7 +264,7 @@ def test_services_random_expose_port_exhaustrange(
 
     # Set random port range to 6 ports and exhaust 5 of them by creating a
     # service that has 5 random ports exposed
-    project = admin_client.list_project()[0]
+    project = admin_client.list_project(uuid="adminProject")[0]
     admin_client.update(
         project, servicesPortRange={"startPort": 65500, "endPort": 65505})
 
@@ -305,6 +305,13 @@ def test_services_random_expose_port_exhaustrange(
 
     # Delete the service that consumed 5 random ports
     delete_all(client, [env])
+
+    wait_for_condition(
+        super_client, service,
+        lambda x: x.state == "removed",
+        lambda x: 'State is: ' + x.state)
+    service = client.reload(service)
+    assert service.state == "removed"
 
     # Create a service that has 2 random exposed ports and validate that
     # the service gets exposed in 2 random ports from the range
