@@ -12,7 +12,7 @@ size = "1gb"
 
 # Digital Ocean default configurations
 default_size = "512mb"
-default_image_name = "ubuntu-14-04-x64"
+default_image_name = "ubuntu-15-10-x64"
 default_region = "nyc3"
 
 
@@ -269,14 +269,36 @@ def wait_for_host(client, machine):
                               )
     return machine
 
-
-def check_host_in_digital_ocean(ipaddress):
-    url = 'https://api.digitalocean.com/v2/droplets'
+def get_droplet_page(url):
     headers = {'Authorization': "Bearer " + access_key}
     r = requests.get(url, headers=headers)
     response = r.json()
     r.close()
-    droplet_list = response["droplets"]
+    return response
+
+
+def get_droplets():
+    url = 'https://api.digitalocean.com/v2/droplets?per_page=200'
+    response = get_droplet_page(url)
+    droplets = []
+    for droplet in response['droplets']:
+        droplets.append(droplet)
+    try:
+        next = response['links']['pages']['next']
+    except KeyError:
+        return droplets
+    while True:
+        response = get_droplet_page(next)
+        for droplet in response['droplets']:
+            droplets.append(droplet)
+        try:
+            next = response['links']['pages']['next']
+        except KeyError:
+            return droplets
+
+
+def check_host_in_digital_ocean(ipaddress):
+    droplet_list = get_droplets()
     matched_droplet = None
 
     for droplet in droplet_list:
@@ -289,12 +311,7 @@ def check_host_in_digital_ocean(ipaddress):
 
 def delete_host_in_digital_ocean(name):
     try:
-        url = 'https://api.digitalocean.com/v2/droplets'
-        headers = {'Authorization': "Bearer " + access_key}
-        r = requests.get(url, headers=headers)
-        response = r.json()
-        r.close()
-        droplet_list = response["droplets"]
+        droplet_list = get_droplets()
 
         for droplet in droplet_list:
             if droplet["name"] == name:
