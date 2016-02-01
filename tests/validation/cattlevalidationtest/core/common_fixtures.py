@@ -9,6 +9,7 @@ import logging
 import paramiko
 import inspect
 import re
+import json
 from docker import Client
 
 logging.basicConfig()
@@ -437,6 +438,84 @@ def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
                 raise Exception('Timeout waiting for condition')
         ret = callback()
     return ret
+
+
+@pytest.fixture(scope='session')
+def glusterfs_glusterconvoy(client, super_client, request):
+    catalog_url = cattle_url() + "/v1-catalog/templates/library:"
+
+    # Deploy GlusterFS template from catalog
+    r = requests.get(catalog_url + "glusterfs:0")
+    template = json.loads(r.content)
+    r.close()
+
+    dockerCompose = template["dockerCompose"]
+    rancherCompose = template["rancherCompose"]
+    environment = {}
+    questions = template["questions"]
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        environment[label] = value
+
+    env = client.create_environment(name="glusterfs",
+                                    dockerCompose=dockerCompose,
+                                    rancherCompose=rancherCompose,
+                                    environment=environment,
+                                    startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    assert env.state == "active"
+
+    for service in env.services():
+        wait_for_condition(
+            super_client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+
+    # Deploy ConvoyGluster template from catalog
+
+    r = requests.get(catalog_url + "convoy-gluster:1")
+    template = json.loads(r.content)
+    r.close()
+    dockerCompose = template["dockerCompose"]
+    rancherCompose = template["rancherCompose"]
+    environment = {}
+    questions = template["questions"]
+    print questions
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        environment[label] = value
+    environment["GLUSTERFS_SERVICE"] = "glusterfs/glusterfs-server"
+    env = client.create_environment(name="convoy-gluster",
+                                    dockerCompose=dockerCompose,
+                                    rancherCompose=rancherCompose,
+                                    environment=environment,
+                                    startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+
+    for service in env.services():
+        wait_for_condition(
+            super_client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+
+    # Verify that storage pool is created
+    storagepools = client.list_storage_pool(removed_null=True,
+                                            include="hosts",
+                                            kind="storagePool")
+    print storagepools
+    assert len(storagepools) == 1
+
+    def remove():
+        env1 = client.list_environment(name="glusterfs")
+        assert len(env1) == 1
+        env2 = client.list_environment(name="convoy-gluster")
+        assert len(env2) == 1
+        delete_all(client, [env1[0], env2[0]])
+    request.addfinalizer(remove)
 
 
 @pytest.fixture(scope='session')
@@ -965,7 +1044,7 @@ def validate_dns_service(super_client, service, consumed_services,
                 if con.networkMode == "host":
                     con_host = super_client.by_id('host', con.hosts[0].id)
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
-                    expected_link_response.append(con_host.name)
+                    expected_link_response.append(con_host.hostname)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
                     expected_link_response.append(con.externalId[:12])
@@ -1423,10 +1502,10 @@ def create_env_with_ext_svc(client, scale_svc, port, hostname=False):
     return env, service, ext_service, con_list
 
 
-def create_env_and_svc(client, launch_config, scale):
+def create_env_and_svc(client, launch_config, scale, retainIp=False):
 
     env = create_env(client)
-    service = create_svc(client, env, launch_config, scale)
+    service = create_svc(client, env, launch_config, scale, retainIp)
     return service, env
 
 
@@ -1448,14 +1527,15 @@ def check_container_in_service(super_client, service):
         assert inspect["State"]["Running"]
 
 
-def create_svc(client, env, launch_config, scale):
+def create_svc(client, env, launch_config, scale, retainIp=False):
 
     random_name = random_str()
     service_name = random_name.replace("-", "")
     service = client.create_service(name=service_name,
                                     environmentId=env.id,
                                     launchConfig=launch_config,
-                                    scale=scale)
+                                    scale=scale,
+                                    retainIp=retainIp)
 
     service = client.wait_success(service)
     assert service.state == "inactive"

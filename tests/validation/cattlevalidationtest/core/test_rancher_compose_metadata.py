@@ -95,7 +95,7 @@ def test_metadata_self_2015_12_19(
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
         assert metadata["labels"] == host.labels
-        assert metadata["name"] == host.name
+        assert metadata["name"] == host.hostname
         assert metadata["uuid"] == host.uuid
 
         # Stack related metadata
@@ -106,6 +106,10 @@ def test_metadata_self_2015_12_19(
 
         assert metadata["environment_name"] == "Default"
         # Check for service object list
+
+        # Set token value to None in service metadata object returned
+        # from self before comparing service object retrieved by index
+        service_metadata["token"] = None
         assert cmp(metadata["services"][0], service_metadata) == 0
 
         assert metadata["name"] == env.name
@@ -263,7 +267,7 @@ def test_metadata_self_2015_07_25(
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
         assert metadata["labels"] == host.labels
-        assert metadata["name"] == host.name
+        assert metadata["name"] == host.hostname
         assert metadata["uuid"] == host.uuid
 
         # Stack related metadata
@@ -629,7 +633,7 @@ def test_metadata_hostnet(super_client, client, rancher_compose_container):
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
         assert metadata["labels"] == host.labels
-        assert metadata["name"] == host.name
+        assert metadata["name"] == host.hostname
         assert metadata["uuid"] == host.uuid
     delete_all(client, [env])
 
