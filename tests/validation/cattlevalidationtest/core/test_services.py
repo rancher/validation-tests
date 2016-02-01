@@ -48,17 +48,19 @@ def deactivate_activate_service(super_client, client, service):
     return service
 
 
-def create_env_and_svc_activate(super_client, client, scale, check=True):
+def create_env_and_svc_activate(super_client, client, scale, check=True,
+                                retainIp=False):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc_activate_launch_config(
-        super_client, client, launch_config, scale, check)
+        super_client, client, launch_config, scale, check, retainIp)
     return service, env
 
 
 def create_env_and_svc_activate_launch_config(
-        super_client, client, launch_config, scale, check=True):
+        super_client, client, launch_config, scale,
+        check=True, retainIp=False):
     start_time = time.time()
-    service, env = create_env_and_svc(client, launch_config, scale)
+    service, env = create_env_and_svc(client, launch_config, scale, retainIp)
     service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
@@ -844,6 +846,64 @@ def test_service_with_healthcheck_container_unhealthy(
     delete_all(client, [env])
 
 
+def test_service_with_healthcheck_container_unhealthy_retainip(
+        super_client, client, socat_containers):
+    scale = 2
+    port = 799
+
+    env, service = service_with_healthcheck_enabled(client, super_client,
+                                                    scale, port,
+                                                    retainIp=True)
+
+    # Delete requestUrl from one of the containers to trigger health check
+    # failure and service reconcile
+    container_list = get_service_container_list(super_client, service)
+    con = container_list[1]
+    con_name = con.name
+    external_id = con.externalId
+    ipAddress = con.primaryIpAddress
+    mark_container_unhealthy(con, port)
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con = client.reload(con)
+    assert con.healthState == "unhealthy"
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.state in ('removed', 'purged'),
+        lambda x: 'State is: ' + x.healthState)
+    wait_for_scale_to_adjust(super_client, service)
+    con = client.reload(con)
+    assert con.state in ('removed', 'purged')
+
+    container_list = get_service_container_list(super_client, service)
+    for con in container_list:
+        wait_for_condition(
+            client, con,
+            lambda x: x.healthState == 'healthy',
+            lambda x: 'State is: ' + x.healthState)
+
+    # Make sure that the new container that was created has the same ip as the
+    # Unhealthy container
+
+    containers = super_client.list_container(name=con_name,
+                                             removed_null=True)
+    assert len(containers) == 1
+    container = containers[0]
+    assert container.state == 'running'
+
+    new_ipAddress = container.primaryIpAddress
+    new_externalId = container.externalId
+
+    assert ipAddress == new_ipAddress
+    assert external_id != new_externalId
+
+    delete_all(client, [env])
+
+
 def test_service_with_healthcheck_none_container_unhealthy(
         super_client, client, socat_containers):
     scale = 3
@@ -1238,6 +1298,38 @@ def test_service_name_unique_edit(super_client, client):
     delete_all(client, [env])
 
 
+def test_service_retain_ip(super_client, client):
+    launch_config = {"imageUuid": SSH_IMAGE_UUID}
+    service, env = create_env_and_svc(client, launch_config, 3, retainIp=True)
+    service = service.activate()
+    service = client.wait_success(service, 300)
+    assert service.state == "active"
+
+    container_name = env.name + "_" + service.name+"_1"
+    containers = super_client.list_container(name=container_name,
+                                             removed_null=True)
+    assert len(containers) == 1
+    container = containers[0]
+    ipAddress = container.primaryIpAddress
+    externalId = container.externalId
+
+    container = client.wait_success(client.delete(container))
+    assert container.state == 'removed'
+    wait_for_scale_to_adjust(super_client, service)
+
+    container_name = env.name + "_" + service.name+"_1"
+    containers = super_client.list_container(name=container_name,
+                                             removed_null=True)
+    assert len(containers) == 1
+    container = containers[0]
+    assert container.state == 'running'
+    new_ipAddress = container.primaryIpAddress
+    new_externalId = container.externalId
+
+    assert ipAddress == new_ipAddress
+    assert externalId != new_externalId
+
+
 def check_service_scale(super_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
@@ -1485,7 +1577,8 @@ def check_for_service_reconciliation_on_delete(super_client, client, service):
 
 def service_with_healthcheck_enabled(client, super_client, scale, port=None,
                                      protocol="http", labels=None,
-                                     strategy=None, qcount=None):
+                                     strategy=None, qcount=None,
+                                     retainIp=False):
     health_check = {"name": "check1", "responseTimeout": 2000,
                     "interval": 2000, "healthyThreshold": 2,
                     "unhealthyThreshold": 3}
@@ -1510,7 +1603,7 @@ def service_with_healthcheck_enabled(client, super_client, scale, port=None,
     if labels is not None:
         launch_config["labels"] = labels
     service, env = create_env_and_svc_activate_launch_config(
-        super_client, client, launch_config, scale)
+        super_client, client, launch_config, scale, retainIp=retainIp)
     container_list = get_service_container_list(super_client, service)
     for con in container_list:
         wait_for_condition(
