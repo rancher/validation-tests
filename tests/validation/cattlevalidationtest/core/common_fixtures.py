@@ -943,7 +943,7 @@ def validate_linked_service(super_client, service, consumed_services,
                         con_host = super_client.by_id('host', con.hosts[0].id)
                         expected_dns_list.append(
                             con_host.ipAddresses()[0].address)
-                        expected_link_response.append(con_host.name)
+                        expected_link_response.append(con_host.hostname)
                     else:
                         expected_dns_list.append(con.primaryIpAddress)
                         expected_link_response.append(con.externalId[:12])
