@@ -1075,6 +1075,182 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
     delete_all(client, [env])
 
 
+@if_compose_data_files
+def test_rancher_compose_inservice_upgrade_confirm_retainip(
+        super_client, client, rancher_compose_container):
+
+    # Create a service with retainIp=True for upgrade
+    env_name = random_str().replace("-", "")
+    random_name = random_str()
+    env_name = random_name.replace("-", "")
+    env = client.create_environment(name=env_name)
+    env = client.wait_success(env)
+    assert env.state == "active"
+
+    # Create Service
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "labels": {"test1": "value1"}
+                     }
+    service_name = "test1"
+    service = client.create_service(name=service_name,
+                                    environmentId=env.id,
+                                    launchConfig=launch_config,
+                                    retainIp=True,
+                                    scale=5)
+
+    service = client.wait_success(service)
+    assert service.state == "inactive"
+    activate_svc(client, service)
+    check_config_for_service(super_client, service, {"test1": "value1"}, 1)
+
+    containerips_before_upgrade = {}
+    for i in range(1, 6):
+        container_name = env.name + "_" + service.name+"_" + str(i)
+        containers = super_client.list_container(name=container_name,
+                                                 removed_null=True)
+        assert len(containers) == 1
+        containerips_before_upgrade[container_name+"ip"] = \
+            containers[0].primaryIpAddress
+        containerips_before_upgrade[container_name+"id"] = \
+            containers[0].externalId
+
+    """
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_1.yml", env_name,
+        "up -d", "Creating stack", "rc_inservice1_retainip_1.yml")
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(super_client, service, {"test1": "value1"}, 1)
+    """
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
+        "up --upgrade -d", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(super_client, service, {"test1": "value1"}, 0)
+    check_config_for_service(super_client, service, {"test1": "value2"}, 1)
+    # Check for default settings
+    assert service.upgrade["inServiceStrategy"]["batchSize"] == 2
+    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 1000
+    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+
+    # Confirm upgrade
+
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
+        "up --confirm-upgrade -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(super_client, service, {"test1": "value2"}, 1)
+    containers = get_service_container_list(super_client, service, 0)
+    assert len(containers) == 0
+
+    # Confirm Ips of the new containers were retained after upgrade
+    for i in range(1, 6):
+        container_name = env.name + "_" + service.name+"_" + str(i)
+        containers = super_client.list_container(name=container_name,
+                                                 removed_null=True)
+        assert len(containers) == 1
+        assert containerips_before_upgrade[container_name+"ip"] \
+            == containers[0].primaryIpAddress
+        assert containerips_before_upgrade[container_name+"id"] \
+            != containers[0].externalId
+
+    delete_all(client, [env])
+
+
+@if_compose_data_files
+def test_rancher_compose_inservice_upgrade_rollback_retainip(
+        super_client, client, rancher_compose_container):
+
+    # Create a service with retainIp=True for upgrade
+    env_name = random_str().replace("-", "")
+    random_name = random_str()
+    env_name = random_name.replace("-", "")
+    env = client.create_environment(name=env_name)
+    env = client.wait_success(env)
+    assert env.state == "active"
+
+    # Create Service
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "labels": {"test1": "value1"}
+                     }
+    service_name = "test1"
+    service = client.create_service(name=service_name,
+                                    environmentId=env.id,
+                                    launchConfig=launch_config,
+                                    retainIp=True,
+                                    scale=5)
+
+    service = client.wait_success(service)
+    assert service.state == "inactive"
+    activate_svc(client, service)
+    check_config_for_service(super_client, service, {"test1": "value1"}, 1)
+
+    containerips_before_upgrade = {}
+    for i in range(1, 6):
+        container_name = env.name + "_" + service.name+"_" + str(i)
+        containers = super_client.list_container(name=container_name,
+                                                 removed_null=True)
+        assert len(containers) == 1
+        containerips_before_upgrade[container_name+"ip"] = \
+            containers[0].primaryIpAddress
+        containerips_before_upgrade[container_name+"id"] = \
+            containers[0].externalId
+    """
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_1.yml", env_name,
+        "up -d ",
+        "Creating stack", "rc_inservice1_1.yml")
+    """
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(super_client, service, {"test1": "value1"}, 1)
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
+        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(super_client, service, {"test1": "value1"}, 0)
+    check_config_for_service(super_client, service, {"test1": "value2"}, 1)
+
+    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
+    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
+    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+
+    # Rollback upgrade
+
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
+        "up --rollback -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(super_client, service, {"test1": "value1"}, 1)
+    containers = get_service_container_list(super_client, service, 0)
+    assert len(containers) == 0
+
+    # Confirm Ips of the containers after rollback were retained after upgrade
+    for i in range(1, 6):
+        container_name = env.name + "_" + service.name+"_" + str(i)
+        containers = super_client.list_container(name=container_name,
+                                                 removed_null=True)
+        assert len(containers) == 1
+        assert containerips_before_upgrade[container_name+"ip"] \
+            == containers[0].primaryIpAddress
+        assert containerips_before_upgrade[container_name+"id"] \
+            == containers[0].externalId
+
+    delete_all(client, [env])
+
+
 def check_config_for_service(super_client, service, labels, managed):
     containers = get_service_container_list(super_client, service, managed)
     assert len(containers) == service.scale
