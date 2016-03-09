@@ -5,11 +5,11 @@ from test_github import URL
 from common_fixtures import _client_for_user
 
 
-if_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
-                             reason='API_AUTH_LDAP_SERVER is not set')
+if_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_OPEN_LDAP_SERVER'),
+                             reason='API_AUTH_OPEN_LDAP_SERVER is not set')
 
 
-class LdapAuth(AuthBase):
+class OpenLDAPAuth(AuthBase):
     def __init__(self, jwt, prj_id=None):
         # setup any auth-related data here
         self.jwt = jwt
@@ -33,7 +33,7 @@ def create_ldap_client(username=os.getenv('LDAP_USER1', 'devUserA'),
     client._access_key = None
     client._secret_key = None
 
-    client._auth = LdapAuth(jwt, prj_id=project_id)
+    client._auth = OpenLDAPAuth(jwt, prj_id=project_id)
     client.reload_schema()
     assert client.valid()
 
@@ -41,7 +41,7 @@ def create_ldap_client(username=os.getenv('LDAP_USER1', 'devUserA'),
     assert len(identities) > 0
     is_ldap_user = False
     for identity in identities:
-        if (identity.externalIdType == 'ldap_user'):
+        if (identity.externalIdType == 'openldap_user'):
             is_ldap_user = True
     assert is_ldap_user
     return client
@@ -62,37 +62,37 @@ def get_authed_token(username=os.getenv('LDAP_USER1', 'devUserA'),
 def load_config():
     config = {
         "accessMode": "unrestricted",
-        'domain': os.environ.get('API_AUTH_LDAP_DOMAIN', "dc=rancher,dc=io"),
-        'groupNameField': os.environ.get('API_AUTH_LDAP_GROUP_NAME_FIELD',
+        'domain': os.environ.get('API_AUTH_OPEN_LDAP_DOMAIN', "dc=rancher,dc=io"),
+        'groupNameField': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_NAME_FIELD',
                                          'name'),
-        'groupObjectClass': os.environ.get('API_AUTH_LDAP_GROUP_OBJECT_CLASS',
+        'groupObjectClass': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_OBJECT_CLASS',
                                            'group'),
-        'groupSearchField': os.environ.get('API_AUTH_LDAP_GROUP_SEARCH_FIELD',
+        'groupSearchField': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD',
                                            'sAMAccountName'),
-        'loginDomain': os.environ.get('API_AUTH_LDAP_LOGIN_NAME', 'rancher'),
-        'port': os.environ.get('API_AUTH_LDAP_PORT', 389),
+        'loginDomain': os.environ.get('API_AUTH_OPEN_LDAP_LOGIN_NAME', 'rancher'),
+        'port': os.environ.get('API_AUTH_OPEN_LDAP_PORT', 389),
         'enabled': True,
-        'server': os.environ.get('API_AUTH_LDAP_SERVER', 'ad.rancher.io'),
-        'serviceAccountPassword': os.environ.get('API_AUTH_LDAP_'
+        'server': os.environ.get('API_AUTH_OPEN_LDAP_SERVER', 'ad.rancher.io'),
+        'serviceAccountPassword': os.environ.get('API_AUTH_OPEN_LDAP_'
                                                  'SERVICE_ACCOUNT_PASSWORD',
                                                  'Password1'),
-        'serviceAccountUsername': os.environ.get('API_AUTH_LDAP_'
+        'serviceAccountUsername': os.environ.get('API_AUTH_OPEN_LDAP_'
                                                  'SERVICE_ACCOUNT_USERNAME',
                                                  'cattle'),
         'tls': False,
-        'userDisabledBitMask': os.environ.get('API_AUTH_LDAP_'
+        'userDisabledBitMask': os.environ.get('API_AUTH_OPEN_LDAP_'
                                               'USER_DISABLED_BIT_MASK',
                                               '2'),
-        'userEnabledAttribute': os.environ.get('API_AUTH_LDAP_'
+        'userEnabledAttribute': os.environ.get('API_AUTH_OPEN_LDAP_'
                                                'USER_ENABLED_ATTRIBUTE',
                                                'userAccountControl'),
-        'userLoginField': os.environ.get('API_AUTH_LDAP_USER_LOGIN_FIELD',
+        'userLoginField': os.environ.get('API_AUTH_OPEN_LDAP_USER_LOGIN_FIELD',
                                          'sAMAccountName'),
-        'userNameField': os.environ.get('API_AUTH_LDAP_'
+        'userNameField': os.environ.get('API_AUTH_OPEN_LDAP_'
                                         'USER_NAME_FIELD', 'name'),
-        'userObjectClass': os.environ.get('API_AUTH_LDAP_USER_OBJECT_CLASS',
+        'userObjectClass': os.environ.get('API_AUTH_OPEN_LDAP_USER_OBJECT_CLASS',
                                           'person'),
-        'userSearchField': os.environ.get('API_AUTH_LDAP_USER_SEARCH_FIELD',
+        'userSearchField': os.environ.get('API_AUTH_OPEN_LDAP_USER_SEARCH_FIELD',
                                           'name')
     }
     return config
@@ -102,7 +102,7 @@ def load_config():
 def ldap_config(admin_client, request):
     config = load_config()
     admin_client.create_ldapconfig(config)
-    service_account_dn = os.getenv('API_AUTH_LDAP_SERVICE_ACCOUNT_DN',
+    service_account_dn = os.getenv('API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_DN',
                                    "cn=Cattle,"
                                    "ou=Rancher Labs,dc=rancher,dc=io")
     x = admin_client.by_id('identity', 'ldap_user:' + service_account_dn)
@@ -130,26 +130,26 @@ def test_turn_on_ldap_ui(admin_client):
     driver.implicitly_wait(10)
     driver.set_window_size(1120, 550)
     driver.get('{}logout'.format(base_url()[:-3]))
-    url = '{}admin/access/ldap'.format(base_url()[:-3])
+    url = '{}admin/access/openldap'.format(base_url()[:-3])
     driver.get(url)
     inputs = driver.find_elements_by_class_name('ember-text-field')
     config = [
-        os.environ.get('API_AUTH_LDAP_SERVER', 'ad.rancher.io'),
-        os.environ.get('API_AUTH_LDAP_PORT', 389),
-        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_USERNAME', 'cattle'),
-        os.environ.get('API_AUTH_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
-        os.environ.get('API_AUTH_LDAP_DOMAIN', "dc=rancher,dc=io"),
-        os.environ.get('API_AUTH_LDAP_LOGIN_NAME', 'rancher'),
-        os.environ.get('API_AUTH_LDAP_USER_OBJECT_CLASS', 'person'),
-        os.environ.get('API_AUTH_LDAP_USER_LOGIN_FIELD', 'sAMAccountName'),
-        os.environ.get('API_AUTH_LDAP_USER_NAME_FIELD', 'name'),
-        os.environ.get('API_AUTH_LDAP_USER_SEARCH_FIELD', 'name'),
-        os.environ.get('API_AUTH_LDAP_USER_ENABLED_ATTRIBUTE',
+        os.environ.get('API_AUTH_OPEN_LDAP_SERVER', 'ad.rancher.io'),
+        os.environ.get('API_AUTH_OPEN_LDAP_PORT', 389),
+        os.environ.get('API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_USERNAME','cattle'),
+        os.environ.get('API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
+        os.environ.get('API_AUTH_OPEN_LDAP_DOMAIN', "dc=rancher,dc=io"),
+        os.environ.get('API_AUTH_OPEN_LDAP_LOGIN_NAME', 'rancher'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_OBJECT_CLASS', 'person'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_LOGIN_FIELD', 'sAMAccountName'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_NAME_FIELD', 'name'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_SEARCH_FIELD', 'name'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_ENABLED_ATTRIBUTE',
                        'userAccountControl'),
-        os.environ.get('API_AUTH_LDAP_USER_DISABLED_BIT_MASK', '2'),
-        os.environ.get('API_AUTH_LDAP_GROUP_OBJECT_CLASS', 'group'),
-        os.environ.get('API_AUTH_LDAP_GROUP_NAME_FIELD', 'name'),
-        os.environ.get('API_AUTH_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
+        os.environ.get('API_AUTH_OPEN_LDAP_USER_DISABLED_BIT_MASK','2'),
+        os.environ.get('API_AUTH_OPEN_LDAP_GROUP_OBJECT_CLASS', 'group'),
+        os.environ.get('API_AUTH_OPEN_LDAP_GROUP_NAME_FIELD', 'name'),
+        os.environ.get('API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
         os.getenv('LDAP_USER1', 'devUserA'),
         os.getenv('LDAP_USER1_PASSWORD', 'Password1')
     ]
@@ -214,7 +214,7 @@ def test_ldap_incorrect_login(ldap_config):
     assert token['status'] == 401
     token = requests.post(base_url() + 'token',
                           {
-                              'code': username + ':' + '',
+                              'code': username + ':' + "",
                               'authProvider': 'ldapconfig'
     })
     assert token.status_code == 401
@@ -223,7 +223,7 @@ def test_ldap_incorrect_login(ldap_config):
     assert token['status'] == 401
     token = requests.post(base_url() + 'token',
                           {
-                              'code': username + ':' + ' ',
+                              'code': username + ':' + " ",
                               'authProvider': 'ldapconfig'
     })
     assert token.status_code == 401
@@ -234,10 +234,10 @@ def test_ldap_incorrect_login(ldap_config):
 
 @if_ldap
 def test_ldap_unauthorized_login(ldap_config):
-    username = os.environ.get('API_AUTH_LDAP_'
+    username = os.environ.get('API_AUTH_OPEN_LDAP_'
                               'SERVICE_ACCOUNT_PASSWORD',
                               'Password1')
-    password = os.environ.get('API_AUTH_LDAP_'
+    password = os.environ.get('API_AUTH_OPEN_LDAP_'
                               'SERVICE_ACCOUNT_USERNAME',
                               'cattle')
     token = requests.post(base_url() + 'token',
