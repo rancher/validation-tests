@@ -55,6 +55,7 @@ if(GITHUB_CLIENT_ID is None and
     GITHUB_CLIENT_ID = os.getenv('API_AUTH_GITHUB_CLIENT_ID', None)
     GITHUB_CLIENT_SECRET = os.getenv('API_AUTH_GITHUB_CLIENT_SECRET', None)
 
+
 def all_vars():
     needed_vars = [
         'API_AUTH_GITHUB_TEST_USER',

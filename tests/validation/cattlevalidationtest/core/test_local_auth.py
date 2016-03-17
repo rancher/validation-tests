@@ -2,7 +2,11 @@ from common_fixtures import *  # NOQA
 from selenium import webdriver
 from test_github import URL
 
+if_auth = pytest.mark.skipif(not os.environ.get('LOCAL_AUTH_USERNAME'),
+                             reason='LOCAL_AUTH_USERNAME is not set')
 
+
+@if_auth
 def test_turn_on_local_auth_ui(admin_client):
     config = {
         'enabled': None,
@@ -24,10 +28,11 @@ def test_turn_on_local_auth_ui(admin_client):
     url = '{}admin/access/local'.format(base_url()[:-3])
     driver.get(url)
     inputs = driver.find_elements_by_class_name('ember-text-field')
-    password = random_str()
+    username = os.environ.get('LOCAL_AUTH_USERNAME')
+    password = username
     config = [
-        random_str(),
-        random_str(),
+        username,
+        username,
         password,
         password
     ]

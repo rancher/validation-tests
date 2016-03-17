@@ -107,6 +107,7 @@ def ldap_config(admin_client, request):
                                    "ou=Rancher Labs,dc=rancher,dc=io")
     x = admin_client.by_id('identity', 'ldap_user:' + service_account_dn)
     assert x.login == config['serviceAccountUsername']
+
     def fin():
         config = load_config()
         config['enabled'] = None
