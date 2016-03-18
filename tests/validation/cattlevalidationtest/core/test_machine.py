@@ -269,6 +269,7 @@ def wait_for_host(client, machine):
                               )
     return machine
 
+
 def get_droplet_page(url):
     headers = {'Authorization': "Bearer " + access_key}
     r = requests.get(url, headers=headers)

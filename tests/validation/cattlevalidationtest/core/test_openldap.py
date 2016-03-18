@@ -62,14 +62,17 @@ def get_authed_token(username=os.getenv('LDAP_USER1', 'devUserA'),
 def load_config():
     config = {
         "accessMode": "unrestricted",
-        'domain': os.environ.get('API_AUTH_OPEN_LDAP_DOMAIN', "dc=rancher,dc=io"),
+        'domain': os.environ.get(
+            'API_AUTH_OPEN_LDAP_DOMAIN', "dc=rancher,dc=io"),
         'groupNameField': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_NAME_FIELD',
                                          'name'),
-        'groupObjectClass': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_OBJECT_CLASS',
-                                           'group'),
-        'groupSearchField': os.environ.get('API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD',
-                                           'sAMAccountName'),
-        'loginDomain': os.environ.get('API_AUTH_OPEN_LDAP_LOGIN_NAME', 'rancher'),
+        'groupObjectClass': os.environ.get(
+            'API_AUTH_OPEN_LDAP_GROUP_OBJECT_CLASS', 'group'),
+        'groupSearchField': os.environ.get(
+            'API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD',
+            'sAMAccountName'),
+        'loginDomain': os.environ.get(
+            'API_AUTH_OPEN_LDAP_LOGIN_NAME', 'rancher'),
         'port': os.environ.get('API_AUTH_OPEN_LDAP_PORT', 389),
         'enabled': True,
         'server': os.environ.get('API_AUTH_OPEN_LDAP_SERVER', 'ad.rancher.io'),
@@ -90,10 +93,10 @@ def load_config():
                                          'sAMAccountName'),
         'userNameField': os.environ.get('API_AUTH_OPEN_LDAP_'
                                         'USER_NAME_FIELD', 'name'),
-        'userObjectClass': os.environ.get('API_AUTH_OPEN_LDAP_USER_OBJECT_CLASS',
-                                          'person'),
-        'userSearchField': os.environ.get('API_AUTH_OPEN_LDAP_USER_SEARCH_FIELD',
-                                          'name')
+        'userObjectClass': os.environ.get(
+            'API_AUTH_OPEN_LDAP_USER_OBJECT_CLASS', 'person'),
+        'userSearchField': os.environ.get(
+            'API_AUTH_OPEN_LDAP_USER_SEARCH_FIELD', 'name')
     }
     return config
 
@@ -107,6 +110,7 @@ def ldap_config(admin_client, request):
                                    "ou=Rancher Labs,dc=rancher,dc=io")
     x = admin_client.by_id('identity', 'ldap_user:' + service_account_dn)
     assert x.login == config['serviceAccountUsername']
+
     def fin():
         config = load_config()
         config['enabled'] = None
@@ -136,20 +140,25 @@ def test_turn_on_ldap_ui(admin_client):
     config = [
         os.environ.get('API_AUTH_OPEN_LDAP_SERVER', 'ad.rancher.io'),
         os.environ.get('API_AUTH_OPEN_LDAP_PORT', 389),
-        os.environ.get('API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_USERNAME','cattle'),
-        os.environ.get('API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
+        os.environ.get(
+            'API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_USERNAME', 'cattle'),
+        os.environ.get(
+            'API_AUTH_OPEN_LDAP_SERVICE_ACCOUNT_PASSWORD', 'Password1'),
         os.environ.get('API_AUTH_OPEN_LDAP_DOMAIN', "dc=rancher,dc=io"),
         os.environ.get('API_AUTH_OPEN_LDAP_LOGIN_NAME', 'rancher'),
         os.environ.get('API_AUTH_OPEN_LDAP_USER_OBJECT_CLASS', 'person'),
-        os.environ.get('API_AUTH_OPEN_LDAP_USER_LOGIN_FIELD', 'sAMAccountName'),
+        os.environ.get(
+            'API_AUTH_OPEN_LDAP_USER_LOGIN_FIELD', 'sAMAccountName'),
         os.environ.get('API_AUTH_OPEN_LDAP_USER_NAME_FIELD', 'name'),
         os.environ.get('API_AUTH_OPEN_LDAP_USER_SEARCH_FIELD', 'name'),
         os.environ.get('API_AUTH_OPEN_LDAP_USER_ENABLED_ATTRIBUTE',
                        'userAccountControl'),
-        os.environ.get('API_AUTH_OPEN_LDAP_USER_DISABLED_BIT_MASK','2'),
+        os.environ.get(
+            'API_AUTH_OPEN_LDAP_USER_DISABLED_BIT_MASK', '2'),
         os.environ.get('API_AUTH_OPEN_LDAP_GROUP_OBJECT_CLASS', 'group'),
         os.environ.get('API_AUTH_OPEN_LDAP_GROUP_NAME_FIELD', 'name'),
-        os.environ.get('API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
+        os.environ.get(
+            'API_AUTH_OPEN_LDAP_GROUP_SEARCH_FIELD', 'sAMAccountName'),
         os.getenv('LDAP_USER1', 'devUserA'),
         os.getenv('LDAP_USER1_PASSWORD', 'Password1')
     ]
