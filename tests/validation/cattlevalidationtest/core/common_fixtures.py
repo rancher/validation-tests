@@ -1,3 +1,4 @@
+import cattle
 from cattle import from_env
 
 import pytest
@@ -2403,3 +2404,298 @@ def check_for_stickiness(url, expected_responses, headers=None):
             logger.info("request: " + url + " Header -" + str(headers))
             logger.info(response)
             assert response == sticky_response
+
+
+class Context(object):
+    def __init__(self, account=None, project=None, user_client=None,
+                 client=None, host=None, agent_client=None, agent=None):
+        self.account = account
+        self.project = project
+        self.agent = agent
+        self.user_client = user_client
+        self.agent_client = agent_client
+        self.client = client
+        self.host = host
+        self.image_uuid = 'sim:{}'.format(random_str())
+        self.nsp = self._get_nsp()
+        self.host_ip = self._get_host_ip()
+
+    def _get_nsp(self):
+        if self.client is None:
+            return None
+
+        networks = filter(lambda x: x.kind == 'hostOnlyNetwork' and
+                          x.accountId == self.project.id,
+                          self.client.list_network(kind='hostOnlyNetwork'))
+        assert len(networks) == 1
+        nsps = super_client(None).reload(networks[0]).networkServiceProviders()
+        assert len(nsps) == 1
+        return nsps[0]
+
+    def _get_host_ip(self):
+        if self.host is None:
+            return None
+
+        ips = self.host.ipAddresses()
+        assert len(ips) == 1
+        return ips[0]
+
+    def create_container(self, *args, **kw):
+        c = self.create_container_no_success(*args, **kw)
+        c = self.client.wait_success(c)
+        try:
+            if not kw['startOnCreate']:
+                assert c.state == 'stopped'
+                return c
+        except KeyError:
+            pass
+        assert c.state == 'running'
+        return c
+
+    def create_container_no_success(self, *args, **kw):
+        return self._create_container(self.client, *args, **kw)
+
+    def _create_container(self, client, *args, **kw):
+        if 'imageUuid' not in kw:
+            kw['imageUuid'] = self.image_uuid
+        c = client.create_container(*args, **kw)
+        # Make sure it's waited for and reloaded w/ project client
+        return self.client.wait_transitioning(c)
+
+    def super_create_container(self, *args, **kw):
+        c = self.super_create_container_no_success(*args, **kw)
+        return self.client.wait_success(c)
+
+    def super_create_container_no_success(self, *args, **kw):
+        kw['accountId'] = self.project.id
+        return self._create_container(super_client(None), *args, **kw)
+
+    def delete(self, obj):
+        if obj is None:
+            return
+        self.client.delete(obj)
+        self.client.wait_success(obj)
+
+    def wait_for_state(self, obj, state):
+        obj = self.client.wait_success(obj)
+        assert obj.state == state
+        return obj
+
+
+def create_context(admin_user_client, create_project=False, add_host=False,
+                   kind=None, name=None):
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    if name is None:
+        name = 'Integration Test User {}'.format(now)
+        project_name = 'Integration Test Project {}'.format(now)
+    else:
+        project_name = name + '\'s Project {}'.format(now)
+
+    if kind is None:
+        kind = 'user'
+
+    account = admin_user_client.create_account(name=name, kind=kind)
+    account = admin_user_client.wait_success(account)
+    key = admin_user_client.create_api_key(accountId=account.id)
+    admin_user_client.wait_success(key)
+    user_client = api_client(key.publicValue, key.secretValue)
+    try:
+        account = user_client.reload(account)
+    except KeyError:
+        # The account type can't see the account obj
+        pass
+
+    project = None
+    project_client = None
+    agent_client = None
+    agent = None
+
+    if create_project:
+        project = user_client.create_project(name=project_name, members=[{
+            'role': 'owner',
+            'externalId': acc_id(user_client),
+            'externalIdType': 'rancher_id'
+        }])
+        project = user_client.wait_success(project)
+        # This is not proper yet because basic auth can't be used w/ Projects
+        project_key = admin_user_client.create_api_key(accountId=project.id)
+        admin_user_client.wait_success(project_key)
+        project_client = api_client(project_key.publicValue,
+                                    project_key.secretValue)
+        project = project_client.reload(project)
+
+    if create_project and add_host:
+        host, agent, agent_client = \
+            register_simulated_host(project_client, return_agent=True)
+    else:
+        host = None
+
+    return Context(account=account, project=project, user_client=user_client,
+                   client=project_client, host=host,
+                   agent_client=agent_client, agent=agent)
+
+
+
+
+def api_client(access_key, secret_key):
+    return cattle.from_env(url=cattle_url(),
+                           cache=False,
+                           access_key=access_key,
+                           secret_key=secret_key)
+
+
+def one(method, *args, **kw):
+    ret = method(*args, **kw)
+    assert len(ret) == 1
+    return ret[0]
+
+
+def register_simulated_host(client_or_context, return_agent=False):
+    client = client_or_context
+    if isinstance(client_or_context, Context):
+        client = client_or_context.client
+
+    def do_ping():
+        ping = one(super_client(None).list_task, name='agent.ping')
+        ping.execute()
+
+    def check():
+        hosts = super_client(None).list_host(agentId=agents[0].id)
+        if len(hosts) > 0:
+            return hosts[0]
+        do_ping()
+
+    tokens = client.list_registration_token()
+    if len(tokens) == 0:
+        token = client.wait_success(client.create_registration_token())
+    else:
+        token = tokens[0]
+
+    c = api_client('registrationToken', token.token)
+    key = random_str()
+
+    # Now this where we hack things up to make it a simulator
+    s = super_client(None)
+    register = s.create_register(key=key,
+                                 accountId=token.accountId,
+                                 agentUriFormat='sim://%s')
+    # End hacking...
+
+    register = c.wait_success(register)
+    register = c.list_register(key=key)[0]
+
+    c = api_client(register.accessKey, register.secretKey)
+    agents = c.list_agent()
+
+    keys = s.list_credential(publicValue=register.accessKey)
+    assert len(keys) == 1
+
+    assert len(agents) == 1
+
+    s.update(agents[0], uri='sim://{}'.format(key))
+
+    host = wait_for(check)
+    host = client.wait_success(host)
+    s.wait_success(agents[0])
+
+    if return_agent:
+        return host, keys[0].account(), c
+    else:
+        return host
+
+
+def auth_check(schema, id, access, props=None):
+    type = schema.types[id]
+    access_actual = set()
+
+    try:
+        if 'GET' in type.collectionMethods:
+            access_actual.add('r')
+    except AttributeError:
+        pass
+
+    try:
+        if 'GET' in type.resourceMethods:
+            access_actual.add('r')
+    except AttributeError:
+        pass
+
+    try:
+        if 'POST' in type.collectionMethods:
+            access_actual.add('c')
+    except AttributeError:
+        pass
+
+    try:
+        if 'DELETE' in type.resourceMethods:
+            access_actual.add('d')
+    except AttributeError:
+        pass
+
+    try:
+        if 'PUT' in type.resourceMethods:
+            access_actual.add('u')
+    except AttributeError:
+        pass
+
+    assert access_actual == set(access)
+
+    if props is None:
+        return 1
+
+    for i in ['name', 'description']:
+        if i not in props and i in type.resourceFields:
+            acl = set('r')
+            if 'c' in access_actual:
+                acl.add('c')
+            if 'u' in access_actual:
+                acl.add('u')
+            props[i] = ''.join(acl)
+
+    for i in ['created', 'removed', 'transitioning', 'transitioningProgress',
+              'removeTime', 'transitioningMessage', 'id', 'uuid', 'kind',
+              'state']:
+        if i not in props and i in type.resourceFields:
+            props[i] = 'r'
+
+    prop = set(props.keys())
+    prop_actual = set(type.resourceFields.keys())
+
+    assert prop_actual == prop
+
+    for name, field in type.resourceFields.items():
+        assert name in props
+
+        prop = set(props[name])
+        prop_actual = set('r')
+
+        prop.add(name)
+        prop_actual.add(name)
+
+        if field.create and 'c' in access_actual:
+            prop_actual.add('c')
+        if field.update and 'u' in access_actual:
+            prop_actual.add('u')
+        if field.readOnCreateOnly:
+            prop_actual.add('o')
+
+        assert prop_actual == prop
+
+    return 1
+
+
+@pytest.fixture(scope='session')
+def admin_user_client(super_client):
+    admin_account = super_client.list_account(kind='admin', uuid='admin')[0]
+    key = super_client.create_api_key(accountId=admin_account.id)
+    super_client.wait_success(key)
+
+    client = api_client(key.publicValue, key.secretValue)
+    return client
+
+
+def resource_action_check(schema, id, actions):
+    action_keys = set(actions)
+    keys_received = set(schema.types[id].resourceActions.keys())
+    assert keys_received == action_keys
+
