@@ -34,6 +34,8 @@ HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
+RANCHER_DNS_SERVER = "169.254.169.250"
+RANCHER_DNS_SEARCH = "rancher.internal"
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')

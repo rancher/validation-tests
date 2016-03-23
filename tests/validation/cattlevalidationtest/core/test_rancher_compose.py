@@ -82,6 +82,13 @@ def test_rancher_compose_service(super_client, client,
     check_container_in_service(super_client, rancher_service)
 
     container_list = get_service_container_list(super_client, rancher_service)
+
+    dns_name.append(RANCHER_DNS_SERVER)
+    dns_search.append(rancher_env.name+"."+RANCHER_DNS_SEARCH)
+    dns_search.append(
+        rancher_service.name+"."+rancher_env.name+"."+RANCHER_DNS_SEARCH)
+    dns_search.append(RANCHER_DNS_SEARCH)
+
     for c in container_list:
         print c
         docker_client = get_docker_client(c.hosts[0])

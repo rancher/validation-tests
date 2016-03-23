@@ -80,6 +80,9 @@ def test_container_run_with_options_1(client, test_name,
     inspect = docker_client.inspect_container(c.externalId)
     print inspect
 
+    dns_name.append(RANCHER_DNS_SERVER)
+    dns_search.append(RANCHER_DNS_SEARCH)
+
     assert inspect["HostConfig"]["Binds"] == [docker_vol_value]
     assert inspect["HostConfig"]["VolumesFrom"] == [docker_vol_from_value]
     assert inspect["HostConfig"]["PublishAllPorts"] is False
