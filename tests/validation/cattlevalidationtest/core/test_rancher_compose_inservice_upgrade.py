@@ -1258,9 +1258,9 @@ def check_config_for_service(super_client, service, labels, managed):
         for key in labels.keys():
             assert con.labels[key] == labels[key]
         if managed == 1:
-            con.state = "running"
+            assert con.state == "running"
         else:
-            con.state = "stopped"
+            assert con.state == "stopped"
     if managed:
         for key in labels.keys():
             service_labels = service.launchConfig["labels"]
@@ -1276,9 +1276,9 @@ def check_config_for_service_sidekick(super_client, service, service_name,
         for key in labels.keys():
             assert con.labels[key] == labels[key]
         if managed == 1:
-            con.state = "running"
+            assert con.state == "running"
         else:
-            con.state = "stopped"
+            assert con.state == "stopped"
     print service
     if managed:
         for key in labels.keys():

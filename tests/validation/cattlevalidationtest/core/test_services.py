@@ -139,6 +139,12 @@ def test_services_docker_options(super_client, client, socat_containers):
     check_container_in_service(super_client, service)
 
     container_list = get_service_container_list(super_client, service)
+
+    dns_name.append(RANCHER_DNS_SERVER)
+    dns_search.append(env.name+"."+RANCHER_DNS_SEARCH)
+    dns_search.append(service.name+"."+env.name+"."+RANCHER_DNS_SEARCH)
+    dns_search.append(RANCHER_DNS_SEARCH)
+
     for c in container_list:
         docker_client = get_docker_client(c.hosts()[0])
         inspect = docker_client.inspect_container(c.externalId)
