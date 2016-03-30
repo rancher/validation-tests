@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 def create_environment_with_linked_services(
         super_client, client, service_scale, consumed_service_scale, port,
         ssh_port="22", isnetworkModeHost_svc=False,
-        isnetworkModeHost_consumed_svc=False):
+        isnetworkModeHost_consumed_svc=False, linkName=None):
 
     if not isnetworkModeHost_svc and not isnetworkModeHost_consumed_svc:
         env, service, consumed_service = create_env_with_2_svc(
@@ -18,8 +18,10 @@ def create_environment_with_linked_services(
     service.activate()
     consumed_service.activate()
 
+    if linkName is None:
+        linkName = "mylink"
     service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
+        serviceLinks=[{"serviceId": consumed_service.id, "name": linkName}])
     service = client.wait_success(service, 120)
 
     consumed_service = client.wait_success(consumed_service, 120)
@@ -43,7 +45,8 @@ def test_link_activate_svc_activate_consumed_svc_link(super_client, client):
 
     validate_linked_service(super_client, service, [consumed_service], port,
                             linkName="mylink")
-
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="mylink"+"."+RANCHER_FQDN)
     delete_all(client, [env])
 
 
@@ -716,4 +719,21 @@ def test_links_with_hostnetwork_3(super_client, client):
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
         super_client, service, [consumed_service], ssh_port, linkName="mylink")
+    delete_all(client, [env])
+
+
+def test_link_name_uppercase(super_client, client):
+    port = "326"
+
+    service_scale = 1
+    consumed_service_scale = 2
+
+    env, service, consumed_service = create_environment_with_linked_services(
+        super_client, client, service_scale, consumed_service_scale, port,
+        linkName="MYUPPERCASELINK")
+
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="MYUPPERCASELINK")
+    validate_linked_service(super_client, service, [consumed_service], port,
+                            linkName="MYUPPERCASELINK"+"."+RANCHER_FQDN)
     delete_all(client, [env])
