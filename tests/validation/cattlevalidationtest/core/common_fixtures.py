@@ -36,6 +36,9 @@ MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
+RANCHER_FQDN = "rancher.internal"
+
+SERVICE_WAIT_TIMEOUT = 120
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')
@@ -263,7 +266,8 @@ def one_per_host(client, test_name):
                                     requestedHostId=host.id)
         instances.append(c)
 
-    instances = wait_all_success(client, instances, timeout=120)
+    instances = wait_all_success(
+        client, instances, timeout=SERVICE_WAIT_TIMEOUT)
 
     for i in instances:
         ports = i.ports_link()
@@ -699,7 +703,7 @@ def link_svc(super_client, service, linkservices):
 def activate_svc(client, service):
 
     service.activate()
-    service = client.wait_success(service, 120)
+    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
     return service
 
@@ -1204,7 +1208,7 @@ def rancher_compose_container(admin_client, client, request):
                                 requestedHostId=host.id
                                 )
 
-    c = client.wait_success(c, 120)
+    c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
     time.sleep(5)
 
@@ -1482,9 +1486,9 @@ def create_env_with_ext_svc(client, scale_svc, port, hostname=False):
         c2 = client.create_container(name=random_str(),
                                      imageUuid=WEB_IMAGE_UUID)
 
-        c1 = client.wait_success(c1, 120)
+        c1 = client.wait_success(c1, SERVICE_WAIT_TIMEOUT)
         assert c1.state == "running"
-        c2 = client.wait_success(c2, 120)
+        c2 = client.wait_success(c2, SERVICE_WAIT_TIMEOUT)
         assert c2.state == "running"
 
         con_list = [c1, c2]
@@ -1860,14 +1864,14 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
     assert lb_service.state == "inactive"
 
     env = env.activateservices()
-    env = client.wait_success(env, 120)
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
 
     if not crosslinking:
         for service in services:
-            service = client.wait_success(service, 120)
+            service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
             assert service.state == "active"
 
-    lb_service = client.wait_success(lb_service, 120)
+    lb_service = client.wait_success(lb_service, SERVICE_WAIT_TIMEOUT)
     assert lb_service.state == "active"
     return env, services, lb_service
 
@@ -1929,13 +1933,13 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
     assert lb_service.state == "inactive"
 
     env = env.activateservices()
-    env = client.wait_success(env, 120)
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
 
     for service in services:
-        service = client.wait_success(service, 120)
+        service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
         assert service.state == "active"
 
-    lb_service = client.wait_success(lb_service, 120)
+    lb_service = client.wait_success(lb_service, SERVICE_WAIT_TIMEOUT)
     assert lb_service.state == "active"
     return env, services, lb_service
 
@@ -2251,7 +2255,7 @@ def create_client_container_for_ssh(client, port):
                                 requestedHostId=host.id
                                 )
 
-    c = client.wait_success(c, 120)
+    c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
     time.sleep(5)
     ssh = paramiko.SSHClient()
