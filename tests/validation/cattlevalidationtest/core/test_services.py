@@ -1611,6 +1611,8 @@ def service_with_healthcheck_enabled(client, super_client, scale, port=None,
     service, env = create_env_and_svc_activate_launch_config(
         super_client, client, launch_config, scale, retainIp=retainIp)
     container_list = get_service_container_list(super_client, service)
+    assert \
+        len(container_list) == get_service_instance_count(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
