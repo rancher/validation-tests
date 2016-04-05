@@ -253,23 +253,6 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
     wait_for_host_destroy_in_digital_ocean(host.ipAddresses()[0].address)
 
 
-def wait_for_host(client, machine):
-    wait_for_condition(client,
-                       machine,
-                       lambda x: len(x.hosts()) == 1,
-                       lambda x: 'Number of hosts associated with machine ' +
-                                 str(len(x.hosts())),
-                       DEFAULT_TIMEOUT)
-
-    host = machine.hosts()[0]
-    host = wait_for_condition(client,
-                              host,
-                              lambda x: x.state == 'active',
-                              lambda x: 'Host state is ' + x.state
-                              )
-    return machine
-
-
 def get_droplet_page(url):
     headers = {'Authorization': "Bearer " + access_key}
     r = requests.get(url, headers=headers)
@@ -327,6 +310,35 @@ def delete_host_in_digital_ocean(name):
         error_msg = "Error encountered when trying to delete machine - " + name
         logger.error(msg=error_msg)
         logger.error(msg=traceback.format_exc())
+
+
+def get_dropletid_for_ha_hosts():
+    droplet_ids = {}
+    droplet_list = get_droplets()
+    for host in ha_host_list:
+        for droplet in droplet_list:
+            if droplet["name"] == host.hostname:
+                droplet_ids[host.hostname] = droplet["id"]
+    return droplet_ids
+
+
+def action_on_digital_ocean_machine(dropletId, action):
+    try:
+        url = 'https://api.digitalocean.com/v2/droplets/' + \
+              str(dropletId) + "/actions"
+        headers = {'Authorization': "Bearer " + access_key,
+                   "Content-Type": "application/json"}
+        data = {'type': action}
+        print url
+        r = requests.post(url, data=json.dumps(data), headers=headers)
+    except Exception:
+        error_msg = "Error encountered when trying to " \
+                    + action+" machine - " + str(dropletId)
+        print error_msg
+        logger.error(msg=error_msg)
+        logger.error(msg=traceback.format_exc())
+    finally:
+        r.close()
 
 
 def wait_for_host_destroy_in_digital_ocean(ipaddress, timeout=300):

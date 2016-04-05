@@ -26,6 +26,8 @@ SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
 SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                   'docker:rancher/socat-docker:v0.2.0')
 
+access_key = os.environ.get('DIGITALOCEAN_KEY')
+
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
@@ -34,6 +36,7 @@ HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
 DEFAULT_TIMEOUT = 45
+DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
@@ -49,6 +52,9 @@ HOST_SSH_PUBLIC_PORT = 2222
 
 socat_container_list = []
 host_container_list = []
+ha_host_list = []
+ha_host_count = 4
+
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
@@ -447,6 +453,23 @@ def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
 
 
 @pytest.fixture(scope='session')
+def ha_hosts(client, super_client):
+    hosts = client.list_host(
+        kind='docker', removed_null=True, state="active",
+        include="physicalHost")
+    do_host_count = 0
+    if len(hosts) >= ha_host_count:
+        for i in range(0, len(hosts)):
+            if hosts[i].physicalHost.driver == "digitalocean":
+                do_host_count += 1
+                ha_host_list.append(hosts[i])
+    if do_host_count < ha_host_count:
+        host_list = \
+            add_digital_ocean_hosts(client, ha_host_count - do_host_count)
+        ha_host_list.extend(host_list)
+
+
+@pytest.fixture(scope='session')
 def glusterfs_glusterconvoy(client, super_client, request):
     catalog_url = cattle_url() + "/v1-catalog/templates/library:"
 
@@ -545,7 +568,8 @@ def socat_containers(client, request):
             publishAllPorts=True,
             privileged=True,
             dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
-            requestedHostId=host.id)
+            requestedHostId=host.id,
+            restartPolicy={"name": "always"})
         socat_container_list.append(socat_container)
 
     for socat_container in socat_container_list:
@@ -561,7 +585,8 @@ def socat_containers(client, request):
             networkMode="host",
             imageUuid=HOST_ACCESS_IMAGE_UUID,
             privileged=True,
-            requestedHostId=host.id)
+            requestedHostId=host.id,
+            restartPolicy={"name": "always"})
         host_container_list.append(host_container)
 
     for host_container in host_container_list:
@@ -597,7 +622,8 @@ def wait_for_scale_to_adjust(super_client, service):
                                                        managed=1)
     start = time.time()
 
-    while len(instance_maps) != service.scale:
+    while len(instance_maps) != \
+            get_service_instance_count(super_client, service):
         time.sleep(.5)
         instance_maps = super_client.list_serviceExposeMap(
             serviceId=service.id, state="active")
@@ -816,7 +842,8 @@ def validate_lb_service(super_client, client, lb_service, port,
                         unmanaged_cons=None):
     target_count = 0
     for service in target_services:
-        target_count = target_count + service.scale
+        target_count = \
+            target_count + get_service_instance_count(client, service)
     container_names = get_container_names_list(super_client,
                                                target_services)
     logger.info(container_names)
@@ -845,6 +872,8 @@ def validate_lb_service_con_names(super_client, client, lb_service, port,
                                   hostheader=None, path=None, domain=None,
                                   test_ssl_client_con=None):
     lb_containers = get_service_container_list(super_client, lb_service)
+    assert len(lb_containers) == get_service_instance_count(client, lb_service)
+
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
         if domain:
@@ -1508,7 +1537,7 @@ def create_env_with_ext_svc(client, scale_svc, port, hostname=False):
     return env, service, ext_service, con_list
 
 
-def create_env_and_svc(client, launch_config, scale, retainIp=False):
+def create_env_and_svc(client, launch_config, scale=None, retainIp=False):
 
     env = create_env(client)
     service = create_svc(client, env, launch_config, scale, retainIp)
@@ -1533,7 +1562,7 @@ def check_container_in_service(super_client, service):
         assert inspect["State"]["Running"]
 
 
-def create_svc(client, env, launch_config, scale, retainIp=False):
+def create_svc(client, env, launch_config, scale=None, retainIp=False):
 
     random_name = random_str()
     service_name = random_name.replace("-", "")
@@ -2409,3 +2438,67 @@ def check_for_stickiness(url, expected_responses, headers=None):
             logger.info("request: " + url + " Header -" + str(headers))
             logger.info(response)
             assert response == sticky_response
+
+
+def add_digital_ocean_hosts(client, count):
+    # Create a Digital Ocean Machine
+    machines = []
+    hosts = []
+
+    for i in range(0, count):
+        create_args = {"name": random_str(),
+                       "digitaloceanConfig": {"accessToken": access_key}}
+        machine = client.create_machine(**create_args)
+        machines.append(machine)
+
+    for machine in machines:
+        machine = client.wait_success(machine, timeout=DEFAULT_MACHINE_TIMEOUT)
+        assert machine.state == 'active'
+        machine = wait_for_host(client, machine)
+        host = machine.hosts()[0]
+        assert host.state == 'active'
+        hosts.append(host)
+    return hosts
+
+
+def wait_for_host(client, machine):
+    wait_for_condition(client,
+                       machine,
+                       lambda x: len(x.hosts()) == 1,
+                       lambda x: 'Number of hosts associated with machine ' +
+                                 str(len(x.hosts())),
+                       DEFAULT_MACHINE_TIMEOUT)
+
+    host = machine.hosts()[0]
+    host = wait_for_condition(client,
+                              host,
+                              lambda x: x.state == 'active',
+                              lambda x: 'Host state is ' + x.state
+                              )
+    return machine
+
+
+def wait_for_host_agent_state(client, host, state):
+    host = wait_for_condition(client,
+                              host,
+                              lambda x: x.agentState == state,
+                              lambda x: 'Host state is ' + x.agentState
+                              )
+    return host
+
+
+def get_service_instance_count(client, service):
+    scale = service.scale
+    # Check for Global Service
+    if "labels" in service.launchConfig.keys():
+        labels = service.launchConfig["labels"]
+        if "io.rancher.scheduler.global" in labels.keys():
+            if labels["io.rancher.scheduler.global"] == "true":
+                active_hosts = client.list_host(
+                    kind='docker', removed_null=True, agentState="active",
+                    state="active")
+                hosts = client.list_host(
+                    kind='docker', removed_null=True, agentState_null=True,
+                    state="active")
+            scale = len(hosts) + len(active_hosts)
+    return scale
