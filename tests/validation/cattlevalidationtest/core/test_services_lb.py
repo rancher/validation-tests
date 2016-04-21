@@ -348,6 +348,35 @@ def test_lb_services_delete_purge_instance(
     delete_all(client, [env])
 
 
+def test_lb_services_restart_instance(
+        super_client, client, socat_containers):
+
+    port = "9029"
+
+    service_scale = 3
+    lb_scale = 1
+
+    env, service, lb_service = create_environment_with_lb_services(
+        super_client, client, service_scale, lb_scale, port)
+
+    validate_lb_service(super_client, client, lb_service, port, [service])
+
+    # restart instance
+    container_name = env.name + "_" + service.name + "_1"
+    containers = client.list_container(name=container_name)
+    assert len(containers) == 1
+    container = containers[0]
+    container = client.wait_success(container.restart(), 120)
+    wait_for_condition(client, container,
+                       lambda x: x.state == 'running',
+                       lambda x: 'State is: ' + x.state)
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service], lb_service)
+    validate_lb_service(super_client, client, lb_service, port, [service])
+
+    delete_all(client, [env])
+
+
 def test_lb_services_deactivate_activate_lbservice(
         super_client, client, socat_containers):
 
@@ -809,7 +838,9 @@ def test_lbservice_custom_haproxy(
 
 def test_lbservice_appcookie(
         super_client, client, socat_containers):
-
+    # With haproxy version 1.6.3 , there is no support for appcookie_policy
+    # So this setting will get ignored and will be defaulted to round-robin
+    # access
     port = "9022"
     lb_scale = 1
     service_scale = 2
@@ -829,8 +860,10 @@ def test_lbservice_appcookie(
     env, service, lb_service = create_environment_with_lb_services(
         super_client, client, service_scale, lb_scale, port,
         lb_config=lb_config)
-    check_for_appcookie_policy(super_client, client, lb_service, port,
-                               [service], cookie_name)
+
+    # check_for_appcookie_policy(super_client, client, lb_service, port,
+    #                           [service], cookie_name)
+    validate_lb_service(super_client, client, lb_service, port, [service])
     delete_all(client, [env])
 
 

@@ -273,8 +273,9 @@ def test_services_random_expose_port_exhaustrange(
     # Set random port range to 6 ports and exhaust 5 of them by creating a
     # service that has 5 random ports exposed
     project = admin_client.list_project(uuid="adminProject")[0]
-    admin_client.update(
+    project = admin_client.update(
         project, servicesPortRange={"startPort": 65500, "endPort": 65505})
+    project = wait_success(admin_client, project)
 
     launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports":
