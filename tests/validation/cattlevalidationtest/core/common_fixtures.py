@@ -26,7 +26,10 @@ SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
 SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                   'docker:rancher/socat-docker:v0.2.0')
 
-access_key = os.environ.get('DIGITALOCEAN_KEY')
+do_access_key = os.environ.get('DIGITALOCEAN_KEY')
+do_install_url = os.environ.get(
+    'DOCKER_INSTALL_URL',
+    'https://releases.rancher.com/install-docker/1.10.sh')
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
@@ -46,6 +49,8 @@ SERVICE_WAIT_TIMEOUT = 120
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')
 
+K8_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'resources/k8s')
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
@@ -54,8 +59,12 @@ socat_container_list = []
 host_container_list = []
 ha_host_list = []
 ha_host_count = 4
+kube_host_count = 2
+kube_host_list = []
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
+kubectl_client_con = {"container": None, "host": None, "port": "9999"}
+
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
 cert_list = {}
@@ -467,6 +476,49 @@ def ha_hosts(client, super_client):
         host_list = \
             add_digital_ocean_hosts(client, ha_host_count - do_host_count)
         ha_host_list.extend(host_list)
+
+
+@pytest.fixture(scope='session')
+def kube_hosts(client, super_client, admin_client):
+
+    project = admin_client.list_project(uuid="adminProject")[0]
+    project = admin_client.update(
+        project, kubernetes=True)
+    project = wait_success(admin_client, project)
+    hosts = client.list_host(
+        kind='docker', removed_null=True, state="active",
+        include="physicalHost")
+    do_host_count = 0
+    if len(hosts) >= kube_host_count:
+        for i in range(0, len(hosts)):
+            if hosts[i].physicalHost.driver == "digitalocean":
+                do_host_count += 1
+                kube_host_list.append(hosts[i])
+    if do_host_count < kube_host_count:
+        host_list = \
+            add_digital_ocean_hosts(client, kube_host_count - do_host_count)
+        kube_host_list.extend(host_list)
+
+    # Wait for Kubernetes environment to get created successfully
+    start = time.time()
+    env = client.list_environment(name="Kubernetes")
+    while len(env) != 1:
+        time.sleep(.5)
+        env = client.list_environment(name="Kubernetes")
+        if time.time() - start > 30:
+            raise Exception(
+                'Timed out waiting for Kubernetes env to get created')
+
+    environment = env[0]
+    wait_for_condition(
+        super_client, environment,
+        lambda x: x.state == "active",
+        lambda x: 'State is: ' + x.state,
+        timeout=600)
+
+    test_client_con = create_kubectl_client_container(client, "9999")
+    kubectl_client_con["container"] = test_client_con["container"]
+    kubectl_client_con["host"] = test_client_con["host"]
 
 
 @pytest.fixture(scope='session')
@@ -2310,6 +2362,96 @@ def create_client_container_for_ssh(client, port):
     return test_client_con
 
 
+def create_kubectl_client_container(client, port):
+    test_kubectl_client_con = {}
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    host = hosts[0]
+    c = client.create_container(name="test-kubctl-client",
+                                networkMode=MANAGED_NETWORK,
+                                imageUuid="docker:sangeetha/testclient",
+                                ports=[port+":22/tcp"],
+                                requestedHostId=host.id
+                                )
+    c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
+    assert c.state == "running"
+    time.sleep(5)
+
+    kube_config = readDataFile(K8_SUBDIR, "config.txt")
+    kube_config = kube_config.replace("uuuuu", client._access_key)
+    kube_config = kube_config.replace("ppppp", client._secret_key)
+    server_ip = \
+        cattle_url()[cattle_url().index("//") + 2:cattle_url().index(":8080")]
+    kube_config = kube_config.replace("sssss", server_ip)
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host.ipAddresses()[0].address, username="root",
+                password="root", port=int(port))
+    cmd1 = "wget https://storage.googleapis.com/kubernetes-release" + \
+           "/release/v1.2.2/bin/linux/amd64/kubectl"
+    cmd2 = "chmod +x kubectl"
+    cmd3 = "mkdir .kube"
+    cmd4 = "echo '" + kube_config + "'> .kube/config"
+    cmd5 = "./kubectl version"
+    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    print response
+    test_kubectl_client_con["container"] = c
+    test_kubectl_client_con["host"] = host
+    test_kubectl_client_con["port"] = port
+    return test_kubectl_client_con
+
+
+def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
+                         expected_error=None):
+    cmd = "./kubectl " + command
+    if file_name is not None:
+        file_content = readDataFile(K8_SUBDIR, file_name)
+        cmd1 = cmd + " -f " + file_name
+        cmd2 = "echo '" + file_content + "'> " + file_name
+        cmd = cmd2 + ";" + cmd1
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        kubectl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(kubectl_client_con["port"]))
+    print cmd
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    error = stderr.readlines()
+
+    str_response = ""
+    for resp in response:
+        str_response += resp
+    print str_response
+
+    # Validate Expected Response
+    if expected_resps is not None:
+        found = False
+        for resp in response:
+            for exp_resp in expected_resps:
+                if exp_resp in resp:
+                    print "Found in response " + exp_resp
+                    expected_resps.remove(exp_resp)
+        if len(expected_resps) == 0:
+            found = True
+        else:
+            print "Not found in response " + str(expected_resps)
+        assert found
+
+    if expected_error is not None:
+        found = False
+        for err_str in error:
+            if expected_error in err_str:
+                found = True
+                print "Found in Error Response " + err_str
+        assert found
+    return str_response
+
+
 def create_cert(client, name):
     cert, key, certChain = get_cert_for_domain(name)
     cert1 = client. \
@@ -2447,7 +2589,8 @@ def add_digital_ocean_hosts(client, count):
 
     for i in range(0, count):
         create_args = {"name": random_str(),
-                       "digitaloceanConfig": {"accessToken": access_key}}
+                       "digitaloceanConfig": {"accessToken": do_access_key},
+                       "engineInstallUrl": do_install_url}
         machine = client.create_machine(**create_args)
         machines.append(machine)
 
