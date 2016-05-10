@@ -1337,6 +1337,40 @@ def test_service_retain_ip(super_client, client):
     assert externalId != new_externalId
 
 
+def test_services_rolling_strategy(super_client, client,
+                                   socat_containers):
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     }
+    service, env = create_env_and_svc(client, launch_config, 5)
+
+    env = env.activateservices()
+    service = client.wait_success(service, 300)
+    container_list = get_service_container_list(super_client, service)
+    assert len(container_list) == 5
+    for con in container_list:
+        assert con.state == "running"
+        assert con.startCount == 1
+
+    # Specify rolling restart strategy with batchsize 2 and interval of 1000 ms
+    rollingrestartstrategy = {"batchsize": 2,
+                              "intervalMillis": 1000
+                              }
+    service = client.wait_success(service.restart(
+              rollingRestartStrategy=rollingrestartstrategy))
+
+    assert service.state == "active"
+    check_container_in_service(super_client, service)
+    container_list = get_service_container_list(super_client, service)
+    assert len(container_list) == 5
+    for con in container_list:
+        assert con.state == "running"
+        assert con.startCount == 2
+
+    env = client.reload(env)
+    assert env.healthState == "healthy"
+    delete_all(client, [env])
+
+
 def check_service_scale(super_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
