@@ -32,6 +32,32 @@ def teardown_ns(namespace):
         "get namespace "+namespace+" -o json", expected_error=expected_error)
 
 
+# Waitfor Pod
+def waitfor_pods(selector=None, namespace="default", number=1, state="Running"):
+    timeout = 0
+    all_running = True
+    get_response = execute_kubectl_cmds("get pod --selector="+selector+" -o json -a --namespace="+namespace)
+    pod = json.loads(get_response)
+    pods = pod['items']
+    pods_no = len(pod['items'])
+    while True:
+        if pods_no == number:
+            for pod in pods:
+                if pod['status']['phase'] != state:
+                    all_running = False
+            if all_running:
+                break
+        time.sleep(5)
+        timeout += 5
+        if timeout == 300:
+            raise ValueError('Timeout Exception: pods did not run properly')
+        get_response = execute_kubectl_cmds("get pod --selector="+selector+" -o json -a --namespace="+namespace)
+        pod = json.loads(get_response)
+        pods = pod['items']
+        pods_no = len(pod['items'])
+        all_running = True
+
+
 @if_test_k8s
 def test_k8s_env_create(
         super_client, admin_client, client, kube_hosts):
@@ -68,7 +94,7 @@ def test_k8s_env_create(
     assert container["name"] == name
     assert container["imagePullPolicy"] == "Always"
 
-    time.sleep(30)
+    waitfor_pods(selector="name=testnginx", namespace=namespace, number=2)
     # Verify pods are created
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=testnginx -o json --namespace="+namespace)
@@ -111,7 +137,7 @@ def test_k8s_env_edit(
     rc = json.loads(get_response)
     replica_count = rc["spec"]["replicas"]
     assert replica_count == 3
-    time.sleep(30)
+    waitfor_pods(selector="name="+name, namespace=namespace, number=3)
 
     # Verify pods are created
     get_response = execute_kubectl_cmds(
@@ -152,7 +178,7 @@ def test_k8s_env_delete(
     rc = json.loads(get_response)
     assert rc["metadata"]["name"] == name
 
-    time.sleep(30)
+    waitfor_pods(selector="name="+name, namespace=namespace, number=2)
     # Verify pods are created
     get_response = execute_kubectl_cmds(
         "get pod --selector=name="+name+" -o json --namespace="+namespace)
@@ -250,7 +276,7 @@ def test_k8s_env_rollingupdates(
     assert container["image"] == "nginx:1.7.9"
     assert container["name"] == "nginx"
 
-    time.sleep(30)
+    waitfor_pods(selector="name=nginx", namespace=namespace)
     # Verify pods are created
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=nginx -o json --namespace="+namespace)
@@ -268,7 +294,8 @@ def test_k8s_env_rollingupdates(
     # Run the rollingupdates
     command = "rolling-update testru testruv2 --image=nginx:1.9.1 --namespace="+namespace
     execute_kubectl_cmds(command)
-    time.sleep(30)
+
+    waitfor_pods(selector="name=nginx", namespace=namespace)
     # Verify new pods are created
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=nginx -o json --namespace="+namespace)
@@ -345,7 +372,8 @@ def test_k8s_env_deployments(
     # Create deployment
     expected_result = ['deployment "'+name+'" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="nginx-deployment.yml")
-    time.sleep(30)
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
+    # Verify new pods are created
     get_response = execute_kubectl_cmds(
         "get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
@@ -367,7 +395,7 @@ def test_k8s_env_deployments_rollback(
     # Create deployment
     expected_result = ['deployment "'+name+'" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="nginx-deployment.yml")
-    time.sleep(30)
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
@@ -381,7 +409,7 @@ def test_k8s_env_deployments_rollback(
     # Update deployment
     expected_result = ['deployment "'+name+'" configured']
     execute_kubectl_cmds("apply --namespace="+namespace, expected_result, file_name="nginx-deploymentv2.yml")
-    time.sleep(30)
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
@@ -394,7 +422,7 @@ def test_k8s_env_deployments_rollback(
     # Rollback deployment
     expected_result = ['deployment "nginx-deployment" rolled back']
     execute_kubectl_cmds("rollout undo --namespace="+namespace+" deployment/"+name, expected_result)
-    time.sleep(90)
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
@@ -416,7 +444,7 @@ def test_k8s_env_jobs(
     # Create deployment
     expected_result = ['job "'+name+'" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="job.yml")
-    time.sleep(90)
+    waitfor_pods(selector="job-name=pitest", namespace=namespace, state="Succeeded", number=1)
     get_response = execute_kubectl_cmds("get jobs "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Job"
