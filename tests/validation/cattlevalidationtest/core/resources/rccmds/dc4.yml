@@ -1,0 +1,18 @@
+test4:
+  domainname: xyz.com
+  dns_search:
+  - www.google.com
+  dns:
+  - 209.243.150.21
+  labels:
+    io.rancher.container.pull_image: always
+    testrc: RANCHER_COMPOSE
+    io.rancher.container.requested_ip: 209.243.140.21
+    io.rancher.container.hostname_override: container_name
+  tty: true
+  hostname: rancherhost
+  log_opt: {}
+  image: ubuntu:14.04.3
+  volumes:
+  - testvolume:/home
+  stdin_open: true
