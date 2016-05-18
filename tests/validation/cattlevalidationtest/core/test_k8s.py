@@ -1,9 +1,41 @@
 from common_fixtures import *  # NOQA
+from urllib2 import urlopen
+import websocket as ws
+import base64
+import os
 
 if_test_k8s = pytest.mark.skipif(
     not os.environ.get('DIGITALOCEAN_KEY') or
     not os.environ.get('TEST_K8S'),
     reason='DIGITALOCEAN_KEY/TEST_K8S is not set')
+
+
+# Execute command in container
+def execute_cmd(container, cmd):
+    ex = container.execute(attachStdin=True, attachStdout=True, command=cmd, tty=True)
+    conn = ws.create_connection(ex.url + '?token=' + ex.token, timeout=10)
+
+    # Python is weird about closures
+    closure_wrapper = {
+        'result': ''
+    }
+
+    msg = conn.recv()
+    print msg
+    closure_wrapper['result'] += base64.b64decode(msg)
+    return closure_wrapper['result'].rstrip()
+
+
+# Get containers of Pod
+def get_pod_container_list(super_client, pod, namespace='default'):
+    container = []
+    all_containers = super_client.list_container()
+    for cont in all_containers:
+        if bool(cont.labels):
+            if "io.kubernetes.pod.name" in cont.labels.keys():
+                if cont['labels']['io.kubernetes.pod.name'] == pod and cont.imageUuid != 'docker:gcr.io/google_containers/pause:2.0' and cont['labels']['io.kubernetes.pod.namespace'] == namespace:
+                    container.append(cont)
+    return container
 
 
 # Creating Environment namespace
@@ -21,15 +53,19 @@ def create_ns(namespace):
 
 # Teardown Environment namespace
 def teardown_ns(namespace):
+    timeout = 0
     expected_result = ['namespace "'+namespace+'" deleted']
     execute_kubectl_cmds(
         "delete namespace "+namespace, expected_result)
-    time.sleep(30)
-    # Verify namespace is deleted
-    expected_error = \
-        'Error from server: namespaces "'+namespace+'" not found'
-    execute_kubectl_cmds(
-        "get namespace "+namespace+" -o json", expected_error=expected_error)
+    while True:
+        get_response = execute_kubectl_cmds("get namespaces")
+        if namespace not in get_response:
+            break
+        else:
+            time.sleep(5)
+            timeout += 5
+            if timeout == 300:
+                raise ValueError('Timeout Exception: for deleting namespace')
 
 
 # Waitfor Pod
@@ -452,4 +488,587 @@ def test_k8s_env_jobs(
     assert deployment["status"]["conditions"][0]["type"] == "Complete"
     assert deployment["status"]["conditions"][0]["status"] == "True"
     assert deployment["status"]["succeeded"] == 1
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_scale(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'scale-namespace'
+    create_ns(namespace)
+    name = "scale-nginx"
+    # Create rc
+    expected_result = ['replicationcontroller "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="scale-rc.yml")
+    waitfor_pods(selector="app=scalable-nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc["kind"] == "ReplicationController"
+    assert rc["metadata"]["name"] == name
+    assert rc["spec"]["replicas"] == rc["status"]["replicas"]
+    assert rc["status"]["replicas"] == 2
+    container = rc["spec"]["template"]["spec"]["containers"][0]
+    assert container["name"] == "nginx"
+    # Scale rc
+    expected_result = ['replicationcontroller "'+name+'" scaled']
+    execute_kubectl_cmds("scale rc "+name+" --replicas=3 --namespace="+namespace, expected_result)
+    waitfor_pods(selector="app=scalable-nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc["kind"] == "ReplicationController"
+    assert rc["metadata"]["name"] == name
+    assert rc["spec"]["replicas"] == rc["status"]["replicas"]
+    assert rc["status"]["replicas"] == 3
+    assert rc["status"]["observedGeneration"] == 2
+    container = rc["spec"]["template"]["spec"]["containers"][0]
+    assert container["name"] == "nginx"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_daemonsets(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'daemonset-namespace'
+    create_ns(namespace)
+    name = "daemonset"
+    # Create daemonset
+    expected_result = ['daemonset "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="daemonset.yml")
+    waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds("get pods --selector=app=daemonset-nginx -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    nodes_of_pods = set()
+    for pod in pods['items']:
+        assert pod['status']['phase'] == "Running"
+        assert pod['status']['containerStatuses'][0]['name'] == "nginx"
+        node = pod['spec']['nodeName']
+        nodes_of_pods.add(node)
+    # Get nodes
+    nodes_in_cluster = set()
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    for node in nodes['items']:
+        nodes_in_cluster.add(node['metadata']['name'])
+    assert nodes_in_cluster == nodes_of_pods
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_replicasets(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'replicaset-namespace'
+    create_ns(namespace)
+    name = "rs"
+    # Create daemonset
+    expected_result = ['replicaset "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="replicaset.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds("get rs "+name+" -o json --namespace="+namespace)
+    rs = json.loads(get_response)
+    assert rs['metadata']['name'] == name
+    assert rs['kind'] == "ReplicaSet"
+    assert rs['status']['replicas'] == rs['spec']['replicas']
+    teardown_ns(namespace)
+
+
+# Pod Attributes
+@if_test_k8s
+def test_k8s_env_create_pod(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'pod-create-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create daemonset
+    expected_result = ['pod "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_create_priv_pod(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'pod-priv-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create daemonset
+    expected_result = ['pod "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-priv-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    assert pod['spec']['containers'][0]['securityContext']['privileged']
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_delete_pod(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'pod-delete-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create daemonset
+    expected_result = ['pod "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # Delete pod
+    expected_result = ['pod "'+name+'" deleted']
+    execute_kubectl_cmds(
+        "delete pods "+name+" --namespace="+namespace, expected_result)
+    # Verify Pod is deleted
+    expected_error = \
+        'Error from server: pods "'+name+'" not found'
+    get_response = execute_kubectl_cmds(
+        "get pods "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_edit_pod(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'pod-edit-namespace'
+    create_ns(namespace)
+    oldname = "nginx"
+    name = "nginxv2"
+    # Create daemonset
+    expected_result = ['pod "'+oldname+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+oldname+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == oldname
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['name'] == "nginx"
+    assert container['ready']
+    # Edit pod
+    expected_result = ['pod "'+name+'" replaced']
+    execute_kubectl_cmds(
+        "replace --force --namespace="+namespace, expected_result, file_name="pod-replace-nginx.yml")
+    waitfor_pods(selector="app=nginxv2", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx:1.9.1"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginxv2"
+    teardown_ns(namespace)
+
+
+# Podspecs
+@if_test_k8s
+def test_k8s_env_podspec_volume(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'volume-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with service
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="podspec-volume.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    volume = pod['spec']['containers'][0]['volumeMounts'][0]
+    assert volume['name'] == pod['spec']['volumes'][0]['name']
+    assert volume['mountPath'] == "/usr/share/nginx/html"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "husseingalal/podspec-vol"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # Testing the volumes
+    nodeIP = pod['status']['hostIP']
+    nodePort = "32445"
+    page = urlopen("http://"+nodeIP+":"+nodePort)
+    output = page.read()
+    assert output == "Volume spec is working Pod\n"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_restartPolicy(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'restartpolicy-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with service
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-rp.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # stop containers in the pod
+    containers = get_pod_container_list(super_client, name, namespace=namespace)
+    for c in containers:
+        super_client.wait_success(c.stop())
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Succeeded"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert not container['ready']
+    assert container['name'] == "nginx"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_podspec_activeDeadlineSeconds(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'ads-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with active deadline seconds
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-ads.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1, state="Failed")
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Failed"
+    assert pod['status']['message'] == "Pod was active on the node longer than specified deadline"
+    assert pod['status']['reason'] == "DeadlineExceeded"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_podspec_terminationGracePeriodSeconds(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'tgps-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with termination grace period
+    expected_result = ['pod "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-nginx-tgp.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['spec']['terminationGracePeriodSeconds'] == 100
+    assert pod['status']['phase'] == "Running"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_podspec_nodeSelector(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'nodeselector-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Get all nodes
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    last_node = nodes['items'][len(nodes['items'])-1]['metadata']['name']
+    # Add label on the last node
+    expected_result = ['node "'+last_node+'" labeled']
+    execute_kubectl_cmds("label nodes "+last_node+" role=testnode", expected_result)
+    # Create pod with nodeselector
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-nodeSelector.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['spec']['nodeName'] == last_node
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # Remove label from node
+    expected_result = ['node "'+last_node+'" labeled']
+    execute_kubectl_cmds("label nodes "+last_node+" role-", expected_result)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_podspec_nodeName(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'nodename-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Get all nodes
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    last_node = nodes['items'][len(nodes['items'])-1]['metadata']['name']
+    # Change nodename in yml file
+    fname = os.path.join(K8_SUBDIR, "pod-nginx-nodeName.yml")
+    with open(os.path.join(K8_SUBDIR, "pod-nginx-nodeName-2.yml"), "wt") as fout:
+        with open(fname, "rt") as fin:
+            for line in fin:
+                fout.write(line.replace('placeholder', last_node))
+    fin.close()
+    fout.close()
+    # Create pod with nodeselector
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-nodeName-2.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['spec']['nodeName'] == last_node
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # Remove the updated file
+    os.remove(os.path.join(K8_SUBDIR, "pod-nginx-nodeName-2.yml"))
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_podspec_hostPID(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'hostpid-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with hostpid
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-hostpid.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['spec']['hostPID']
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    # check for PID
+    cont = get_pod_container_list(super_client, name, namespace=namespace)
+    cmd_result = execute_cmd(cont[0], ['ps', '-p', '1', '-o', 'comm='])
+    assert cmd_result == 'init'
+    teardown_ns(namespace)
+
+
+# ReplicationController Attributes/Specs
+@if_test_k8s
+def test_k8s_env_rc_create(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'rc-create-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create rc
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="rc-nginx.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == name
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_rc_delete(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'rc-delete-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create rc
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="rc-nginx.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == name
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    # Delete rc
+    expected_result = ['replicationcontroller "'+name+'" deleted']
+    execute_kubectl_cmds(
+        "delete rc "+name+" --namespace="+namespace, expected_result)
+    # Verify rc is deleted
+    expected_error = \
+        'Error from server: replicationcontrollers "'+name+'" not found'
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_rc_edit(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'rc-edit-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create rc
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="rc-nginx.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == name
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    # Edit pod
+    newname = 'nginxv2'
+    expected_result = ['replicationcontroller "'+newname+'" replaced']
+    execute_kubectl_cmds(
+        "replace --force --namespace="+namespace, expected_result, file_name="rc-replace-nginx.yml")
+    waitfor_pods(selector="name=nginxv2", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get rc "+newname+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == newname
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    teardown_ns(namespace)
+
+
+# Service Attributes/Specs
+@if_test_k8s
+def test_k8s_env_service_attributes(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'service-namespace'
+    create_ns(namespace)
+    lbname = "lbnginx"
+    nodeportname = "nodeport-nginx"
+    clusteripname = "clusterip-nginx"
+    # Get all nodes ips
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    node1 = nodes['items'][0]['status']['addresses'][0]['address']
+    node2 = nodes['items'][1]['status']['addresses'][0]['address']
+    # Change nodes ips in yml file
+    fname = os.path.join(K8_SUBDIR, "service-nginx.yml")
+    with open(os.path.join(K8_SUBDIR, "service-nginx-1.yml"), "wt") as fout:
+        with open(fname, "rt") as fin:
+            for line in fin:
+                fout.write(line.replace('placeholder-1', node1))
+    fin.close()
+    fout.close()
+    fname = os.path.join(K8_SUBDIR, "service-nginx-1.yml")
+    with open(os.path.join(K8_SUBDIR, "service-nginx-2.yml"), "wt") as fout:
+        with open(fname, "rt") as fin:
+            for line in fin:
+                fout.write(line.replace('placeholder-2', node2))
+    fin.close()
+    fout.close()
+    # Create rc and services
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="service-nginx-2.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
+    # Verify that all services created
+    get_response = execute_kubectl_cmds("get service "+lbname+" -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == lbname
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['port'] == 8888
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+
+    get_response = execute_kubectl_cmds("get service "+nodeportname+" -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == nodeportname
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['nodePort'] == 30000
+    assert service['spec']['ports'][0]['port'] == 80
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+
+    get_response = execute_kubectl_cmds("get service "+clusteripname+" -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == clusteripname
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['port'] == 8000
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+    clusterip = service['spec']['clusterIP']
+    clusterport = service['spec']['ports'][0]['port']
+    # Check for loadbalancer service
+    services = super_client.list_service()
+    for s in services:
+        if 'lb-' in s.name:
+            lbservice = s
+    containers = get_service_container_list(super_client, lbservice)
+    lbip = containers[0]['dockerHostIp']
+    response = urlopen("http://"+lbip+":8888")
+    assert response.code == 200
+
+    # Check for nodeport IP
+    get_response = execute_kubectl_cmds("get pod --selector=name=nginx -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    nodeportip = pods['items'][0]['status']['hostIP']
+    response = urlopen("http://"+nodeportip+":30000")
+    assert response.code == 200
+
+    # Check for cluster IP
+    clusterurl = clusterip+":"+str(clusterport)
+    nginxpod = pods['items'][0]['metadata']['name']
+    nginxcont = get_pod_container_list(super_client, nginxpod, namespace=namespace)[0]
+    cmd_result = execute_cmd(nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"', clusterurl, '-o', '/dev/null'])
+    assert cmd_result == '"200'
+
+    # Check for external IP
+    response = urlopen("http://"+node1+":30003")
+    assert response.code == 200
+    response = urlopen("http://"+node2+":30003")
+    assert response.code == 200
+    os.remove(os.path.join(K8_SUBDIR, "service-nginx-1.yml"))
+    os.remove(os.path.join(K8_SUBDIR, "service-nginx-2.yml"))
     teardown_ns(namespace)
