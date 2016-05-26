@@ -907,6 +907,30 @@ def test_k8s_env_podspec_hostPID(
     teardown_ns(namespace)
 
 
+@if_test_k8s
+def test_k8s_env_podspec_hostIPC(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'hostipc-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # Create pod with hostpid
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-hostipc.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['spec']['hostIPC']
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == "nginx"
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    teardown_ns(namespace)
+
+
 # ReplicationController Attributes/Specs
 @if_test_k8s
 def test_k8s_env_rc_create(
@@ -1071,4 +1095,117 @@ def test_k8s_env_service_attributes(
     assert response.code == 200
     os.remove(os.path.join(K8_SUBDIR, "service-nginx-1.yml"))
     os.remove(os.path.join(K8_SUBDIR, "service-nginx-2.yml"))
+    teardown_ns(namespace)
+
+
+# Failed tests
+# hostnetwork #4345
+@if_test_k8s
+def test_k8s_env_podspec_hostnetwork(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'hostnetwork-namespace'
+    create_ns(namespace)
+    name = "nginx"
+    # create pod with hostnetwork
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="pod-nginx-hostnet.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "pod"
+    assert pod['status']['phase'] == "running"
+    container = pod['status']['containerstatuses'][0]
+    assert container['image'] == "husseingalal/podspec-hostnet"
+    assert container['restartcount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+    teardown_ns(namespace)
+
+
+# dashboard #4452
+@if_test_k8s
+def test_k8s_env_dashboard(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'dashboard-namespace'
+    name = 'kubernetes-dashboard'
+    create_ns(namespace)
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="dashboard.yml")
+    waitfor_pods(selector="app=kubernetes-dashboard", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == name
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    get_response = execute_kubectl_cmds("get pod --selector=app=kubernetes-dashboard -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    pod = pods['items'][0]
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['ready']
+    assert container['restartcount'] == 0
+    # Check for nodeport IP
+    get_response = execute_kubectl_cmds("get pod --selector=app=kubernetes-dashboard -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    nodeportip = pods['items'][0]['status']['hostIP']
+    response = urlopen("http://"+nodeportip+":30803")
+    assert response.code == 200
+    teardown_ns(namespace)
+
+
+# heapster #4451
+@if_test_k8s
+def test_k8s_env_heapster(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'heapster-namespace'
+    name = 'heapster'
+    create_ns(namespace)
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="heapster.yml")
+    waitfor_pods(selector="k8s-app=heapster", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc['metadata']['name'] == name
+    assert rc['status']['replicas'] == rc['spec']['replicas']
+    assert rc['kind'] == "ReplicationController"
+    get_response = execute_kubectl_cmds("get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    pod = pods['items'][0]
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert container['ready']
+    # Check for nodeport IP for heapster
+    get_response = execute_kubectl_cmds("get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    nodeportip = pods['items'][0]['status']['hostIP']
+    response = urlopen("http://"+nodeportip+":30803")
+    assert response.code == 200
+    # Check for nodeport IP for grafana and influx
+    get_response = execute_kubectl_cmds("get pod --selector=name=influxGrafana -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    nodeportip = pods['items'][0]['status']['hostIP']
+    response = urlopen("http://"+nodeportip+":30804")
+    assert response.code == 200
+    response = urlopen("http://"+nodeportip+":30805")
+    assert response.code == 200
+    teardown_ns(namespace)
+
+
+# ServiceAccounts #4548
+@if_test_k8s
+def test_k8s_env_serviceaccount(
+        super_client, admin_client, client, kube_hosts):
+    name = 'build-robot'
+    namespace = 'serviceaccount-namespace'
+    create_ns(namespace)
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="serviceaccount.yml")
+    get_response = execute_kubectl_cmds("get serviceaccount "+name+" -o json --namespace="+namespace)
+    sa = json.loads(get_response)
+    assert sa['metadata']['name'] == name
+    assert sa['kind'] == "ServiceAccount"
+    assert 'build-robot' in sa['secrets'][0]['name']
     teardown_ns(namespace)
