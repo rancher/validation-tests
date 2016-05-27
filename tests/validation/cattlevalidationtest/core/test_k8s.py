@@ -12,7 +12,11 @@ if_test_k8s = pytest.mark.skipif(
 
 # Execute command in container
 def execute_cmd(container, cmd):
-    ex = container.execute(attachStdin=True, attachStdout=True, command=cmd, tty=True)
+    ex = container.execute(
+        attachStdin=True,
+        attachStdout=True,
+        command=cmd,
+        tty=True)
     conn = ws.create_connection(ex.url + '?token=' + ex.token, timeout=10)
 
     # Python is weird about closures
@@ -33,7 +37,11 @@ def get_pod_container_list(super_client, pod, namespace='default'):
     for cont in all_containers:
         if bool(cont.labels):
             if "io.kubernetes.pod.name" in cont.labels.keys():
-                if cont['labels']['io.kubernetes.pod.name'] == pod and cont.imageUuid != 'docker:gcr.io/google_containers/pause:2.0' and cont['labels']['io.kubernetes.pod.namespace'] == namespace:
+                if (cont['labels']['io.kubernetes.pod.name'] == pod and
+                    cont.imageUuid != 'docker:gcr.io/'
+                    'google_containers/pause:2.0' and
+                    cont['labels']
+                        ['io.kubernetes.pod.namespace'] == namespace):
                     container.append(cont)
     return container
 
@@ -69,10 +77,14 @@ def teardown_ns(namespace):
 
 
 # Waitfor Pod
-def waitfor_pods(selector=None, namespace="default", number=1, state="Running"):
+def waitfor_pods(selector=None,
+                 namespace="default",
+                 number=1,
+                 state="Running"):
     timeout = 0
     all_running = True
-    get_response = execute_kubectl_cmds("get pod --selector="+selector+" -o json -a --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector="+selector+" -o json -a --namespace="+namespace)
     pod = json.loads(get_response)
     pods = pod['items']
     pods_no = len(pod['items'])
@@ -87,7 +99,9 @@ def waitfor_pods(selector=None, namespace="default", number=1, state="Running"):
         timeout += 5
         if timeout == 300:
             raise ValueError('Timeout Exception: pods did not run properly')
-        get_response = execute_kubectl_cmds("get pod --selector="+selector+" -o json -a --namespace="+namespace)
+        get_response = execute_kubectl_cmds(
+            "get pod --selector="+selector+" -o"
+            " json -a --namespace="+namespace)
         pod = json.loads(get_response)
         pods = pod['items']
         pods_no = len(pod['items'])
@@ -103,7 +117,8 @@ def test_k8s_env_create(
     expected_result = ['replicationcontroller "'+name+'" created',
                        'service "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="create_nginx.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="create_nginx.yml")
 
     # Verify service is created
     get_response = execute_kubectl_cmds(
@@ -130,10 +145,12 @@ def test_k8s_env_create(
     assert container["name"] == name
     assert container["imagePullPolicy"] == "Always"
 
-    waitfor_pods(selector="name=testnginx", namespace=namespace, number=2)
+    waitfor_pods(
+        selector="name=testnginx", namespace=namespace, number=2)
     # Verify pods are created
     get_response = execute_kubectl_cmds(
-        "get pod --selector=name=testnginx -o json --namespace="+namespace)
+        "get pod --selector=name=testnginx"
+        " -o json --namespace="+namespace)
     pod = json.loads(get_response)
 
     assert len(pod["items"]) == 2
@@ -157,7 +174,8 @@ def test_k8s_env_edit(
     expected_result = ['replicationcontroller "'+name+'" created',
                        'service "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="edit_nginx.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="edit_nginx.yml")
 
     get_response = execute_kubectl_cmds(
         "get rc testeditnginx -o json --namespace="+namespace)
@@ -167,13 +185,15 @@ def test_k8s_env_edit(
 
     expected_result = ['replicationcontroller "'+name+'" replaced']
     execute_kubectl_cmds(
-        "replace --namespace="+namespace, expected_result, file_name="edit_update-rc-nginx.yml")
+        "replace --namespace="+namespace,
+        expected_result, file_name="edit_update-rc-nginx.yml")
     get_response = execute_kubectl_cmds(
         "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     replica_count = rc["spec"]["replicas"]
     assert replica_count == 3
-    waitfor_pods(selector="name="+name, namespace=namespace, number=3)
+    waitfor_pods(
+        selector="name="+name, namespace=namespace, number=3)
 
     # Verify pods are created
     get_response = execute_kubectl_cmds(
@@ -201,7 +221,8 @@ def test_k8s_env_delete(
     expected_result = ['replicationcontroller "'+name+'" created',
                        'service "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="delete_nginx.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="delete_nginx.yml")
     # Verify service is created
     get_response = execute_kubectl_cmds(
         "get service "+name+" -o json --namespace="+namespace)
@@ -214,7 +235,8 @@ def test_k8s_env_delete(
     rc = json.loads(get_response)
     assert rc["metadata"]["name"] == name
 
-    waitfor_pods(selector="name="+name, namespace=namespace, number=2)
+    waitfor_pods(selector="name="+name,
+                 namespace=namespace, number=2)
     # Verify pods are created
     get_response = execute_kubectl_cmds(
         "get pod --selector=name="+name+" -o json --namespace="+namespace)
@@ -232,7 +254,8 @@ def test_k8s_env_delete(
     # Verify service is deleted
     expected_error = 'Error from server: services "'+name+'" not found'
     get_response = execute_kubectl_cmds(
-        "get service "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+        "get service "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
 
     # Delete RC
     expected_result = ['replicationcontroller "'+name+'" deleted']
@@ -243,7 +266,8 @@ def test_k8s_env_delete(
     expected_error = \
         'Error from server: replicationcontrollers "'+name+'" not found'
     get_response = execute_kubectl_cmds(
-        "get rc "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+        "get rc "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
 
     # Verify pods are deleted
     expected_result = ['Error from server: rc "'+name+'" not found']
@@ -263,7 +287,8 @@ def test_k8s_env_secret(
     name = "testsecret"
     expected_result = ['secret "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="secret.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="secret.yml")
     # Verify secret is created
     get_response = execute_kubectl_cmds(
         "get secret testsecret -o json --namespace="+namespace)
@@ -275,12 +300,14 @@ def test_k8s_env_secret(
     # Delete secret
     expected_result = ['secret "'+name+'" deleted']
     execute_kubectl_cmds(
-        "delete --namespace="+namespace, expected_result, file_name="secret.yml")
+        "delete --namespace="+namespace,
+        expected_result, file_name="secret.yml")
     # Verify Secret is deleted
     expected_error = \
         'Error from server: secrets "'+name+'" not found'
     get_response = execute_kubectl_cmds(
-        "get secret "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+        "get secret "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
     teardown_ns(namespace)
 
 
@@ -300,7 +327,8 @@ def test_k8s_env_rollingupdates(
     name = "testru"
     expected_result = ['replicationcontroller "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="rollingupdates_nginx.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="rollingupdates_nginx.yml")
 
     # Verify rc is created
     get_response = execute_kubectl_cmds(
@@ -328,7 +356,8 @@ def test_k8s_env_rollingupdates(
         assert pod["status"]["phase"] == "Running"
 
     # Run the rollingupdates
-    command = "rolling-update testru testruv2 --image=nginx:1.9.1 --namespace="+namespace
+    command = ("rolling-update testru"
+               " testruv2 --image=nginx:1.9.1 --namespace="+namespace)
     execute_kubectl_cmds(command)
 
     waitfor_pods(selector="name=nginx", namespace=namespace)
@@ -356,7 +385,8 @@ def test_k8s_env_configmaps(
     name = "testconfigmap"
     expected_result = ['configmap "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="configmap.yml")
+        "create --namespace="+namespace,
+        expected_result, file_name="configmap.yml")
 
     # Verify namespace is created
     get_response = execute_kubectl_cmds(
@@ -369,12 +399,15 @@ def test_k8s_env_configmaps(
     # Delete namespace
     expected_result = ['configmap "'+name+'" deleted']
     execute_kubectl_cmds(
-        "delete configmap testconfigmap --namespace="+namespace, expected_result)
+        "delete configmap testconfigmap --namespace="+namespace,
+        expected_result)
 
     # Verify namespace is deleted
     expected_error = \
         'Error from server: configmaps "'+name+'" not found'
-    get_response = execute_kubectl_cmds("get configmap "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+    get_response = execute_kubectl_cmds(
+        "get configmap "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
     teardown_ns(namespace)
 
 
@@ -387,14 +420,16 @@ def test_k8s_env_resourceQuota(
     # Create resource quota object
     expected_result = ['resourcequota "'+name+'" created']
     execute_kubectl_cmds(
-        "create --namespace="+namespace, expected_result, file_name="quota.json")
+        "create --namespace="+namespace,
+        expected_result, file_name="quota.json")
     # Create rc to test the quota
     execute_kubectl_cmds(
         "create", file_name="quota_nginx.yml")
     # Verify that creation failed
     describe_response = execute_kubectl_cmds(
         "describe rc testnginx --namespace="+namespace)
-    failed_str = 'Error creating: pods "testnginx-" is forbidden: Exceeded quota: quota'
+    failed_str = 'Error creating: pods "testnginx-" '
+    'is forbidden: Exceeded quota: quota'
     assert failed_str in describe_response
     teardown_ns(namespace)
 
@@ -407,8 +442,11 @@ def test_k8s_env_deployments(
     name = "nginx-deployment"
     # Create deployment
     expected_result = ['deployment "'+name+'" created']
-    execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="nginx-deployment.yml")
-    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
+    execute_kubectl_cmds(
+        "create --namespace="+namespace,
+        expected_result, file_name="nginx-deployment.yml")
+    waitfor_pods(
+        selector="app=nginx", namespace=namespace, number=3)
     # Verify new pods are created
     get_response = execute_kubectl_cmds(
         "get deployment "+name+" -o json --namespace="+namespace)
@@ -430,9 +468,13 @@ def test_k8s_env_deployments_rollback(
     name = "nginx-deployment"
     # Create deployment
     expected_result = ['deployment "'+name+'" created']
-    execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="nginx-deployment.yml")
-    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
-    get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
+    execute_kubectl_cmds(
+        "create --namespace="+namespace,
+        expected_result, file_name="nginx-deployment.yml")
+    waitfor_pods(
+        selector="app=nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
     assert deployment["spec"]["replicas"] == 3
@@ -444,9 +486,13 @@ def test_k8s_env_deployments_rollback(
     assert containers[0]["image"] == "nginx:1.7.9"
     # Update deployment
     expected_result = ['deployment "'+name+'" configured']
-    execute_kubectl_cmds("apply --namespace="+namespace, expected_result, file_name="nginx-deploymentv2.yml")
-    waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
-    get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
+    execute_kubectl_cmds(
+        "apply --namespace="+namespace,
+        expected_result, file_name="nginx-deploymentv2.yml")
+    waitfor_pods(
+        selector="app=nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
     assert deployment["spec"]["replicas"] == 3
@@ -457,9 +503,12 @@ def test_k8s_env_deployments_rollback(
     assert containers[0]["image"] == "nginx:1.9.1"
     # Rollback deployment
     expected_result = ['deployment "nginx-deployment" rolled back']
-    execute_kubectl_cmds("rollout undo --namespace="+namespace+" deployment/"+name, expected_result)
+    execute_kubectl_cmds(
+        "rollout undo --namespace="+namespace+" deployment/"+name,
+        expected_result)
     waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
-    get_response = execute_kubectl_cmds("get deployment "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get deployment "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Deployment"
     assert deployment["spec"]["replicas"] == 3
@@ -479,9 +528,13 @@ def test_k8s_env_jobs(
     name = "pitest"
     # Create deployment
     expected_result = ['job "'+name+'" created']
-    execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="job.yml")
-    waitfor_pods(selector="job-name=pitest", namespace=namespace, state="Succeeded", number=1)
-    get_response = execute_kubectl_cmds("get jobs "+name+" -o json --namespace="+namespace)
+    execute_kubectl_cmds(
+        "create --namespace="+namespace, expected_result, file_name="job.yml")
+    waitfor_pods(
+        selector="job-name=pitest", namespace=namespace,
+        state="Succeeded", number=1)
+    get_response = execute_kubectl_cmds(
+        "get jobs "+name+" -o json --namespace="+namespace)
     deployment = json.loads(get_response)
     assert deployment["kind"] == "Job"
     assert deployment["metadata"]["name"] == name
@@ -499,9 +552,13 @@ def test_k8s_env_scale(
     name = "scale-nginx"
     # Create rc
     expected_result = ['replicationcontroller "'+name+'" created']
-    execute_kubectl_cmds("create --namespace="+namespace, expected_result, file_name="scale-rc.yml")
-    waitfor_pods(selector="app=scalable-nginx", namespace=namespace, number=2)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    execute_kubectl_cmds(
+        "create --namespace="+namespace,
+        expected_result, file_name="scale-rc.yml")
+    waitfor_pods(
+        selector="app=scalable-nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc["kind"] == "ReplicationController"
     assert rc["metadata"]["name"] == name
@@ -511,9 +568,13 @@ def test_k8s_env_scale(
     assert container["name"] == "nginx"
     # Scale rc
     expected_result = ['replicationcontroller "'+name+'" scaled']
-    execute_kubectl_cmds("scale rc "+name+" --replicas=3 --namespace="+namespace, expected_result)
-    waitfor_pods(selector="app=scalable-nginx", namespace=namespace, number=3)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    execute_kubectl_cmds(
+        "scale rc "+name+" --replicas=3 --namespace="+namespace,
+        expected_result)
+    waitfor_pods(
+        selector="app=scalable-nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc["kind"] == "ReplicationController"
     assert rc["metadata"]["name"] == name
@@ -536,7 +597,9 @@ def test_k8s_env_daemonsets(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="daemonset.yml")
     waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=2)
-    get_response = execute_kubectl_cmds("get pods --selector=app=daemonset-nginx -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pods --selector=app=daemonset-nginx"
+        " -o json --namespace="+namespace)
     pods = json.loads(get_response)
     nodes_of_pods = set()
     for pod in pods['items']:
@@ -565,7 +628,8 @@ def test_k8s_env_replicasets(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="replicaset.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
-    get_response = execute_kubectl_cmds("get rs "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get rs "+name+" -o json --namespace="+namespace)
     rs = json.loads(get_response)
     assert rs['metadata']['name'] == name
     assert rs['kind'] == "ReplicaSet"
@@ -585,7 +649,8 @@ def test_k8s_env_create_pod(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="pod-nginx.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -609,7 +674,8 @@ def test_k8s_env_create_priv_pod(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="pod-priv-nginx.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -634,7 +700,8 @@ def test_k8s_env_delete_pod(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="pod-nginx.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -652,7 +719,8 @@ def test_k8s_env_delete_pod(
     expected_error = \
         'Error from server: pods "'+name+'" not found'
     get_response = execute_kubectl_cmds(
-        "get pods "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+        "get pods "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
     teardown_ns(namespace)
 
 
@@ -668,7 +736,8 @@ def test_k8s_env_edit_pod(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="pod-nginx.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+oldname+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+oldname+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == oldname
     assert pod['kind'] == "Pod"
@@ -681,7 +750,8 @@ def test_k8s_env_edit_pod(
     # Edit pod
     expected_result = ['pod "'+name+'" replaced']
     execute_kubectl_cmds(
-        "replace --force --namespace="+namespace, expected_result, file_name="pod-replace-nginx.yml")
+        "replace --force --namespace="+namespace,
+        expected_result, file_name="pod-replace-nginx.yml")
     waitfor_pods(selector="app=nginxv2", namespace=namespace, number=1)
     get_response = execute_kubectl_cmds(
         "get pod "+name+" -o json --namespace="+namespace)
@@ -708,7 +778,8 @@ def test_k8s_env_podspec_volume(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="podspec-volume.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -740,7 +811,8 @@ def test_k8s_env_restartPolicy(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-rp.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -751,10 +823,12 @@ def test_k8s_env_restartPolicy(
     assert container['ready']
     assert container['name'] == "nginx"
     # stop containers in the pod
-    containers = get_pod_container_list(super_client, name, namespace=namespace)
+    containers = get_pod_container_list(
+        super_client, name, namespace=namespace)
     for c in containers:
         super_client.wait_success(c.stop())
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -776,13 +850,17 @@ def test_k8s_env_podspec_activeDeadlineSeconds(
     # Create pod with active deadline seconds
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-ads.yml")
-    waitfor_pods(selector="app=nginx", namespace=namespace, number=1, state="Failed")
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    waitfor_pods(
+        selector="app=nginx", namespace=namespace, number=1, state="Failed")
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Failed"
-    assert pod['status']['message'] == "Pod was active on the node longer than specified deadline"
+    assert pod['status']['message'] == ("Pod was active on the"
+                                        " node longer than specified"
+                                        " deadline")
     assert pod['status']['reason'] == "DeadlineExceeded"
     teardown_ns(namespace)
 
@@ -798,7 +876,8 @@ def test_k8s_env_podspec_terminationGracePeriodSeconds(
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="pod-nginx-tgp.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -819,12 +898,14 @@ def test_k8s_env_podspec_nodeSelector(
     last_node = nodes['items'][len(nodes['items'])-1]['metadata']['name']
     # Add label on the last node
     expected_result = ['node "'+last_node+'" labeled']
-    execute_kubectl_cmds("label nodes "+last_node+" role=testnode", expected_result)
+    execute_kubectl_cmds(
+        "label nodes "+last_node+" role=testnode", expected_result)
     # Create pod with nodeselector
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-nodeSelector.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['spec']['nodeName'] == last_node
@@ -837,7 +918,8 @@ def test_k8s_env_podspec_nodeSelector(
     assert container['name'] == "nginx"
     # Remove label from node
     expected_result = ['node "'+last_node+'" labeled']
-    execute_kubectl_cmds("label nodes "+last_node+" role-", expected_result)
+    execute_kubectl_cmds(
+        "label nodes "+last_node+" role-", expected_result)
     teardown_ns(namespace)
 
 
@@ -853,7 +935,8 @@ def test_k8s_env_podspec_nodeName(
     last_node = nodes['items'][len(nodes['items'])-1]['metadata']['name']
     # Change nodename in yml file
     fname = os.path.join(K8_SUBDIR, "pod-nginx-nodeName.yml")
-    with open(os.path.join(K8_SUBDIR, "pod-nginx-nodeName-2.yml"), "wt") as fout:
+    with open(os.path.join(K8_SUBDIR,
+                           "pod-nginx-nodeName-2.yml"), "wt") as fout:
         with open(fname, "rt") as fin:
             for line in fin:
                 fout.write(line.replace('placeholder', last_node))
@@ -863,7 +946,8 @@ def test_k8s_env_podspec_nodeName(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-nodeName-2.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['spec']['nodeName'] == last_node
@@ -889,7 +973,8 @@ def test_k8s_env_podspec_hostPID(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-hostpid.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['spec']['hostPID']
@@ -917,7 +1002,8 @@ def test_k8s_env_podspec_hostIPC(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-hostipc.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['spec']['hostIPC']
@@ -942,7 +1028,8 @@ def test_k8s_env_rc_create(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="rc-nginx.yml")
     waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc['metadata']['name'] == name
     assert rc['status']['replicas'] == rc['spec']['replicas']
@@ -960,7 +1047,8 @@ def test_k8s_env_rc_delete(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="rc-nginx.yml")
     waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc['metadata']['name'] == name
     assert rc['status']['replicas'] == rc['spec']['replicas']
@@ -973,7 +1061,8 @@ def test_k8s_env_rc_delete(
     expected_error = \
         'Error from server: replicationcontrollers "'+name+'" not found'
     get_response = execute_kubectl_cmds(
-        "get rc "+name+" -o json --namespace="+namespace, expected_error=expected_error)
+        "get rc "+name+" -o json --namespace="+namespace,
+        expected_error=expected_error)
     teardown_ns(namespace)
 
 
@@ -986,8 +1075,10 @@ def test_k8s_env_rc_edit(
     # Create rc
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="rc-nginx.yml")
-    waitfor_pods(selector="name=nginx", namespace=namespace, number=2)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    waitfor_pods(
+        selector="name=nginx", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc['metadata']['name'] == name
     assert rc['status']['replicas'] == rc['spec']['replicas']
@@ -996,7 +1087,8 @@ def test_k8s_env_rc_edit(
     newname = 'nginxv2'
     expected_result = ['replicationcontroller "'+newname+'" replaced']
     execute_kubectl_cmds(
-        "replace --force --namespace="+namespace, expected_result, file_name="rc-replace-nginx.yml")
+        "replace --force --namespace="+namespace,
+        expected_result, file_name="rc-replace-nginx.yml")
     waitfor_pods(selector="name=nginxv2", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds(
         "get rc "+newname+" -o json --namespace="+namespace)
@@ -1041,14 +1133,16 @@ def test_k8s_env_service_attributes(
                          file_name="service-nginx-2.yml")
     waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
     # Verify that all services created
-    get_response = execute_kubectl_cmds("get service "+lbname+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get service "+lbname+" -o json --namespace="+namespace)
     service = json.loads(get_response)
     assert service['metadata']['name'] == lbname
     assert service['kind'] == "Service"
     assert service['spec']['ports'][0]['port'] == 8888
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
-    get_response = execute_kubectl_cmds("get service "+nodeportname+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get service "+nodeportname+" -o json --namespace="+namespace)
     service = json.loads(get_response)
     assert service['metadata']['name'] == nodeportname
     assert service['kind'] == "Service"
@@ -1056,7 +1150,8 @@ def test_k8s_env_service_attributes(
     assert service['spec']['ports'][0]['port'] == 80
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
-    get_response = execute_kubectl_cmds("get service "+clusteripname+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get service "+clusteripname+" -o json --namespace="+namespace)
     service = json.loads(get_response)
     assert service['metadata']['name'] == clusteripname
     assert service['kind'] == "Service"
@@ -1075,7 +1170,8 @@ def test_k8s_env_service_attributes(
     assert response.code == 200
 
     # Check for nodeport IP
-    get_response = execute_kubectl_cmds("get pod --selector=name=nginx -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=name=nginx -o json --namespace="+namespace)
     pods = json.loads(get_response)
     nodeportip = pods['items'][0]['status']['hostIP']
     response = urlopen("http://"+nodeportip+":30000")
@@ -1084,8 +1180,11 @@ def test_k8s_env_service_attributes(
     # Check for cluster IP
     clusterurl = clusterip+":"+str(clusterport)
     nginxpod = pods['items'][0]['metadata']['name']
-    nginxcont = get_pod_container_list(super_client, nginxpod, namespace=namespace)[0]
-    cmd_result = execute_cmd(nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"', clusterurl, '-o', '/dev/null'])
+    nginxcont = get_pod_container_list(
+        super_client, nginxpod, namespace=namespace)[0]
+    cmd_result = execute_cmd(
+        nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"',
+                    clusterurl, '-o', '/dev/null'])
     assert cmd_result == '"200'
 
     # Check for external IP
@@ -1110,7 +1209,8 @@ def test_k8s_env_podspec_hostnetwork(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="pod-nginx-hostnet.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get pod "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "pod"
@@ -1132,13 +1232,17 @@ def test_k8s_env_dashboard(
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="dashboard.yml")
-    waitfor_pods(selector="app=kubernetes-dashboard", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    waitfor_pods(selector="app=kubernetes-dashboard",
+                 namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc['metadata']['name'] == name
     assert rc['status']['replicas'] == rc['spec']['replicas']
     assert rc['kind'] == "ReplicationController"
-    get_response = execute_kubectl_cmds("get pod --selector=app=kubernetes-dashboard -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=app=kubernetes-dashboard"
+        " -o json --namespace="+namespace)
     pods = json.loads(get_response)
     pod = pods['items'][0]
     assert pod['kind'] == "Pod"
@@ -1147,7 +1251,9 @@ def test_k8s_env_dashboard(
     assert container['ready']
     assert container['restartcount'] == 0
     # Check for nodeport IP
-    get_response = execute_kubectl_cmds("get pod --selector=app=kubernetes-dashboard -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=app=kubernetes-dashboard"
+        " -o json --namespace="+namespace)
     pods = json.loads(get_response)
     nodeportip = pods['items'][0]['status']['hostIP']
     response = urlopen("http://"+nodeportip+":30803")
@@ -1165,12 +1271,14 @@ def test_k8s_env_heapster(
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="heapster.yml")
     waitfor_pods(selector="k8s-app=heapster", namespace=namespace, number=1)
-    get_response = execute_kubectl_cmds("get rc "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get rc "+name+" -o json --namespace="+namespace)
     rc = json.loads(get_response)
     assert rc['metadata']['name'] == name
     assert rc['status']['replicas'] == rc['spec']['replicas']
     assert rc['kind'] == "ReplicationController"
-    get_response = execute_kubectl_cmds("get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
     pods = json.loads(get_response)
     pod = pods['items'][0]
     assert pod['kind'] == "Pod"
@@ -1178,13 +1286,15 @@ def test_k8s_env_heapster(
     container = pod['status']['containerStatuses'][0]
     assert container['ready']
     # Check for nodeport IP for heapster
-    get_response = execute_kubectl_cmds("get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
     pods = json.loads(get_response)
     nodeportip = pods['items'][0]['status']['hostIP']
     response = urlopen("http://"+nodeportip+":30803")
     assert response.code == 200
     # Check for nodeport IP for grafana and influx
-    get_response = execute_kubectl_cmds("get pod --selector=name=influxGrafana -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=name=influxGrafana -o json --namespace="+namespace)
     pods = json.loads(get_response)
     nodeportip = pods['items'][0]['status']['hostIP']
     response = urlopen("http://"+nodeportip+":30804")
@@ -1203,7 +1313,8 @@ def test_k8s_env_serviceaccount(
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="serviceaccount.yml")
-    get_response = execute_kubectl_cmds("get serviceaccount "+name+" -o json --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get serviceaccount "+name+" -o json --namespace="+namespace)
     sa = json.loads(get_response)
     assert sa['metadata']['name'] == name
     assert sa['kind'] == "ServiceAccount"
