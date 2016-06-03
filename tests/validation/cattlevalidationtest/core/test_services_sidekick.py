@@ -641,6 +641,62 @@ def test_sidekick_services_deactivate_activate(client,  super_client):
     delete_all(client, [env])
 
 
+def test_sidekick_lbactivation_after_linking(client,
+                                             super_client, socat_containers):
+    service_scale = 2
+    port = "7091"
+    env, service1, service1_name, consumed_service_name = \
+        create_env_with_sidekick_for_linking(client, service_scale)
+    env = env.activateservices()
+    service1 = client.wait_success(service1, 120)
+    assert service1.state == "active"
+
+    validate_sidekick(super_client, service1, service1_name,
+                      consumed_service_name)
+
+    # Add LB service
+
+    launch_config_lb = {"ports": [port + ":80"]}
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    lb_service = client.create_loadBalancerService(
+        name=service_name, environmentId=env.id, launchConfig=launch_config_lb,
+        scale=1)
+
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    lb_service.setservicelinks(
+        serviceLinks=[{"serviceId": service1.id, "ports": []}])
+
+    validate_add_service_link(super_client, lb_service, service1)
+
+    # Activate LB service
+
+    lb_service = lb_service.activate()
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
+
+    wait_for_lb_service_to_become_active(super_client, client,
+                                         [service1], lb_service)
+
+    target_count = service1.scale
+    container_name1 = get_service_containers_with_name(super_client,
+                                                       service1,
+                                                       service1_name)
+    containers = container_name1
+    container_names = []
+    for c in containers:
+        if c.state == "running":
+            container_names.append(c.externalId[:12])
+    assert len(container_names) == target_count
+
+    validate_lb_service_con_names(super_client, client, lb_service, port,
+                                  container_names)
+    delete_all(client, [env])
+
+
 def validate_sidekick(super_client, primary_service, service_name,
                       consumed_service_name, exposed_port=None, dnsname=None):
     print "Validating service - " + service_name
