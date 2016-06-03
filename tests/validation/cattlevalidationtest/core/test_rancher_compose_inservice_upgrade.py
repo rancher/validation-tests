@@ -1251,22 +1251,6 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     delete_all(client, [env])
 
 
-def check_config_for_service(super_client, service, labels, managed):
-    containers = get_service_container_list(super_client, service, managed)
-    assert len(containers) == service.scale
-    for con in containers:
-        for key in labels.keys():
-            assert con.labels[key] == labels[key]
-        if managed == 1:
-            assert con.state == "running"
-        else:
-            assert con.state == "stopped"
-    if managed:
-        for key in labels.keys():
-            service_labels = service.launchConfig["labels"]
-            assert service_labels[key] == labels[key]
-
-
 def check_config_for_service_sidekick(super_client, service, service_name,
                                       labels, managed, primary=True):
     containers = get_service_containers_with_name(

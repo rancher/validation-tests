@@ -1354,7 +1354,8 @@ def execute_rancher_compose(client, env_name, docker_compose,
     print cmd
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    print str(response)
+    print "Obtained Response: " + str(response)
+    print "Expected Response: " + expected_resp
     found = False
     for resp in response:
         if expected_resp in resp:
@@ -2645,3 +2646,19 @@ def get_service_instance_count(client, service):
                     state="active")
             scale = len(hosts) + len(active_hosts)
     return scale
+
+
+def check_config_for_service(super_client, service, labels, managed):
+    containers = get_service_container_list(super_client, service, managed)
+    assert len(containers) == service.scale
+    for con in containers:
+        for key in labels.keys():
+            assert con.labels[key] == labels[key]
+        if managed == 1:
+            assert con.state == "running"
+        else:
+            assert con.state == "stopped"
+    if managed:
+        for key in labels.keys():
+            service_labels = service.launchConfig["labels"]
+            assert service_labels[key] == labels[key]
