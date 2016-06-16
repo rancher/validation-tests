@@ -988,7 +988,7 @@ def test_k8s_env_podspec_hostPID(
     # check for PID
     cont = get_pod_container_list(super_client, name, namespace=namespace)
     cmd_result = execute_cmd(cont[0], ['ps', '-p', '1', '-o', 'comm='])
-    assert cmd_result == 'init'
+    assert cmd_result != 'nginx'
     teardown_ns(namespace)
 
 
