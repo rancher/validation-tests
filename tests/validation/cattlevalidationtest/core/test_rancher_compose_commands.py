@@ -3,7 +3,7 @@ from common_fixtures import *  # NOQA
 RCCOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  'resources/rccmds')
 logger = logging.getLogger(__name__)
-
+start_project_str = "Starting"
 
 if_compose_data_files = pytest.mark.skipif(
     not os.path.isdir(RCCOMMANDS_SUBDIR),
@@ -23,7 +23,7 @@ def test_rancher_compose_create_service(super_client, client,
         "create", "Creating stack", "rc1.yml")
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-        "up -d", "Starting project", "rc1.yml")
+        "up -d", start_project_str, "rc1.yml")
     env, service = get_env_service_by_name(client, env_name, "test1")
 
     # Confirm service is active and the containers are running
@@ -54,7 +54,7 @@ def test_rancher_compose_start_stop(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-        "up -d", "Starting project", "rc1.yml")
+        "up -d", start_project_str, "rc1.yml")
     env, service = get_env_service_by_name(client, env_name, "test1")
 
     # Confirm service is active and the containers are running
@@ -112,7 +112,7 @@ def test_rancher_compose_start_down(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-        "up -d", "Starting project", "rc1.yml")
+        "up -d", start_project_str, "rc1.yml")
     env, service = get_env_service_by_name(client, env_name, "test1")
 
     # Confirm service is active and the containers are running
@@ -291,7 +291,7 @@ def test_rancher_compose_services_delete(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-        "up -d", "Starting project", "rc1.yml")
+        "up -d", start_project_str, "rc1.yml")
     env, service = get_env_service_by_name(client, env_name, "test1")
 
     # Confirm service is active and the containers are running
@@ -326,7 +326,7 @@ def test_rancher_compose_services_scale(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-        "up -d", "Starting project", "rc1.yml")
+        "up -d", start_project_str, "rc1.yml")
     env, service = get_env_service_by_name(client, env_name, "test1")
 
     # Confirm service is active and the containers are running
@@ -381,7 +381,7 @@ def test_rancher_compose_services_security(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc3.yml", env_name,
-        "up -d", "Starting project", "rc3.yml")
+        "up -d", start_project_str, "rc3.yml")
     env, service = get_env_service_by_name(client, env_name, "test3")
 
     # Confirm service is active and the containers are running
@@ -423,7 +423,7 @@ def test_rancher_compose_services_log_driver(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc3.yml", env_name,
-        "up -d", "Starting project", "rc3.yml")
+        "up -d", start_project_str, "rc3.yml")
     env, service = get_env_service_by_name(client, env_name, "test3")
 
     # Confirm service is active and the containers are running
@@ -459,7 +459,7 @@ def test_rancher_compose_services_network(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc4.yml", env_name,
-        "up -d", "Starting project", "rc4.yml")
+        "up -d", start_project_str, "rc4.yml")
     env, service = get_env_service_by_name(client, env_name, "test4")
 
     # Confirm service is active and the containers are running
@@ -511,7 +511,7 @@ def test_rancher_compose_services_volume(super_client, client,
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc5.yml", env_name,
-        "up -d", "Starting project", "rc5.yml")
+        "up -d", start_project_str, "rc5.yml")
     env, service = get_env_service_by_name(client, env_name, "test4")
 
     # Confirm service is active and the containers are running
