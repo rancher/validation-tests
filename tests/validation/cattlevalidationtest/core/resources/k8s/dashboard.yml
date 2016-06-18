@@ -25,7 +25,7 @@ items:
           - containerPort: 9090
             protocol: TCP
           args:
-            - --apiserver-host=https://10.43.0.1
+          # - --apiserver-host=https://10.43.0.1:443
 - kind: Service
   apiVersion: v1
   metadata:
