@@ -8,6 +8,7 @@ METADATA_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                'resources/metadatadc')
 
 logger = logging.getLogger(__name__)
+start_project_str = "Starting"
 
 if_compose_data_files = pytest.mark.skipif(
     not os.path.isdir(METADATA_SUBDIR),
@@ -731,7 +732,7 @@ def test_metadata_lb_updatetarget(
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, METADATA_SUBDIR, "dc_metadata_lb_1.yml", env_name,
-        "up -d", "Starting project")
+        "up -d", start_project_str)
 
     linked_services = {env_name + "/" + "web1": "web1",
                        env_name + "/" + "web2": "web2"}
@@ -755,7 +756,7 @@ def test_metadata_lb_updatetarget(
     # Add another target to existing LB service
     launch_rancher_compose_from_file(
         client, METADATA_SUBDIR, "dc_metadata_lb_11.yml", env_name,
-        "up -d", "Starting project")
+        "up -d", start_project_str)
 
     linked_services = {env_name + "/" + "web1": "web1",
                        env_name + "/" + "web2": "web2",
