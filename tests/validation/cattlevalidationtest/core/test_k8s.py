@@ -1213,11 +1213,10 @@ def test_k8s_env_podspec_hostnetwork(
         "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
-    assert pod['kind'] == "pod"
-    assert pod['status']['phase'] == "running"
-    container = pod['status']['containerstatuses'][0]
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
     assert container['image'] == "husseingalal/podspec-hostnet"
-    assert container['restartcount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
     teardown_ns(namespace)
@@ -1249,7 +1248,7 @@ def test_k8s_env_dashboard(
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
     assert container['ready']
-    assert container['restartcount'] == 0
+    assert container['restartCount'] == 0
     # Check for nodeport IP
     get_response = execute_kubectl_cmds(
         "get pod --selector=app=kubernetes-dashboard"
@@ -1285,13 +1284,6 @@ def test_k8s_env_heapster(
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
     assert container['ready']
-    # Check for nodeport IP for heapster
-    get_response = execute_kubectl_cmds(
-        "get pod --selector=k8s-app=heapster -o json --namespace="+namespace)
-    pods = json.loads(get_response)
-    nodeportip = pods['items'][0]['status']['hostIP']
-    response = urlopen("http://"+nodeportip+":30803")
-    assert response.code == 200
     # Check for nodeport IP for grafana and influx
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=influxGrafana -o json --namespace="+namespace)
