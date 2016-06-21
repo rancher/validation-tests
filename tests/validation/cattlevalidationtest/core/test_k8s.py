@@ -4,10 +4,55 @@ import websocket as ws
 import base64
 import os
 
+quay_creds = {}
+quay_creds["email"] = os.environ.get('QUAY_EMAIL')
+quay_creds["username"] = os.environ.get('QUAY_USERNAME')
+quay_creds["password"] = os.environ.get('QUAY_PASSWORD')
+quay_creds["image"] = os.environ.get('QUAY_IMAGE')
+quay_creds["serverAddress"] = "quay.io"
+quay_creds["name"] = "quay"
+
+
+registry_list = {}
+
 if_test_k8s = pytest.mark.skipif(
     not os.environ.get('DIGITALOCEAN_KEY') or
     not os.environ.get('TEST_K8S'),
     reason='DIGITALOCEAN_KEY/TEST_K8S is not set')
+
+
+def create_registry(client, registry_creds):
+
+    registry = client.create_registry(
+        serverAddress=registry_creds["serverAddress"],
+        name=registry_creds["name"])
+    registry = client.wait_success(registry)
+
+    reg_cred = client.create_registry_credential(
+        registryId=registry.id,
+        email=registry_creds["email"],
+        publicValue=registry_creds["username"],
+        secretValue=registry_creds["password"])
+    reg_cred = client.wait_success(reg_cred)
+
+    return reg_cred
+
+
+def remove_registry(client, super_client, registry_creds, reg_cred):
+
+    registry_list[quay_creds["name"]] = reg_cred
+
+    for reg_cred in registry_list.values():
+        reg_cred = client.wait_success(reg_cred.deactivate())
+        reg_cred = client.delete(reg_cred)
+        reg_cred = client.wait_success(reg_cred)
+        assert reg_cred.state == 'removed'
+        registry = super_client.by_id('registry', reg_cred.registryId)
+        registry = client.wait_success(registry.deactivate())
+        assert registry.state == 'inactive'
+        registry = client.delete(registry)
+        registry = client.wait_success(registry)
+        assert registry.state == 'removed'
 
 
 # Execute command in container
@@ -1311,4 +1356,40 @@ def test_k8s_env_serviceaccount(
     assert sa['metadata']['name'] == name
     assert sa['kind'] == "ServiceAccount"
     assert 'build-robot' in sa['secrets'][0]['name']
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_create_pod_with_private_registry_image(
+        super_client, client, kube_hosts):
+
+    quay_image = quay_creds["image"]
+    # Create namespace
+    namespace = 'privateregpod3'
+    create_ns(namespace)
+    name = "privateregpod"
+
+    # Create registry
+    reg_cred = create_registry(client, quay_creds)
+    registry_list[quay_creds["name"]] = reg_cred
+
+    # Create pod with the image in private registry
+    expected_result = ['pod "'+name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="pod-private-registry.yml")
+    waitfor_pods(selector="app=privatereg", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    assert pod['spec']['containers'][0]['securityContext']['privileged']
+    container = pod['status']['containerStatuses'][0]
+    assert container['image'] == quay_image
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "privateregpod"
+    # Remove registry
+    remove_registry(client, super_client, quay_creds, reg_cred)
     teardown_ns(namespace)
