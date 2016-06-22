@@ -1324,7 +1324,8 @@ def launch_rancher_compose(client, env):
 
 
 def execute_rancher_compose(client, env_name, docker_compose,
-                            rancher_compose, command, expected_resp):
+                            rancher_compose, command, expected_resp,
+                            timeout=SERVICE_WAIT_TIMEOUT):
     access_key = client._access_key
     secret_key = client._secret_key
     docker_filename = env_name + "-docker-compose.yml"
@@ -1352,7 +1353,7 @@ def execute_rancher_compose(client, env_name, docker_compose,
         password="root", port=int(rancher_compose_con["port"]))
     cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
     print cmd
-    stdin, stdout, stderr = ssh.exec_command(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
     print "Obtained Response: " + str(response)
     print "Expected Response: " + expected_resp
