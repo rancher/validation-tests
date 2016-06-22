@@ -20,6 +20,14 @@ if_test_k8s = pytest.mark.skipif(
     not os.environ.get('TEST_K8S'),
     reason='DIGITALOCEAN_KEY/TEST_K8S is not set')
 
+if_test_privatereg = pytest.mark.skipif(
+    not os.environ.get('DIGITALOCEAN_KEY') or
+    not os.environ.get('TEST_K8S') or
+    not os.environ.get('QUAY_EMAIL') or
+    not os.environ.get('QUAY_USERNAME') or
+    not os.environ.get('QUAY_IMAGE'),
+    reason='PRIVATEREG_CREDENTIALS/DIGITALOCEAN_KEY/TEST_K8S not set')
+
 
 def create_registry(client, registry_creds):
 
@@ -40,7 +48,7 @@ def create_registry(client, registry_creds):
 
 def remove_registry(client, super_client, registry_creds, reg_cred):
 
-    registry_list[quay_creds["name"]] = reg_cred
+    registry_list[registry_creds["name"]] = reg_cred
 
     for reg_cred in registry_list.values():
         reg_cred = client.wait_success(reg_cred.deactivate())
@@ -1359,13 +1367,13 @@ def test_k8s_env_serviceaccount(
     teardown_ns(namespace)
 
 
-@if_test_k8s
+@if_test_privatereg
 def test_k8s_env_create_pod_with_private_registry_image(
         super_client, client, kube_hosts):
 
     quay_image = quay_creds["image"]
     # Create namespace
-    namespace = 'privateregpod3'
+    namespace = 'privateregns'
     create_ns(namespace)
     name = "privateregpod"
 
