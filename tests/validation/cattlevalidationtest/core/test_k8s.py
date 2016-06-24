@@ -99,68 +99,6 @@ def get_pod_container_list(super_client, pod, namespace='default'):
     return container
 
 
-# Creating Environment namespace
-def create_ns(namespace):
-    expected_result = ['namespace "'+namespace+'" created']
-    execute_kubectl_cmds(
-        "create namespace "+namespace, expected_result)
-    # Verify namespace is created
-    get_response = execute_kubectl_cmds(
-        "get namespace "+namespace+" -o json")
-    secret = json.loads(get_response)
-    assert secret["metadata"]["name"] == namespace
-    assert secret["status"]["phase"] == "Active"
-
-
-# Teardown Environment namespace
-def teardown_ns(namespace):
-    timeout = 0
-    expected_result = ['namespace "'+namespace+'" deleted']
-    execute_kubectl_cmds(
-        "delete namespace "+namespace, expected_result)
-    while True:
-        get_response = execute_kubectl_cmds("get namespaces")
-        if namespace not in get_response:
-            break
-        else:
-            time.sleep(5)
-            timeout += 5
-            if timeout == 300:
-                raise ValueError('Timeout Exception: for deleting namespace')
-
-
-# Waitfor Pod
-def waitfor_pods(selector=None,
-                 namespace="default",
-                 number=1,
-                 state="Running"):
-    timeout = 0
-    all_running = True
-    get_response = execute_kubectl_cmds(
-        "get pod --selector="+selector+" -o json -a --namespace="+namespace)
-    pod = json.loads(get_response)
-    pods = pod['items']
-    pods_no = len(pod['items'])
-    while True:
-        if pods_no == number:
-            for pod in pods:
-                if pod['status']['phase'] != state:
-                    all_running = False
-            if all_running:
-                break
-        time.sleep(5)
-        timeout += 5
-        if timeout == 300:
-            raise ValueError('Timeout Exception: pods did not run properly')
-        get_response = execute_kubectl_cmds(
-            "get pod --selector="+selector+" -o"
-            " json -a --namespace="+namespace)
-        pod = json.loads(get_response)
-        pods = pod['items']
-        pods_no = len(pod['items'])
-        all_running = True
-
-
 @if_test_k8s
 def test_k8s_env_create(
         super_client, admin_client, client, kube_hosts):
