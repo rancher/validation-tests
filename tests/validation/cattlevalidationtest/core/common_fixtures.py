@@ -518,10 +518,10 @@ def kube_hosts(request, client, super_client, admin_client):
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
-
-    test_client_con = create_kubectl_client_container(client, "9999")
-    kubectl_client_con["container"] = test_client_con["container"]
-    kubectl_client_con["host"] = test_client_con["host"]
+    if kubectl_client_con["container"] is None:
+        test_client_con = create_kubectl_client_container(client, "9999")
+        kubectl_client_con["container"] = test_client_con["container"]
+        kubectl_client_con["host"] = test_client_con["host"]
 
     def remove():
         delete_all(client, [kubectl_client_con["container"]])
