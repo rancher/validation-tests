@@ -479,46 +479,53 @@ def ha_hosts(client, super_client):
 
 
 @pytest.fixture(scope='session')
-def kube_hosts(client, super_client, admin_client):
+def kube_hosts(request, client, super_client, admin_client):
 
     project = admin_client.list_project(uuid="adminProject")[0]
-    project = admin_client.update(
-        project, kubernetes=True)
-    project = wait_success(admin_client, project)
-    hosts = client.list_host(
-        kind='docker', removed_null=True, state="active",
-        include="physicalHost")
-    do_host_count = 0
-    if len(hosts) >= kube_host_count:
-        for i in range(0, len(hosts)):
-            if hosts[i].physicalHost.driver == "digitalocean":
-                do_host_count += 1
-                kube_host_list.append(hosts[i])
-    if do_host_count < kube_host_count:
-        host_list = \
-            add_digital_ocean_hosts(client, kube_host_count - do_host_count)
-        kube_host_list.extend(host_list)
+    # If Default project is not kubernetes, make it a kubernetes environment
+    if not project.kubernetes:
+        project = admin_client.update(
+            project, kubernetes=True)
+        project = wait_success(admin_client, project)
+        hosts = client.list_host(
+            kind='docker', removed_null=True, state="active",
+            include="physicalHost")
+        do_host_count = 0
+        if len(hosts) >= kube_host_count:
+            for i in range(0, len(hosts)):
+                if hosts[i].physicalHost.driver == "digitalocean":
+                    do_host_count += 1
+                    kube_host_list.append(hosts[i])
+        if do_host_count < kube_host_count:
+            host_list = \
+                add_digital_ocean_hosts(
+                    client, kube_host_count - do_host_count)
+            kube_host_list.extend(host_list)
 
-    # Wait for Kubernetes environment to get created successfully
-    start = time.time()
-    env = client.list_environment(name="Kubernetes")
-    while len(env) != 1:
-        time.sleep(.5)
+        # Wait for Kubernetes environment to get created successfully
+        start = time.time()
         env = client.list_environment(name="Kubernetes")
-        if time.time() - start > 30:
-            raise Exception(
-                'Timed out waiting for Kubernetes env to get created')
+        while len(env) != 1:
+            time.sleep(.5)
+            env = client.list_environment(name="Kubernetes")
+            if time.time() - start > 30:
+                raise Exception(
+                    'Timed out waiting for Kubernetes env to get created')
 
-    environment = env[0]
-    wait_for_condition(
-        super_client, environment,
-        lambda x: x.state == "active",
-        lambda x: 'State is: ' + x.state,
-        timeout=600)
+        environment = env[0]
+        wait_for_condition(
+            super_client, environment,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+    if kubectl_client_con["container"] is None:
+        test_client_con = create_kubectl_client_container(client, "9999")
+        kubectl_client_con["container"] = test_client_con["container"]
+        kubectl_client_con["host"] = test_client_con["host"]
 
-    test_client_con = create_kubectl_client_container(client, "9999")
-    kubectl_client_con["container"] = test_client_con["container"]
-    kubectl_client_con["host"] = test_client_con["host"]
+    def remove():
+        delete_all(client, [kubectl_client_con["container"]])
+    request.addfinalizer(remove)
 
 
 @pytest.fixture(scope='session')
@@ -983,6 +990,30 @@ def check_for_no_access(host, port, is_ssl=False):
         return True
 
 
+def wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False):
+    start = time.time()
+    while check_for_no_access_ip(lb_ip, port, is_ssl):
+        time.sleep(.5)
+        print "No access yet"
+        if time.time() - start > timeout:
+            raise Exception('Timed out waiting for LB to become active')
+    return
+
+
+def check_for_no_access_ip(lb_ip, port, is_ssl=False):
+    if is_ssl:
+        protocol = "https://"
+    else:
+        protocol = "http://"
+    try:
+        url = protocol+lb_ip+":"+port+"/name.html"
+        requests.get(url)
+        return False
+    except requests.ConnectionError:
+        logger.info("Connection Error - " + url)
+        return True
+
+
 def validate_linked_service(super_client, service, consumed_services,
                             exposed_port, exclude_instance=None,
                             exclude_instance_purged=False,
@@ -1324,7 +1355,8 @@ def launch_rancher_compose(client, env):
 
 
 def execute_rancher_compose(client, env_name, docker_compose,
-                            rancher_compose, command, expected_resp):
+                            rancher_compose, command, expected_resp,
+                            timeout=SERVICE_WAIT_TIMEOUT):
     access_key = client._access_key
     secret_key = client._secret_key
     docker_filename = env_name + "-docker-compose.yml"
@@ -1352,7 +1384,7 @@ def execute_rancher_compose(client, env_name, docker_compose,
         password="root", port=int(rancher_compose_con["port"]))
     cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
     print cmd
-    stdin, stdout, stderr = ssh.exec_command(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
     print "Obtained Response: " + str(response)
     print "Expected Response: " + expected_resp
@@ -1742,11 +1774,18 @@ def get_http_response(host, port, path):
 
 def check_round_robin_access(container_names, host, port,
                              hostheader=None, path="/name.html"):
+    check_round_robin_access_lb_ip(container_names,
+                                   host.ipAddresses()[0].address, port,
+                                   hostheader=hostheader, path=path)
+
+
+def check_round_robin_access_lb_ip(container_names, lb_ip, port,
+                                   hostheader=None, path="/name.html"):
 
     con_hostname = container_names[:]
     con_hostname_ordered = []
 
-    url = "http://" + host.ipAddresses()[0].address +\
+    url = "http://" + lb_ip +\
           ":" + port + path
 
     logger.info(url)
@@ -2427,7 +2466,7 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     str_response = ""
     for resp in response:
         str_response += resp
-    print str_response
+    print "Obtained Response: " + str_response
 
     # Validate Expected Response
     if expected_resps is not None:
@@ -2662,3 +2701,119 @@ def check_config_for_service(super_client, service, labels, managed):
         for key in labels.keys():
             service_labels = service.launchConfig["labels"]
             assert service_labels[key] == labels[key]
+
+
+# Creating Environment namespace
+def create_ns(namespace):
+    expected_result = ['namespace "'+namespace+'" created']
+    execute_kubectl_cmds(
+        "create namespace "+namespace, expected_result)
+    # Verify namespace is created
+    get_response = execute_kubectl_cmds(
+        "get namespace "+namespace+" -o json")
+    secret = json.loads(get_response)
+    assert secret["metadata"]["name"] == namespace
+    assert secret["status"]["phase"] == "Active"
+
+
+# Teardown Environment namespace
+def teardown_ns(namespace):
+    timeout = 0
+    expected_result = ['namespace "'+namespace+'" deleted']
+    execute_kubectl_cmds(
+        "delete namespace "+namespace, expected_result)
+    while True:
+        get_response = execute_kubectl_cmds("get namespaces")
+        if namespace not in get_response:
+            break
+        else:
+            time.sleep(5)
+            timeout += 5
+            if timeout == 300:
+                raise ValueError('Timeout Exception: for deleting namespace')
+
+
+# Waitfor Pod
+def waitfor_pods(selector=None,
+                 namespace="default",
+                 number=1,
+                 state="Running"):
+    timeout = 0
+    all_running = True
+    get_response = execute_kubectl_cmds(
+        "get pod --selector="+selector+" -o json -a --namespace="+namespace)
+    pod = json.loads(get_response)
+    pods = pod['items']
+    pods_no = len(pod['items'])
+    while True:
+        if pods_no == number:
+            for pod in pods:
+                if pod['status']['phase'] != state:
+                    all_running = False
+            if all_running:
+                break
+        time.sleep(5)
+        timeout += 5
+        if timeout == 300:
+            raise ValueError('Timeout Exception: pods did not run properly')
+        get_response = execute_kubectl_cmds(
+            "get pod --selector="+selector+" -o"
+            " json -a --namespace="+namespace)
+        pod = json.loads(get_response)
+        pods = pod['items']
+        pods_no = len(pod['items'])
+        all_running = True
+
+
+# Create K8 service
+def create_k8_service(file_name, namespace, service_name, rc_name,
+                      selector_name, scale=2, wait_for_service=True):
+    expected_result = ['replicationcontroller "'+rc_name+'" created',
+                       'service "'+service_name+'" created']
+    execute_kubectl_cmds(
+        "create --namespace="+namespace, expected_result,
+        file_name=file_name)
+    if wait_for_service:
+        waitfor_pods(selector=selector_name, namespace=namespace, number=scale)
+
+
+# Collect names of the pods in the service1
+def get_pod_names_for_selector(selector_name, namespace, scale=2):
+    pod_names = []
+    get_response = execute_kubectl_cmds(
+        "get pod --selector="+selector_name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+
+    assert len(pod["items"]) == scale
+    for pod in pod["items"]:
+        pod_names.append(pod["metadata"]["name"])
+    return pod_names
+
+
+# Collect names of the pods in the service1
+def create_ingress(file_name, ingress_name, namespace,
+                   wait_for_ingress=True):
+    expected_result = ['ingress "'+ingress_name+'" created']
+    execute_kubectl_cmds(
+        "create --namespace="+namespace, expected_result,
+        file_name=file_name)
+    if wait_for_ingress:
+        return wait_for_ingress_to_become_active(ingress_name, namespace)
+
+
+def wait_for_ingress_to_become_active(ingress_name, namespace):
+    lb_ip = None
+    startTime = time.time()
+    while lb_ip is None:
+        if time.time() - startTime > 60:
+            raise \
+                ValueError("Timed out waiting "
+                           "for Ip to be assigned for Ingress")
+        ingress_response = execute_kubectl_cmds(
+            "get ingress "+ingress_name+" -o json --namespace="+namespace)
+        ingress = json.loads(ingress_response)
+        print ingress
+        if "ingress" in ingress["status"]["loadBalancer"]:
+            lb_ip = ingress["status"]["loadBalancer"]["ingress"][0]["ip"]
+        time.sleep(.5)
+    return lb_ip
