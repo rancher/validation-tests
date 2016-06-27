@@ -503,22 +503,19 @@ def test_rancher_compose_services_volume(super_client, client,
                                          rancher_compose_container,
                                          socat_containers):
 
-    # This test case fails because of bug #4786.
-    # Docker inspect appends the local path to the volume
-
     env_name = random_str().replace("-", "")
 
     # Create an environment using up
     launch_rancher_compose_from_file(
         client, RCCOMMANDS_SUBDIR, "dc5.yml", env_name,
         "up -d", start_project_str, "rc5.yml")
-    env, service = get_env_service_by_name(client, env_name, "test4")
+    env, service = get_env_service_by_name(client, env_name, "test5")
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
 
     container_list = get_service_container_list(super_client, service)
-    assert len(container_list) == 3
+    assert len(container_list) == 2
     for con in container_list:
         assert con.state == "running"
         containers = super_client.list_container(
@@ -529,6 +526,7 @@ def test_rancher_compose_services_volume(super_client, client,
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)
         assert inspect["State"]["Running"]
-        assert inspect["HostConfig"]["Binds"] == ["testvolume:/home:rw"]
+        assert inspect["HostConfig"]["Binds"] == ["testvol:/home:rw"]
+        assert inspect["HostConfig"]["VolumeDriver"] == "local"
 
     delete_all(client, [env])
