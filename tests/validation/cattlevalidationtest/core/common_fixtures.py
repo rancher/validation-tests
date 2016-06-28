@@ -2746,7 +2746,7 @@ def waitfor_pods(selector=None,
     pods = pod['items']
     pods_no = len(pod['items'])
     while True:
-        if pods_no == number:
+        if pods_no >= number:
             for pod in pods:
                 if pod['status']['phase'] != state:
                     all_running = False
