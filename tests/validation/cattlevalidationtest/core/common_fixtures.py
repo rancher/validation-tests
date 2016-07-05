@@ -61,6 +61,8 @@ ha_host_list = []
 ha_host_count = 4
 kube_host_count = 2
 kube_host_list = []
+catalog_host_count = 3
+catalog_host_list = []
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
@@ -2817,3 +2819,97 @@ def wait_for_ingress_to_become_active(ingress_name, namespace):
             lb_ip = ingress["status"]["loadBalancer"]["ingress"][0]["ip"]
         time.sleep(.5)
     return lb_ip
+
+
+def add_custom_digital_ocean_hosts(client, count, size):
+    # Create a Digital Ocean Machine
+    machines = []
+    hosts = []
+
+    for i in range(0, count):
+        create_args = {"name": random_str(),
+                       "digitaloceanConfig": {"accessToken": do_access_key,
+                                              "size": size},
+                       "engineInstallUrl": do_install_url}
+        machine = client.create_machine(**create_args)
+        machines.append(machine)
+
+    for machine in machines:
+        machine = client.wait_success(machine, timeout=DEFAULT_MACHINE_TIMEOUT)
+        assert machine.state == 'active'
+        machine = wait_for_host(client, machine)
+        host = machine.hosts()[0]
+        assert host.state == 'active'
+        hosts.append(host)
+    return hosts
+
+
+@pytest.fixture(scope='session')
+def deploy_catalog_template(client, super_client, request,
+                            t_name, t_version, t_env):
+    catalog_url = cattle_url() + "/v1-catalog/templates/community:"
+    # Deploy Catalog template from catalog
+    r = requests.get(catalog_url + t_name + ":" + str(t_version))
+    template = json.loads(r.content)
+    r.close()
+
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+
+    environment = t_env
+    env = client.create_environment(name=t_name,
+                                    dockerCompose=dockerCompose,
+                                    rancherCompose=rancherCompose,
+                                    environment=environment,
+                                    startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    for i in range(10):
+        testenv = client.list_environment().data[0]
+        if testenv.healthState == "unhealthy":
+            time.sleep(1)
+            continue
+        assert (testenv.state == "active" or
+                testenv.state == "activating")
+        assert (testenv.healthState == 'healthy' or
+                testenv.healthState == "initializing")
+        time.sleep(1)
+    assert (testenv.state == "active" or
+            testenv.state == "activating")
+    assert (testenv.healthState == 'healthy' or
+            testenv.healthState == "initializing")
+
+    for service in env.services():
+        wait_for_condition(
+            super_client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+
+
+@pytest.fixture(scope='session')
+def remove_catalog_template(client, request, t_name):
+    def remove():
+        env = client.list_environment(name=t_name)
+        for i in range(len(env)):
+            delete_all(client, [env[i]])
+    request.addfinalizer(remove)
+
+
+@pytest.fixture(scope='session')
+def catalog_hosts(request, client, super_client, admin_client):
+    project = admin_client.list_project(uuid="adminProject")[0]
+    if not project.kubernetes:
+        hosts = client.list_host(
+            kind='docker', removed_null=True, state="active",
+            include="physicalHost")
+        do_host_count = 0
+        if len(hosts) >= catalog_host_count:
+            for i in range(0, len(hosts)):
+                if hosts[i].physicalHost.driver == "digitalocean":
+                    do_host_count += 1
+                    catalog_host_list.append(hosts[i])
+        if do_host_count < catalog_host_count:
+            host_list = \
+                add_custom_digital_ocean_hosts(
+                    client, catalog_host_count - do_host_count, "1gb")
+            catalog_host_list.extend(host_list)
