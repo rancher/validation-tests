@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress6
+spec:
+ rules:
+ - http:
+     paths:
+     - path: /service3.html
+       backend:
+         serviceName: k8test1
+         servicePort: 81
+     - path: /name.html
+       backend:
+         serviceName: k8test2
+         servicePort: 80

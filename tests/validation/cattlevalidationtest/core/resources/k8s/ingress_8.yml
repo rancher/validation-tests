@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress8
+spec:
+  rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - backend:
+          serviceName: k8test1
+          servicePort: 81
+  - http:
+      paths:
+      - path: /name.html
+        backend:
+          serviceName: k8test2
+          servicePort: 80    
+
