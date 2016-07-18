@@ -64,6 +64,7 @@ kube_host_list = []
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
+kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.2.2")
 
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
@@ -2429,7 +2430,7 @@ def create_kubectl_client_container(client, port):
     ssh.connect(host.ipAddresses()[0].address, username="root",
                 password="root", port=int(port))
     cmd1 = "wget https://storage.googleapis.com/kubernetes-release" + \
-           "/release/v1.2.2/bin/linux/amd64/kubectl"
+           "/release/"+kubectl_version+"/bin/linux/amd64/kubectl"
     cmd2 = "chmod +x kubectl"
     cmd3 = "mkdir .kube"
     cmd4 = "echo '" + kube_config + "'> .kube/config"
