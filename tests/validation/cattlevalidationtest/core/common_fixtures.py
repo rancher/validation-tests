@@ -2792,20 +2792,22 @@ def get_pod_names_for_selector(selector_name, namespace, scale=2):
 
 
 # Collect names of the pods in the service1
-def create_ingress(file_name, ingress_name, namespace,
+def create_ingress(file_name, ingress_name, namespace, scale=1,
                    wait_for_ingress=True):
     expected_result = ['ingress "'+ingress_name+'" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace, expected_result,
         file_name=file_name)
     if wait_for_ingress:
-        return wait_for_ingress_to_become_active(ingress_name, namespace)
+        return wait_for_ingress_to_become_active(ingress_name, namespace,
+                                                 scale=1)
 
 
-def wait_for_ingress_to_become_active(ingress_name, namespace):
-    lb_ip = None
+def wait_for_ingress_to_become_active(ingress_name, namespace, scale=1):
+    # Returns a list of lb_ips [Supports ingress scaling]
+    lb_ip = []
     startTime = time.time()
-    while lb_ip is None:
+    while len(lb_ip) < scale:
         if time.time() - startTime > 60:
             raise \
                 ValueError("Timed out waiting "
@@ -2815,6 +2817,8 @@ def wait_for_ingress_to_become_active(ingress_name, namespace):
         ingress = json.loads(ingress_response)
         print ingress
         if "ingress" in ingress["status"]["loadBalancer"]:
-            lb_ip = ingress["status"]["loadBalancer"]["ingress"][0]["ip"]
+            for item in ingress["status"]["loadBalancer"]["ingress"]:
+                print item["ip"]
+                lb_ip.append(item["ip"])
         time.sleep(.5)
     return lb_ip
