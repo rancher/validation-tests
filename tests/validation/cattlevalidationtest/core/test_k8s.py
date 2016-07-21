@@ -1092,36 +1092,14 @@ def test_k8s_env_rc_edit(
 
 # Service Attributes/Specs
 @if_test_k8s
-def test_k8s_env_service_attributes(
+def test_k8s_env_service_lb(
         super_client, admin_client, client, kube_hosts):
-    namespace = 'service-namespace'
+    namespace = 'service-namespace-lb'
     create_ns(namespace)
     lbname = "lbnginx"
-    nodeportname = "nodeport-nginx"
-    clusteripname = "clusterip-nginx"
-    # Get all nodes ips
-    get_response = execute_kubectl_cmds("get nodes -o json")
-    nodes = json.loads(get_response)
-    node1 = nodes['items'][0]['status']['addresses'][0]['address']
-    node2 = nodes['items'][1]['status']['addresses'][0]['address']
-    # Change nodes ips in yml file
-    fname = os.path.join(K8_SUBDIR, "service-nginx.yml")
-    with open(os.path.join(K8_SUBDIR, "service-nginx-1.yml"), "wt") as fout:
-        with open(fname, "rt") as fin:
-            for line in fin:
-                fout.write(line.replace('placeholder-1', node1))
-    fin.close()
-    fout.close()
-    fname = os.path.join(K8_SUBDIR, "service-nginx-1.yml")
-    with open(os.path.join(K8_SUBDIR, "service-nginx-2.yml"), "wt") as fout:
-        with open(fname, "rt") as fin:
-            for line in fin:
-                fout.write(line.replace('placeholder-2', node2))
-    fin.close()
-    fout.close()
     # Create rc and services
     execute_kubectl_cmds("create --namespace="+namespace,
-                         file_name="service-nginx-2.yml")
+                         file_name="service-nginx-lb.yml")
     waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
     # Verify that all services created
     get_response = execute_kubectl_cmds(
@@ -1132,14 +1110,32 @@ def test_k8s_env_service_attributes(
     assert service['spec']['ports'][0]['port'] == 8888
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
-    get_response = execute_kubectl_cmds(
-        "get service "+nodeportname+" -o json --namespace="+namespace)
-    service = json.loads(get_response)
-    assert service['metadata']['name'] == nodeportname
-    assert service['kind'] == "Service"
-    assert service['spec']['ports'][0]['nodePort'] == 30000
-    assert service['spec']['ports'][0]['port'] == 80
-    assert service['spec']['ports'][0]['protocol'] == "TCP"
+    # Check for loadbalancer service
+    if kubectl_version == "v1.2.2":
+        services = super_client.list_service()
+        for s in services:
+            if 'lb-' in s.name:
+                lbservice = s
+        containers = get_service_container_list(super_client, lbservice)
+        lbip = containers[0]['dockerHostIp']
+    elif kubectl_version == "v1.3.0":
+        time.sleep(20)
+        lbip = service['status']['loadBalancer']['ingress'][0]["ip"]
+    response = urlopen("http://"+lbip+":8888")
+    assert response.code == 200
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_service_clusterip(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'service-namespace-clusterip'
+    create_ns(namespace)
+    clusteripname = "clusterip-nginx"
+    # Create rc and services
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="service-nginx-clusterip.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
 
     get_response = execute_kubectl_cmds(
         "get service "+clusteripname+" -o json --namespace="+namespace)
@@ -1150,15 +1146,87 @@ def test_k8s_env_service_attributes(
     assert service['spec']['ports'][0]['protocol'] == "TCP"
     clusterip = service['spec']['clusterIP']
     clusterport = service['spec']['ports'][0]['port']
-    # Check for loadbalancer service
-    services = super_client.list_service()
-    for s in services:
-        if 'lb-' in s.name:
-            lbservice = s
-    containers = get_service_container_list(super_client, lbservice)
-    lbip = containers[0]['dockerHostIp']
-    response = urlopen("http://"+lbip+":8888")
+
+    # Check for cluster IP
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=name=nginx -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    clusterurl = clusterip+":"+str(clusterport)
+    nginxpod = pods['items'][0]['metadata']['name']
+    if kubectl_version == "v1.3.0":
+        nginxcont = get_pod_container_list(
+            super_client, nginxpod, namespace=namespace)[1]
+    else:
+        nginxcont = get_pod_container_list(
+            super_client, nginxpod, namespace=namespace)[0]
+    cmd_result = execute_cmd(
+        nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"',
+                    clusterurl, '-o', '/dev/null'])
+    assert cmd_result == '"200'
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_service_externalip(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'service-namespace-externalip'
+    create_ns(namespace)
+    # Get all nodes ips
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    node1 = nodes['items'][0]['status']['addresses'][0]['address']
+    node2 = nodes['items'][1]['status']['addresses'][0]['address']
+    # Change nodes ips in yml file
+    fname = os.path.join(K8_SUBDIR, "service-nginx-externalip.yml")
+    with open(os.path.join(K8_SUBDIR,
+                           "service-nginx-externalip-1.yml"), "wt") as fout:
+        with open(fname, "rt") as fin:
+            for line in fin:
+                fout.write(line.replace('placeholder-1', node1))
+    fin.close()
+    fout.close()
+    fname = os.path.join(K8_SUBDIR,
+                         "service-nginx-externalip-1.yml")
+    with open(os.path.join(K8_SUBDIR,
+                           "service-nginx-externalip-2.yml"), "wt") as fout:
+        with open(fname, "rt") as fin:
+            for line in fin:
+                fout.write(line.replace('placeholder-2', node2))
+    fin.close()
+    fout.close()
+    # Create rc and services
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="service-nginx-externalip-2.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
+    # Check for external IP
+    response = urlopen("http://"+node1+":30003")
     assert response.code == 200
+    response = urlopen("http://"+node2+":30003")
+    assert response.code == 200
+    os.remove(os.path.join(K8_SUBDIR, "service-nginx-externalip-1.yml"))
+    os.remove(os.path.join(K8_SUBDIR, "service-nginx-externalip-2.yml"))
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_env_service_nodeport(
+        super_client, admin_client, client, kube_hosts):
+    namespace = 'service-namespace-nodeport'
+    create_ns(namespace)
+    nodeportname = "nodeport-nginx"
+    # Create rc and services
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="service-nginx-nodeport.yml")
+    waitfor_pods(selector="name=nginx", namespace=namespace, number=1)
+
+    get_response = execute_kubectl_cmds(
+        "get service "+nodeportname+" -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == nodeportname
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['nodePort'] == 30000
+    assert service['spec']['ports'][0]['port'] == 80
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
 
     # Check for nodeport IP
     get_response = execute_kubectl_cmds(
@@ -1167,24 +1235,6 @@ def test_k8s_env_service_attributes(
     nodeportip = pods['items'][0]['status']['hostIP']
     response = urlopen("http://"+nodeportip+":30000")
     assert response.code == 200
-
-    # Check for cluster IP
-    clusterurl = clusterip+":"+str(clusterport)
-    nginxpod = pods['items'][0]['metadata']['name']
-    nginxcont = get_pod_container_list(
-        super_client, nginxpod, namespace=namespace)[0]
-    cmd_result = execute_cmd(
-        nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"',
-                    clusterurl, '-o', '/dev/null'])
-    assert cmd_result == '"200'
-
-    # Check for external IP
-    response = urlopen("http://"+node1+":30003")
-    assert response.code == 200
-    response = urlopen("http://"+node2+":30003")
-    assert response.code == 200
-    os.remove(os.path.join(K8_SUBDIR, "service-nginx-1.yml"))
-    os.remove(os.path.join(K8_SUBDIR, "service-nginx-2.yml"))
     teardown_ns(namespace)
 
 
