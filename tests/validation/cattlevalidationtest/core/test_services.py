@@ -286,6 +286,13 @@ def test_services_random_expose_port_exhaustrange(
 
     env = env.activateservices()
     service = client.wait_success(service, 60)
+
+    wait_for_condition(client,
+                       service,
+                       lambda x: x.publicEndpoints is not None,
+                       lambda x:
+                       "publicEndpoints is " + str(x.publicEndpoints))
+    service = client.reload(service)
     assert service.publicEndpoints is not None
     assert len(service.publicEndpoints) == 15
 
@@ -310,7 +317,15 @@ def test_services_random_expose_port_exhaustrange(
     service1, env1 = create_env_and_svc(client, launch_config, 3)
     env1 = env1.activateservices()
     service1 = client.wait_success(service1, 60)
-    assert service1.publicEndpoints is None
+    print service.publicEndpoints
+    wait_for_condition(client,
+                       service1,
+                       lambda x: x.publicEndpoints is not None,
+                       lambda x:
+                       "publicEndpoints is " + str(x.publicEndpoints))
+    service1 = client.reload(service1)
+    print service.publicEndpoints
+    assert len(service1.publicEndpoints) == 0
 
     # Delete the service that consumed 5 random ports
     delete_all(client, [env])
@@ -328,6 +343,14 @@ def test_services_random_expose_port_exhaustrange(
     service2, env2 = create_env_and_svc(client, launch_config, 3)
     env2 = env2.activateservices()
     service2 = client.wait_success(service2, 60)
+    print service2.name
+
+    wait_for_condition(client,
+                       service2,
+                       lambda x: x.publicEndpoints is not None,
+                       lambda x:
+                       "publicEndpoints is " + str(x.publicEndpoints))
+    service2 = client.reload(service2)
     assert service2.publicEndpoints is not None
     assert len(service2.publicEndpoints) == 6
 
