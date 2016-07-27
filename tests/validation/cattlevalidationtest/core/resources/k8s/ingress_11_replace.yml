@@ -1,11 +1,11 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
- name: ingress5
+ name: ingress11
  annotations:
-   http.port: "88"
+   http.port: "98"
 spec:
   backend:
-    serviceName: k8test5
+    serviceName: k8test11
     servicePort: 80
 

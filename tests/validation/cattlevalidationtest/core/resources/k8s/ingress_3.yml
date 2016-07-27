@@ -3,9 +3,9 @@ kind: Ingress
 metadata:
  name: ingress3
  annotations:
-   http.port: "99"
+   http.port: "85"
 spec:
   backend:
-    serviceName: k8test1
+    serviceName: k8test3
     servicePort: 80
 

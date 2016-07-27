@@ -2,6 +2,8 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
  name: ingress1
+ annotations:
+   http.port: "83"
 spec:
  rules:
  - host: foo.bar.com
