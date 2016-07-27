@@ -555,8 +555,7 @@ def test_k8s_ingress_11(client, kube_hosts):
 
     lb_ip = create_ingress(ingress_file_name, ingress_name, namespace,
                            wait_for_ingress=True)
-    time.sleep(15)
-    wait_until_lb_ip_is_active(lb_ip[0], port)
+    wait_until_lb_ip_is_active(lb_ip[0], port, timeout=60)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
@@ -573,8 +572,7 @@ def test_k8s_ingress_11(client, kube_hosts):
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
-    time.sleep(30)
-    wait_until_lb_ip_is_active(lb_ip[0], port_new)
+    wait_until_lb_ip_is_active(lb_ip[0], port_new, timeout=120)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
