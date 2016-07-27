@@ -1,9 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: ingress8
+  name: ingress9
   annotations:
-   http.port: "91"
+   http.port: "92"
 
 spec:
   rules:
@@ -11,12 +11,12 @@ spec:
     http:
       paths:
       - backend:
-          serviceName: k8test8-one
+          serviceName: k8test9-one
           servicePort: 81
-  - host: bar.foo.com
-    http:
+  - http:
       paths:
-      - backend:
-          serviceName: k8test8-two
-          servicePort: 80
+      - path: /name.html
+        backend:
+          serviceName: k8test9-two
+          servicePort: 80    
 

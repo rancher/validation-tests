@@ -1,11 +1,11 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
- name: ingressscale
+ name: ingress11
  annotations:
-   scale: "2"
+   http.port: "98"
 spec:
   backend:
-    serviceName: k8test1
+    serviceName: k8test11
     servicePort: 80
 
