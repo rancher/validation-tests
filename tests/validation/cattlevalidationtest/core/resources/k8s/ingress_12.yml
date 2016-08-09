@@ -1,0 +1,14 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress12
+  annotations:
+   http.port: "95"
+spec:
+  tls:
+   - secretName: certificate
+  backend:
+    serviceName: k8test12
+    servicePort: 80
+
+
