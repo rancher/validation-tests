@@ -28,6 +28,10 @@ if_test_privatereg = pytest.mark.skipif(
     not os.environ.get('QUAY_IMAGE'),
     reason='PRIVATEREG_CREDENTIALS/DIGITALOCEAN_KEY/TEST_K8S not set')
 
+if_test_kubectl_1_3 = pytest.mark.skipif(
+    not kubectl_version == "v1.3.0",
+    reason='Kubernetes version is not 1.3')
+
 
 def create_registry(client, registry_creds):
 
@@ -1352,6 +1356,50 @@ def test_k8s_env_serviceaccount(
     assert sa['metadata']['name'] == name
     assert sa['kind'] == "ServiceAccount"
     assert 'build-robot' in sa['secrets'][0]['name']
+    teardown_ns(namespace)
+
+
+# exec/logs
+@if_test_kubectl_1_3
+@if_test_k8s
+def test_k8s_env_logs(
+        super_client, admin_client, client, kube_hosts):
+    name = 'hello-nginx'
+    namespace = 'logs-namespace'
+    create_ns(namespace)
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="hello-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['status']['phase'] == "Running"
+    expected_result = ['Logs Worked!']
+    execute_kubectl_cmds(
+        "logs "+name+" --namespace="+namespace, expected_result)
+    teardown_ns(namespace)
+
+
+@if_test_kubectl_1_3
+@if_test_k8s
+def test_k8s_env_exec(
+        super_client, admin_client, client, kube_hosts):
+    name = 'hello-nginx'
+    namespace = 'exec-namespace'
+    create_ns(namespace)
+    execute_kubectl_cmds("create --namespace="+namespace,
+                         file_name="hello-nginx.yml")
+    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get pod "+name+" -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == name
+    assert pod['status']['phase'] == "Running"
+    expected_result = ['Exec Worked!']
+    execute_kubectl_cmds(
+        "exec "+name+" --namespace=" + namespace + " cat /tmp/exec",
+        expected_result)
     teardown_ns(namespace)
 
 
