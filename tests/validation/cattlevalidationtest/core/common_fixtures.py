@@ -2623,14 +2623,16 @@ def check_for_stickiness(url, expected_responses, headers=None):
             assert response == sticky_response
 
 
-def add_digital_ocean_hosts(client, count):
+def add_digital_ocean_hosts(client, count, size="1gb"):
     # Create a Digital Ocean Machine
     machines = []
     hosts = []
 
     for i in range(0, count):
         create_args = {"name": random_str(),
-                       "digitaloceanConfig": {"accessToken": do_access_key},
+                       "digitaloceanConfig": {"accessToken": do_access_key,
+                                              "size": size,
+                                              "image": "ubuntu-14-04-x64"},
                        "engineInstallUrl": do_install_url}
         machine = client.create_machine(**create_args)
         machines.append(machine)
