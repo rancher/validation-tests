@@ -391,7 +391,6 @@ def test_rancher_compose_services_security(super_client, client,
     assert len(container_list) == 3
     for con in container_list:
         assert con.state == "running"
-        con.privileged == "true"
         containers = super_client.list_container(
             externalId=con.externalId,
             include="hosts",
@@ -433,7 +432,6 @@ def test_rancher_compose_services_log_driver(super_client, client,
     assert len(container_list) == 3
     for con in container_list:
         assert con.state == "running"
-        con.privileged == "true"
         containers = super_client.list_container(
             externalId=con.externalId,
             include="hosts",
@@ -477,7 +475,6 @@ def test_rancher_compose_services_network(super_client, client,
     assert len(container_list) == 2
     for con in container_list:
         assert con.state == "running"
-        con.privileged == "true"
         containers = super_client.list_container(
             externalId=con.externalId,
             include="hosts",
@@ -495,7 +492,7 @@ def test_rancher_compose_services_network(super_client, client,
         dnssearch_list = inspect["HostConfig"]["DnsSearch"]
         assert "209.243.150.21" in dns_list
         assert "www.google.com" in dnssearch_list
-        delete_all(client, [env])
+    delete_all(client, [env])
 
 
 @if_compose_data_files
