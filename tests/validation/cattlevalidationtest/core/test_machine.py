@@ -12,7 +12,7 @@ size = "1gb"
 
 # Digital Ocean default configurations
 default_size = "512mb"
-default_image_name = "ubuntu-15-10-x64"
+default_image_name = "ubuntu-16-04-x64"
 default_region = "nyc3"
 
 
@@ -97,7 +97,7 @@ def test_digital_ocean_machine_accesstoken(client):
 
     name = random_str()
     create_args = {"name": random_str(),
-                   "digitaloceanConfig": {"accessToken": access_key,
+                   "digitaloceanConfig": {"accessToken": access_key
                                           }
                    }
 
@@ -114,7 +114,8 @@ def test_digital_ocean_machine_accesstoken(client):
 @if_machine_digocean
 def test_digital_ocean_machine_parallel(client):
     create_args = {"name": None,
-                   "digitaloceanConfig": {"accessToken": access_key
+                   "digitaloceanConfig": {"accessToken": access_key,
+                                          "image": image_name
                                           }
                    }
     machines = []
