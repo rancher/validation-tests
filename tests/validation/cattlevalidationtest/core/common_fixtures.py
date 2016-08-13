@@ -31,6 +31,13 @@ do_install_url = os.environ.get(
     'DOCKER_INSTALL_URL',
     'https://releases.rancher.com/install-docker/1.10.sh')
 
+nfs_server = os.environ.get('NFS_SERVER')
+nfs_mount_dir = os.environ.get('NFS_MOUNT_DIR')
+convoy_nfs_version = os.environ.get('CONVOY_NFS_VERSION', "2")
+gluster_fs_version = os.environ.get('GLUSTER_FS_VERSION', "0")
+convoy_gluster_version = os.environ.get('CONVOY_GLUSTER_VERSION', "1")
+
+
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
@@ -531,15 +538,16 @@ def kube_hosts(request, client, super_client, admin_client):
 
 @pytest.fixture(scope='session')
 def glusterfs_glusterconvoy(client, super_client, request):
-    catalog_url = cattle_url() + "/v1-catalog/templates/library:"
+    catalog_url = cattle_url() + "/v1-catalog/templates/community:"
 
     # Deploy GlusterFS template from catalog
-    r = requests.get(catalog_url + "glusterfs:0")
+    r = requests.get(catalog_url + "glusterfs:"+gluster_fs_version)
     template = json.loads(r.content)
     r.close()
 
-    dockerCompose = template["dockerCompose"]
-    rancherCompose = template["rancherCompose"]
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+
     environment = {}
     questions = template["questions"]
     for question in questions:
@@ -564,11 +572,11 @@ def glusterfs_glusterconvoy(client, super_client, request):
 
     # Deploy ConvoyGluster template from catalog
 
-    r = requests.get(catalog_url + "convoy-gluster:1")
+    r = requests.get(catalog_url + "convoy-gluster:"+convoy_gluster_version)
     template = json.loads(r.content)
     r.close()
-    dockerCompose = template["dockerCompose"]
-    rancherCompose = template["rancherCompose"]
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
     environment = {}
     questions = template["questions"]
     print questions
@@ -594,16 +602,97 @@ def glusterfs_glusterconvoy(client, super_client, request):
     # Verify that storage pool is created
     storagepools = client.list_storage_pool(removed_null=True,
                                             include="hosts",
-                                            kind="storagePool")
+                                            kind="storagePool",
+                                            name="convoy-gluster")
+
     print storagepools
     assert len(storagepools) == 1
 
     def remove():
+        storagepools = client.list_storage_pool(removed_null=True,
+                                                include="volumes",
+                                                kind="storagePool",
+                                                name="convoy-gluster")
+        assert len(storagepools) == 1
+        for volume in storagepools[0].volumes:
+            assert volume.state == "inactive"
+            volume = client.wait_success(client.delete(volume))
+            assert volume.state == "removed"
+            volume = volume.purge()
+            assert volume.state == "purged"
         env1 = client.list_environment(name="glusterfs")
         assert len(env1) == 1
         env2 = client.list_environment(name="convoy-gluster")
         assert len(env2) == 1
         delete_all(client, [env1[0], env2[0]])
+    request.addfinalizer(remove)
+
+
+@pytest.fixture(scope='session')
+def convoy_nfs(client, super_client, request):
+
+    assert nfs_server is not None and nfs_mount_dir is not None
+    catalog_url = cattle_url() + "/v1-catalog/templates/library:"
+
+    # Deploy Convoy NFS template from catalog
+    r = requests.get(catalog_url + "convoy-nfs:"+convoy_nfs_version)
+    template = json.loads(r.content)
+    r.close()
+
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+
+    environment = {}
+    questions = template["questions"]
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        environment[label] = value
+
+    assert "NFS_SERVER" in environment
+    assert "MOUNT_DIR" in environment
+
+    environment["NFS_SERVER"] = nfs_server
+    environment["MOUNT_DIR"] = nfs_mount_dir
+
+    env = client.create_environment(name="convoy-nfs",
+                                    dockerCompose=dockerCompose,
+                                    rancherCompose=rancherCompose,
+                                    environment=environment,
+                                    startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    assert env.state == "active"
+
+    for service in env.services():
+        wait_for_condition(
+            super_client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+
+    # Verify that storage pool is created
+    storagepools = client.list_storage_pool(removed_null=True,
+                                            include="hosts",
+                                            kind="storagePool",
+                                            name="convoy-nfs")
+    print storagepools
+    assert len(storagepools) == 1
+
+    def remove():
+        storagepools = client.list_storage_pool(removed_null=True,
+                                                include="volumes",
+                                                kind="storagePool",
+                                                name="convoy-nfs")
+        assert len(storagepools) == 1
+        for volume in storagepools[0].volumes:
+            assert volume.state == "inactive"
+            volume = client.wait_success(client.delete(volume))
+            assert volume.state == "removed"
+            volume = client.wait_success(volume.purge())
+            assert volume.state == "purged"
+        env1 = client.list_environment(name="convoy-nfs")
+        assert len(env1) == 1
+        delete_all(client, [env1[0]])
     request.addfinalizer(remove)
 
 
