@@ -555,7 +555,7 @@ def test_k8s_ingress_11(client, kube_hosts):
 
     lb_ip = create_ingress(ingress_file_name, ingress_name, namespace,
                            wait_for_ingress=True)
-    wait_until_lb_ip_is_active(lb_ip[0], port, timeout=60)
+    wait_until_lb_ip_is_active(lb_ip[0], port)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
@@ -572,7 +572,10 @@ def test_k8s_ingress_11(client, kube_hosts):
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
-    lb_ip_updated = wait_for_ingress_to_become_active(ingress_name, namespace)
+    # The same IP could be used or a new a new IP could be assigned
+    # for the Ingress. We are getting the updated IP if the old IP doesn't
+    # become active with the new port number within 90s
+    lb_ip_updated = lb_ip[0]
     print lb_ip_updated[0]
     try:
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
