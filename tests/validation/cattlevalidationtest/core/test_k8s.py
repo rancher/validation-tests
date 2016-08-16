@@ -1124,6 +1124,9 @@ def test_k8s_env_service_lb(
         lbip = containers[0]['dockerHostIp']
     elif kubectl_version == "v1.3.0":
         time.sleep(20)
+        get_response = execute_kubectl_cmds(
+            "get service " + lbname + " -o json --namespace=" + namespace)
+        service = json.loads(get_response)
         lbip = service['status']['loadBalancer']['ingress'][0]["ip"]
     response = urlopen("http://"+lbip+":8888")
     assert response.code == 200
