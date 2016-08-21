@@ -1849,20 +1849,34 @@ def check_round_robin_access_for_ssl(container_names, host, port, domain,
                                      test_ssl_client_con,
                                      hostheader=None, path="/name.html"):
 
+    check_round_robin_access_for_ssl_lb_ip(container_names,
+                                           host.ipAddresses()[0].address,
+                                           port, domain,
+                                           test_ssl_client_con,
+                                           hostheader, path)
+
+
+def check_round_robin_access_for_ssl_lb_ip(container_names, lb_ip,
+                                           port, domain,
+                                           test_ssl_client_con,
+                                           hostheader, path):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
         test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
         password="root", port=int(test_ssl_client_con["port"]))
 
-    cmd = "echo '" + host.ipAddresses()[0].address + \
+    cmd = "echo '" + lb_ip + \
           " " + domain + "'> /etc/hosts;grep " + domain + " /etc/hosts"
     response = execute_command(ssh, cmd)
     logger.info(response)
 
     domain_cert = domain + ".crt "
     cert_str = " --ca-certificate=" + domain_cert
-    host_header_str = "--header=host:" + hostheader + " "
+    if hostheader is None:
+        host_header_str = ""
+    else:
+        host_header_str = "--header=host:" + hostheader + " "
     url_str = " https://" + domain + ":" + port + path
     cmd = "wget -O result.txt --timeout=20 --tries=1" + \
           cert_str + host_header_str + url_str + ";cat result.txt"
@@ -2493,10 +2507,12 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     return str_response
 
 
-def create_cert(client, name):
-    cert, key, certChain = get_cert_for_domain(name)
+def create_cert(client, domainname, certname=None):
+    cert, key, certChain = get_cert_for_domain(domainname)
+    if certname is None:
+        certname = random_str()
     cert1 = client. \
-        create_certificate(name=random_str(),
+        create_certificate(name=certname,
                            cert=cert,
                            key=key,
                            certChain=certChain)
@@ -2824,3 +2840,47 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, scale=1):
                 lb_ip.append(item["ip"])
         time.sleep(.5)
     return lb_ip
+
+
+# Delete an ingress
+def delete_ingress(ingress_name, namespace):
+    timeout = 0
+    expected_result = ['ingress "'+ingress_name+'" deleted']
+    execute_kubectl_cmds(
+        "delete ing " + ingress_name + " --namespace=" +
+        namespace, expected_result)
+    while True:
+        get_response = execute_kubectl_cmds(
+            "get ing " + ingress_name + " -o json --namespace=" + namespace,
+            )
+        if ingress_name not in get_response:
+            break
+        else:
+            time.sleep(5)
+            timeout += 5
+            if timeout == 300:
+                raise ValueError('Timeout Exception: for deleting ingress')
+
+
+# Create service and ingress
+def create_service_ingress(ingresses, services, port, namespace,
+                           scale=2):
+    podnames = []
+    for i in range(0, len(services)):
+        create_k8_service(services[i]["filename"], namespace,
+                          services[i]["name"], services[i]["rc_name"],
+                          services[i]["selector"], scale=scale,
+                          wait_for_service=True)
+        podnameslist = get_pod_names_for_selector(services[i]["selector"],
+                                                  namespace, scale=scale)
+        podnames.append(podnameslist)
+
+    lbips = []
+    for i in range(0, len(ingresses)):
+        lb_ip = create_ingress(ingresses[i]["filename"],
+                               ingresses[i]["name"], namespace,
+                               wait_for_ingress=True)
+        wait_until_lb_ip_is_active(lb_ip[i], port)
+        lbips.append(lb_ip)
+
+    return(podnames, lbips)
