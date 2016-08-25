@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress7
+ annotations:
+   http.port: "90"
+
+spec:
+ rules:
+ - http:
+     paths:
+     - path: /service3.html
+       backend:
+         serviceName: k8test7-one
+         servicePort: 81
+     - path: /name.html
+       backend:
+         serviceName: k8test7-two
+         servicePort: 80

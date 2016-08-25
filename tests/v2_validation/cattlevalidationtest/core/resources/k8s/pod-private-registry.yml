@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privateregpod 
+  labels:
+    app: privatereg
+spec:
+  containers:
+  - name: privateregpod
+    image: quay.io/sangeetha/test1
+    ports:
+    - containerPort: 80
+    securityContext:
+      privileged: true

@@ -1,0 +1,7 @@
+testhostdns:
+  labels:
+    io.rancher.container.dns: 'true'
+  tty: true
+  image: sangeetha/testclient33:latest
+  stdin_open: true
+  net: host
