@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: testdeletenginx
+spec:
+  replicas: 2
+  selector:
+    name: testdeletenginx
+  template:
+    metadata:
+      labels:
+        name: testdeletenginx
+    spec:
+      containers:
+        - name: testdeletenginx
+          image: nginx
+          ports:
+            - containerPort: 80
+
+---            
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: testdeletenginx
+  labels:
+    name: testdeletenginx
+    type: ui
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    name: testdeletenginx

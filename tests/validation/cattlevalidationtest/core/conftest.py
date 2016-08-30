@@ -11,7 +11,7 @@ def pytest_configure(config):
 
 def cleanup():
     log.info('Running cleanup')
-    sc = super_client(accounts())
+    rancher_client = client(admin_client())
     instance_name_format = re.compile('test-[0-9]{1,6}')
     # For cleaning up environment and instances that get disassociated
     # from services where deleted
@@ -20,16 +20,16 @@ def cleanup():
     # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
     to_delete_env = []
-    for i in sc.list_environment(state='active'):
+    for i in rancher_client.list_environment(state='rancher_clienttive'):
         try:
             if env_name_format.match(i.name):
                 to_delete_env.append(i)
         except AttributeError:
             pass
-    delete_all(sc, to_delete_env)
+    delete_all(rancher_client, to_delete_env)
 
     to_delete = []
-    for i in sc.list_instance(state='running'):
+    for i in rancher_client.list_instance(state='running'):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
@@ -43,10 +43,10 @@ def cleanup():
         except AttributeError:
             pass
 
-    delete_all(sc, to_delete)
+    delete_all(rancher_client, to_delete)
 
     to_delete = []
-    for i in sc.list_instance(state='stopped'):
+    for i in rancher_client.list_instance(state='stopped'):
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
@@ -57,14 +57,14 @@ def cleanup():
         except AttributeError:
             pass
 
-    delete_all(sc, to_delete)
+    delete_all(rancher_client, to_delete)
 
     # Delete all apiKeys created by test runs
-    account = sc.list_project(uuid="adminProject")[0]
-    for cred in account.credentials():
+    rancher_clientcount = rancher_client.list_project(uuid="adminProject")[0]
+    for cred in rancher_clientcount.credentials():
         if cred.kind == 'apiKey' and \
                 instance_name_format.match(cred.publicValue) \
-                and cred.state == "active":
+                and cred.state == "rancher_clienttive":
             print cred.id
-            cred = sc.wait_success(cred.deactivate())
-            sc.delete(cred)
+            cred = rancher_client.wait_success(cred.derancher_clienttivate())
+            rancher_client.delete(cred)

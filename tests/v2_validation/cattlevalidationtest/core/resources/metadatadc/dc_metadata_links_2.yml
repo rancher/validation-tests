@@ -1,0 +1,12 @@
+testl2:
+  tty: true
+  image: ubuntu:14.04.3
+  stdin_open: true
+testl3:
+  external_links:
+  - testlink/testl1:linkexttest
+  tty: true
+  image: ubuntu:14.04.3
+  links:
+  - testl2:linktest
+  stdin_open: true
