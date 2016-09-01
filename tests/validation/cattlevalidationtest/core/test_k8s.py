@@ -50,7 +50,7 @@ def create_registry(client, registry_creds):
     return reg_cred
 
 
-def remove_registry(client, super_client, registry_creds, reg_cred):
+def remove_registry(client, admin_client, registry_creds, reg_cred):
 
     registry_list[registry_creds["name"]] = reg_cred
 
@@ -59,7 +59,7 @@ def remove_registry(client, super_client, registry_creds, reg_cred):
         reg_cred = client.delete(reg_cred)
         reg_cred = client.wait_success(reg_cred)
         assert reg_cred.state == 'removed'
-        registry = super_client.by_id('registry', reg_cred.registryId)
+        registry = admin_client.by_id('registry', reg_cred.registryId)
         registry = client.wait_success(registry.deactivate())
         assert registry.state == 'inactive'
         registry = client.delete(registry)
@@ -88,9 +88,9 @@ def execute_cmd(container, cmd):
 
 
 # Get containers of Pod
-def get_pod_container_list(super_client, pod, namespace='default'):
+def get_pod_container_list(admin_client, pod, namespace='default'):
     container = []
-    all_containers = super_client.list_container()
+    all_containers = admin_client.list_container()
     for cont in all_containers:
         if bool(cont.labels):
             if "io.kubernetes.pod.name" in cont.labels.keys():
@@ -105,7 +105,7 @@ def get_pod_container_list(super_client, pod, namespace='default'):
 
 @if_test_k8s
 def test_k8s_env_create(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "create-namespace"
     create_ns(namespace)
     name = "testnginx"
@@ -162,7 +162,7 @@ def test_k8s_env_create(
 
 @if_test_k8s
 def test_k8s_env_edit(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "edit-namespace"
     create_ns(namespace)
     name = "testeditnginx"
@@ -209,7 +209,7 @@ def test_k8s_env_edit(
 
 @if_test_k8s
 def test_k8s_env_delete(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "delete-namespace"
     create_ns(namespace)
     name = "testdeletenginx"
@@ -276,7 +276,7 @@ def test_k8s_env_delete(
 
 @if_test_k8s
 def test_k8s_env_secret(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "secret-namespace"
     create_ns(namespace)
     name = "testsecret"
@@ -308,7 +308,7 @@ def test_k8s_env_secret(
 
 @if_test_k8s
 def test_k8s_env_namespace(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "testnamespace"
     create_ns(namespace)
     teardown_ns(namespace)
@@ -316,7 +316,7 @@ def test_k8s_env_namespace(
 
 @if_test_k8s
 def test_k8s_env_rollingupdates(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "rollingupdates-namespace"
     create_ns(namespace)
     name = "testru"
@@ -374,7 +374,7 @@ def test_k8s_env_rollingupdates(
 
 @if_test_k8s
 def test_k8s_env_configmaps(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = "configmaps-namespace"
     create_ns(namespace)
     name = "testconfigmap"
@@ -408,7 +408,7 @@ def test_k8s_env_configmaps(
 
 @if_test_k8s
 def test_k8s_env_resourceQuota(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     name = "quota"
     namespace = "quota-example"
     create_ns(namespace)
@@ -431,7 +431,7 @@ def test_k8s_env_resourceQuota(
 
 @if_test_k8s
 def test_k8s_env_deployments(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'deployments-namespace'
     create_ns(namespace)
     name = "nginx-deployment"
@@ -457,7 +457,7 @@ def test_k8s_env_deployments(
 
 @if_test_k8s
 def test_k8s_env_deployments_rollback(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'deploymentsrollback-namespace'
     create_ns(namespace)
     name = "nginx-deployment"
@@ -517,7 +517,7 @@ def test_k8s_env_deployments_rollback(
 
 @if_test_k8s
 def test_k8s_env_jobs(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'jobs-namespace'
     create_ns(namespace)
     name = "pitest"
@@ -541,7 +541,7 @@ def test_k8s_env_jobs(
 
 @if_test_k8s
 def test_k8s_env_scale(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'scale-namespace'
     create_ns(namespace)
     name = "scale-nginx"
@@ -583,7 +583,7 @@ def test_k8s_env_scale(
 
 @if_test_k8s
 def test_k8s_env_daemonsets(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'daemonset-namespace'
     create_ns(namespace)
     name = "daemonset"
@@ -614,7 +614,7 @@ def test_k8s_env_daemonsets(
 
 @if_test_k8s
 def test_k8s_env_replicasets(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'replicaset-namespace'
     create_ns(namespace)
     name = "rs"
@@ -635,7 +635,7 @@ def test_k8s_env_replicasets(
 # Pod Attributes
 @if_test_k8s
 def test_k8s_env_create_pod(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'pod-create-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -660,7 +660,7 @@ def test_k8s_env_create_pod(
 
 @if_test_k8s
 def test_k8s_env_create_priv_pod(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'pod-priv-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -686,7 +686,7 @@ def test_k8s_env_create_priv_pod(
 
 @if_test_k8s
 def test_k8s_env_delete_pod(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'pod-delete-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -721,7 +721,7 @@ def test_k8s_env_delete_pod(
 
 @if_test_k8s
 def test_k8s_env_edit_pod(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'pod-edit-namespace'
     create_ns(namespace)
     oldname = "nginx"
@@ -765,7 +765,7 @@ def test_k8s_env_edit_pod(
 # Podspecs
 @if_test_k8s
 def test_k8s_env_podspec_volume(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'volume-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -798,7 +798,7 @@ def test_k8s_env_podspec_volume(
 
 @if_test_k8s
 def test_k8s_env_restartPolicy(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'restartpolicy-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -819,9 +819,9 @@ def test_k8s_env_restartPolicy(
     assert container['name'] == "nginx"
     # stop containers in the pod
     containers = get_pod_container_list(
-        super_client, name, namespace=namespace)
+        admin_client, name, namespace=namespace)
     for c in containers:
-        super_client.wait_success(c.stop())
+        admin_client.wait_success(c.stop())
     get_response = execute_kubectl_cmds(
         "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
@@ -838,7 +838,7 @@ def test_k8s_env_restartPolicy(
 
 @if_test_k8s
 def test_k8s_env_podspec_activeDeadlineSeconds(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'ads-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -862,7 +862,7 @@ def test_k8s_env_podspec_activeDeadlineSeconds(
 
 @if_test_k8s
 def test_k8s_env_podspec_terminationGracePeriodSeconds(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'tgps-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -883,7 +883,7 @@ def test_k8s_env_podspec_terminationGracePeriodSeconds(
 
 @if_test_k8s
 def test_k8s_env_podspec_nodeSelector(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'nodeselector-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -920,7 +920,7 @@ def test_k8s_env_podspec_nodeSelector(
 
 @if_test_k8s
 def test_k8s_env_podspec_nodeName(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'nodename-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -960,7 +960,7 @@ def test_k8s_env_podspec_nodeName(
 
 @if_test_k8s
 def test_k8s_env_podspec_hostPID(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'hostpid-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -981,7 +981,7 @@ def test_k8s_env_podspec_hostPID(
     assert container['ready']
     assert container['name'] == "nginx"
     # check for PID
-    cont = get_pod_container_list(super_client, name, namespace=namespace)
+    cont = get_pod_container_list(admin_client, name, namespace=namespace)
     cmd_result = execute_cmd(cont[0], ['ps', '-p', '1', '-o', 'comm='])
     assert cmd_result != 'nginx'
     teardown_ns(namespace)
@@ -989,7 +989,7 @@ def test_k8s_env_podspec_hostPID(
 
 @if_test_k8s
 def test_k8s_env_podspec_hostIPC(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'hostipc-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -1015,7 +1015,7 @@ def test_k8s_env_podspec_hostIPC(
 # ReplicationController Attributes/Specs
 @if_test_k8s
 def test_k8s_env_rc_create(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'rc-create-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -1034,7 +1034,7 @@ def test_k8s_env_rc_create(
 
 @if_test_k8s
 def test_k8s_env_rc_delete(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'rc-delete-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -1063,7 +1063,7 @@ def test_k8s_env_rc_delete(
 
 @if_test_k8s
 def test_k8s_env_rc_edit(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'rc-edit-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -1097,7 +1097,7 @@ def test_k8s_env_rc_edit(
 # Service Attributes/Specs
 @if_test_k8s
 def test_k8s_env_service_lb(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'service-namespace-lb'
     create_ns(namespace)
     lbname = "lbnginx"
@@ -1116,11 +1116,11 @@ def test_k8s_env_service_lb(
 
     # Check for loadbalancer service
     if kubectl_version == "v1.2.2":
-        services = super_client.list_service()
+        services = admin_client.list_service()
         for s in services:
             if 'lb-' in s.name:
                 lbservice = s
-        containers = get_service_container_list(super_client, lbservice)
+        containers = get_service_container_list(admin_client, lbservice)
         lbip = containers[0]['dockerHostIp']
     elif kubectl_version == "v1.3.0":
         time.sleep(20)
@@ -1135,7 +1135,7 @@ def test_k8s_env_service_lb(
 
 @if_test_k8s
 def test_k8s_env_service_clusterip(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'service-namespace-clusterip'
     create_ns(namespace)
     clusteripname = "clusterip-nginx"
@@ -1162,10 +1162,10 @@ def test_k8s_env_service_clusterip(
     nginxpod = pods['items'][0]['metadata']['name']
     if kubectl_version == "v1.3.0":
         nginxcont = get_pod_container_list(
-            super_client, nginxpod, namespace=namespace)[1]
+            admin_client, nginxpod, namespace=namespace)[1]
     else:
         nginxcont = get_pod_container_list(
-            super_client, nginxpod, namespace=namespace)[0]
+            admin_client, nginxpod, namespace=namespace)[0]
     cmd_result = execute_cmd(
         nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"',
                     clusterurl, '-o', '/dev/null'])
@@ -1175,7 +1175,7 @@ def test_k8s_env_service_clusterip(
 
 @if_test_k8s
 def test_k8s_env_service_externalip(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'service-namespace-externalip'
     create_ns(namespace)
     # Get all nodes ips
@@ -1217,7 +1217,7 @@ def test_k8s_env_service_externalip(
 
 @if_test_k8s
 def test_k8s_env_service_nodeport(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'service-namespace-nodeport'
     create_ns(namespace)
     nodeportname = "nodeport-nginx"
@@ -1249,7 +1249,7 @@ def test_k8s_env_service_nodeport(
 # hostnetwork #4345
 @if_test_k8s
 def test_k8s_env_podspec_hostnetwork(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'hostnetwork-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -1273,7 +1273,7 @@ def test_k8s_env_podspec_hostnetwork(
 # dashboard #4452
 @if_test_k8s
 def test_k8s_env_dashboard(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'dashboard-namespace'
     name = 'kubernetes-dashboard'
     create_ns(namespace)
@@ -1311,7 +1311,7 @@ def test_k8s_env_dashboard(
 # heapster #4451
 @if_test_k8s
 def test_k8s_env_heapster(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     namespace = 'heapster-namespace'
     name = 'heapster'
     create_ns(namespace)
@@ -1347,7 +1347,7 @@ def test_k8s_env_heapster(
 # ServiceAccounts #4548
 @if_test_k8s
 def test_k8s_env_serviceaccount(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     name = 'build-robot'
     namespace = 'serviceaccount-namespace'
     create_ns(namespace)
@@ -1366,7 +1366,7 @@ def test_k8s_env_serviceaccount(
 @if_test_kubectl_1_3
 @if_test_k8s
 def test_k8s_env_logs(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     name = 'hello-nginx'
     namespace = 'logs-namespace'
     create_ns(namespace)
@@ -1387,7 +1387,7 @@ def test_k8s_env_logs(
 @if_test_kubectl_1_3
 @if_test_k8s
 def test_k8s_env_exec(
-        super_client, admin_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
     name = 'hello-nginx'
     namespace = 'exec-namespace'
     create_ns(namespace)
@@ -1408,7 +1408,7 @@ def test_k8s_env_exec(
 
 @if_test_privatereg
 def test_k8s_env_create_pod_with_private_registry_image(
-        super_client, client, kube_hosts):
+        admin_client, client, kube_hosts):
 
     quay_image = quay_creds["image"]
     # Create namespace
@@ -1438,5 +1438,5 @@ def test_k8s_env_create_pod_with_private_registry_image(
     assert container['ready']
     assert container['name'] == "privateregpod"
     # Remove registry
-    remove_registry(client, super_client, quay_creds, reg_cred)
+    remove_registry(client, admin_client, quay_creds, reg_cred)
     teardown_ns(namespace)

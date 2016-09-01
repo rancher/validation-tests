@@ -20,7 +20,7 @@ def cleanup():
     # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
     to_delete_env = []
-    for i in rancher_client.list_environment(state='rancher_clienttive'):
+    for i in rancher_client.list_environment(state='active'):
         try:
             if env_name_format.match(i.name):
                 to_delete_env.append(i)
@@ -64,7 +64,7 @@ def cleanup():
     for cred in rancher_clientcount.credentials():
         if cred.kind == 'apiKey' and \
                 instance_name_format.match(cred.publicValue) \
-                and cred.state == "rancher_clienttive":
+                and cred.state == "active":
             print cred.id
-            cred = rancher_client.wait_success(cred.derancher_clienttivate())
+            cred = rancher_client.wait_success(cred.deactivate())
             rancher_client.delete(cred)

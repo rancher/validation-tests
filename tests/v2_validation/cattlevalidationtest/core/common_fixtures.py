@@ -473,7 +473,7 @@ def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
 
 
 @pytest.fixture(scope='session')
-def ha_hosts(client, super_client):
+def ha_hosts(client, admin_client):
     hosts = client.list_host(
         kind='docker', removed_null=True, state="active",
         include="physicalHost")
@@ -490,7 +490,7 @@ def ha_hosts(client, super_client):
 
 
 @pytest.fixture(scope='session')
-def kube_hosts(request, client, super_client, admin_client):
+def kube_hosts(request, client, admin_client):
 
     project = admin_client.list_project(uuid="adminProject")[0]
     # If Default project is not kubernetes, make it a kubernetes environment
@@ -525,7 +525,7 @@ def kube_hosts(request, client, super_client, admin_client):
 
         environment = env[0]
         wait_for_condition(
-            super_client, environment,
+            admin_client, environment,
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
@@ -540,7 +540,7 @@ def kube_hosts(request, client, super_client, admin_client):
 
 
 @pytest.fixture(scope='session')
-def glusterfs_glusterconvoy(client, super_client, request):
+def glusterfs_glusterconvoy(client, admin_client, request):
     catalog_url = cattle_url() + "/v1-catalog/templates/library:"
 
     # Deploy GlusterFS template from catalog
@@ -567,7 +567,7 @@ def glusterfs_glusterconvoy(client, super_client, request):
 
     for service in env.services():
         wait_for_condition(
-            super_client, service,
+            admin_client, service,
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
@@ -596,7 +596,7 @@ def glusterfs_glusterconvoy(client, super_client, request):
 
     for service in env.services():
         wait_for_condition(
-            super_client, service,
+            admin_client, service,
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
@@ -685,81 +685,81 @@ def get_docker_client(host):
     return Client(**params)
 
 
-def wait_for_scale_to_adjust(super_client, service):
-    service = super_client.wait_success(service)
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+def wait_for_scale_to_adjust(admin_client, service):
+    service = admin_client.wait_success(service)
+    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active",
                                                        managed=1)
     start = time.time()
 
     while len(instance_maps) != \
-            get_service_instance_count(super_client, service):
+            get_service_instance_count(admin_client, service):
         time.sleep(.5)
-        instance_maps = super_client.list_serviceExposeMap(
+        instance_maps = admin_client.list_serviceExposeMap(
             serviceId=service.id, state="active")
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
 
     for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
+        c = admin_client.by_id('container', instance_map.instanceId)
         wait_for_condition(
-            super_client, c,
+            admin_client, c,
             lambda x: x.state == "running",
             lambda x: 'State is: ' + x.state)
 
 
-def check_service_map(super_client, service, instance, state):
-    instance_service_map = super_client.\
+def check_service_map(admin_client, service, instance, state):
+    instance_service_map = admin_client.\
         list_serviceExposeMap(serviceId=service.id, instanceId=instance.id,
                               state=state)
     assert len(instance_service_map) == 1
 
 
-def get_container_names_list(super_client, services):
+def get_container_names_list(admin_client, services):
     container_names = []
     for service in services:
-        containers = get_service_container_list(super_client, service)
+        containers = get_service_container_list(admin_client, service)
         for c in containers:
             if c.state == "running":
                 container_names.append(c.externalId[:12])
     return container_names
 
 
-def validate_add_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
+def validate_add_service_link(admin_client, service, consumedService):
+    service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
                                consumedServiceId=consumedService.id)
     assert len(service_maps) == 1
     service_map = service_maps[0]
     wait_for_condition(
-        super_client, service_map,
+        admin_client, service_map,
         lambda x: x.state == "active",
         lambda x: 'State is: ' + x.state)
 
 
-def validate_remove_service_link(super_client, service, consumedService):
-    service_maps = super_client. \
+def validate_remove_service_link(admin_client, service, consumedService):
+    service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
                                consumedServiceId=consumedService.id)
     assert len(service_maps) == 1
     service_map = service_maps[0]
     wait_for_condition(
-        super_client, service_map,
+        admin_client, service_map,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
 
 
-def get_service_container_list(super_client, service, managed=None):
+def get_service_container_list(admin_client, service, managed=None):
 
     container = []
     if managed is not None:
         all_instance_maps = \
-            super_client.list_serviceExposeMap(serviceId=service.id,
+            admin_client.list_serviceExposeMap(serviceId=service.id,
                                                managed=managed)
     else:
         all_instance_maps = \
-            super_client.list_serviceExposeMap(serviceId=service.id)
+            admin_client.list_serviceExposeMap(serviceId=service.id)
 
     instance_maps = []
     for instance_map in all_instance_maps:
@@ -767,9 +767,9 @@ def get_service_container_list(super_client, service, managed=None):
             instance_maps.append(instance_map)
 
     for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
+        c = admin_client.by_id('container', instance_map.instanceId)
         assert c.state in CONTAINER_STATES
-        containers = super_client.list_container(
+        containers = admin_client.list_container(
             externalId=c.externalId,
             include="hosts")
         assert len(containers) == 1
@@ -778,21 +778,21 @@ def get_service_container_list(super_client, service, managed=None):
     return container
 
 
-def link_svc_with_port(super_client, service, linkservices, port):
+def link_svc_with_port(admin_client, service, linkservices, port):
 
     for linkservice in linkservices:
         service_link = {"serviceId": linkservice.id, "ports": [port]}
         service = service.addservicelink(serviceLink=service_link)
-        validate_add_service_link(super_client, service, linkservice)
+        validate_add_service_link(admin_client, service, linkservice)
     return service
 
 
-def link_svc(super_client, service, linkservices):
+def link_svc(admin_client, service, linkservices):
 
     for linkservice in linkservices:
         service_link = {"serviceId": linkservice.id}
         service = service.addservicelink(serviceLink=service_link)
-        validate_add_service_link(super_client, service, linkservice)
+        validate_add_service_link(admin_client, service, linkservice)
     return service
 
 
@@ -804,28 +804,28 @@ def activate_svc(client, service):
     return service
 
 
-def validate_exposed_port(super_client, service, public_port):
-    con_list = get_service_container_list(super_client, service)
+def validate_exposed_port(admin_client, service, public_port):
+    con_list = get_service_container_list(admin_client, service)
     assert len(con_list) == service.scale
     time.sleep(5)
     for con in con_list:
-        con_host = super_client.by_id('host', con.hosts[0].id)
+        con_host = admin_client.by_id('host', con.hosts[0].id)
         for port in public_port:
             response = get_http_response(con_host, port, "/service.html")
             assert response == con.externalId[:12]
 
 
-def validate_exposed_port_and_container_link(super_client, con, link_name,
+def validate_exposed_port_and_container_link(admin_client, con, link_name,
                                              link_port, exposed_port):
     time.sleep(10)
     # Validate that the environment variables relating to link containers are
     # set
-    containers = super_client.list_container(externalId=con.externalId,
+    containers = admin_client.list_container(externalId=con.externalId,
                                              include="hosts",
                                              removed_null=True)
     assert len(containers) == 1
     con = containers[0]
-    host = super_client.by_id('host', con.hosts[0].id)
+    host = admin_client.by_id('host', con.hosts[0].id)
     docker_client = get_docker_client(host)
     inspect = docker_client.inspect_container(con.externalId)
     response = inspect["Config"]["Env"]
@@ -866,16 +866,16 @@ def validate_exposed_port_and_container_link(super_client, con, link_name,
     assert link_name == resp
 
 
-def wait_for_lb_service_to_become_active(super_client, client,
+def wait_for_lb_service_to_become_active(admin_client, client,
                                          services, lb_service,
                                          unmanaged_con_count=None):
-    wait_for_config_propagation(super_client, lb_service)
-    lb_containers = get_service_container_list(super_client, lb_service)
+    wait_for_config_propagation(admin_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     assert len(lb_containers) == lb_service.scale
 
     # Get haproxy config from Lb Agents
     for lb_con in lb_containers:
-        host = super_client.by_id('host', lb_con.hosts[0].id)
+        host = admin_client.by_id('host', lb_con.hosts[0].id)
         docker_client = get_docker_client(host)
         haproxy = docker_client.copy(
             lb_con.externalId, "/etc/haproxy/haproxy.cfg")
@@ -896,17 +896,17 @@ def wait_for_lb_service_to_become_active(super_client, client,
             print response
 
 
-def validate_lb_service_for_external_services(super_client, client, lb_service,
+def validate_lb_service_for_external_services(admin_client, client, lb_service,
                                               port, container_list,
                                               hostheader=None, path=None):
     container_names = []
     for con in container_list:
         container_names.append(con.externalId[:12])
-    validate_lb_service_con_names(super_client, client, lb_service, port,
+    validate_lb_service_con_names(admin_client, client, lb_service, port,
                                   container_names, hostheader, path)
 
 
-def validate_lb_service(super_client, client, lb_service, port,
+def validate_lb_service(admin_client, client, lb_service, port,
                         target_services, hostheader=None, path=None,
                         domain=None, test_ssl_client_con=None,
                         unmanaged_cons=None):
@@ -914,7 +914,7 @@ def validate_lb_service(super_client, client, lb_service, port,
     for service in target_services:
         target_count = \
             target_count + get_service_instance_count(client, service)
-    container_names = get_container_names_list(super_client,
+    container_names = get_container_names_list(admin_client,
                                                target_services)
     logger.info(container_names)
     # Check that unmanaged containers for each services in present in
@@ -932,16 +932,16 @@ def validate_lb_service(super_client, client, lb_service, port,
     else:
         assert len(container_names) == target_count
 
-    validate_lb_service_con_names(super_client, client, lb_service, port,
+    validate_lb_service_con_names(admin_client, client, lb_service, port,
                                   container_names, hostheader, path, domain,
                                   test_ssl_client_con)
 
 
-def validate_lb_service_con_names(super_client, client, lb_service, port,
+def validate_lb_service_con_names(admin_client, client, lb_service, port,
                                   container_names,
                                   hostheader=None, path=None, domain=None,
                                   test_ssl_client_con=None):
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     assert len(lb_containers) == get_service_instance_count(client, lb_service)
 
     for lb_con in lb_containers:
@@ -966,11 +966,11 @@ def validate_lb_service_con_names(super_client, client, lb_service, port,
                 check_round_robin_access(container_names, host, port)
 
 
-def validate_cert_error(super_client, client, lb_service, port, domain,
+def validate_cert_error(admin_client, client, lb_service, port, domain,
                         default_domain, cert,
                         hostheader=None, path=None,
                         test_ssl_client_con=None):
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
         check_for_cert_error(host, port, domain, default_domain, cert,
@@ -1025,22 +1025,22 @@ def check_for_no_access_ip(lb_ip, port, is_ssl=False):
         return True
 
 
-def validate_linked_service(super_client, service, consumed_services,
+def validate_linked_service(admin_client, service, consumed_services,
                             exposed_port, exclude_instance=None,
                             exclude_instance_purged=False,
                             unmanaged_cons=None, linkName=None):
     time.sleep(5)
 
-    containers = get_service_container_list(super_client, service)
+    containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
 
     for container in containers:
-        host = super_client.by_id('host', container.hosts[0].id)
+        host = admin_client.by_id('host', container.hosts[0].id)
         for consumed_service in consumed_services:
             expected_dns_list = []
             expected_link_response = []
             dns_response = []
-            consumed_containers = get_service_container_list(super_client,
+            consumed_containers = get_service_container_list(admin_client,
                                                              consumed_service)
             if exclude_instance_purged:
                 assert len(consumed_containers) == consumed_service.scale - 1
@@ -1069,7 +1069,7 @@ def validate_linked_service(super_client, service, consumed_services,
                     logger.info("Excluded from DNS and wget list:" + con.name)
                 else:
                     if con.networkMode == "host":
-                        con_host = super_client.by_id('host', con.hosts[0].id)
+                        con_host = admin_client.by_id('host', con.hosts[0].id)
                         expected_dns_list.append(
                             con_host.ipAddresses()[0].address)
                         expected_link_response.append(con_host.hostname)
@@ -1127,23 +1127,23 @@ def validate_linked_service(super_client, service, consumed_services,
                 assert address in dns_response
 
 
-def validate_dns_service(super_client, service, consumed_services,
+def validate_dns_service(admin_client, service, consumed_services,
                          exposed_port, dnsname, exclude_instance=None,
                          exclude_instance_purged=False, unmanaged_cons=None):
     time.sleep(5)
 
-    service_containers = get_service_container_list(super_client, service)
+    service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == service.scale
 
     for con in service_containers:
-        host = super_client.by_id('host', con.hosts[0].id)
+        host = admin_client.by_id('host', con.hosts[0].id)
         containers = []
         expected_dns_list = []
         expected_link_response = []
         dns_response = []
 
         for consumed_service in consumed_services:
-            cons = get_service_container_list(super_client, consumed_service)
+            cons = get_service_container_list(admin_client, consumed_service)
             if exclude_instance_purged:
                 assert len(cons) == consumed_service.scale - 1
             else:
@@ -1171,7 +1171,7 @@ def validate_dns_service(super_client, service, consumed_services,
                 logger.info("Excluded from DNS and wget list:" + con.name)
             else:
                 if con.networkMode == "host":
-                    con_host = super_client.by_id('host', con.hosts[0].id)
+                    con_host = admin_client.by_id('host', con.hosts[0].id)
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
                     expected_link_response.append(con_host.hostname)
                 else:
@@ -1216,17 +1216,17 @@ def validate_dns_service(super_client, service, consumed_services,
             assert address in dns_response
 
 
-def validate_external_service(super_client, service, ext_services,
+def validate_external_service(admin_client, service, ext_services,
                               exposed_port, container_list,
                               exclude_instance=None,
                               exclude_instance_purged=False):
     time.sleep(5)
 
-    containers = get_service_container_list(super_client, service)
+    containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
     for container in containers:
         print "Validation for container -" + str(container.name)
-        host = super_client.by_id('host', container.hosts[0].id)
+        host = admin_client.by_id('host', container.hosts[0].id)
         for ext_service in ext_services:
             expected_dns_list = []
             expected_link_response = []
@@ -1281,16 +1281,16 @@ def validate_external_service(super_client, service, ext_services,
                 assert address in dns_response
 
 
-def validate_external_service_for_hostname(super_client, service, ext_services,
+def validate_external_service_for_hostname(admin_client, service, ext_services,
                                            exposed_port):
 
     time.sleep(5)
 
-    containers = get_service_container_list(super_client, service)
+    containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
     for container in containers:
         print "Validation for container -" + str(container.name)
-        host = super_client.by_id('host', container.hosts[0].id)
+        host = admin_client.by_id('host', container.hosts[0].id)
         for ext_service in ext_services:
             # Validate port mapping
             ssh = paramiko.SSHClient()
@@ -1640,15 +1640,15 @@ def create_env_and_svc(client, launch_config, scale=None, retainIp=False):
     return service, env
 
 
-def check_container_in_service(super_client, service):
+def check_container_in_service(admin_client, service):
 
-    container_list = get_service_container_list(super_client, service,
+    container_list = get_service_container_list(admin_client, service,
                                                 managed=1)
     assert len(container_list) == service.scale
 
     for container in container_list:
         assert container.state == "running"
-        containers = super_client.list_container(
+        containers = admin_client.list_container(
             externalId=container.externalId,
             include="hosts",
             removed_null=True)
@@ -1673,12 +1673,12 @@ def create_svc(client, env, launch_config, scale=None, retainIp=False):
     return service
 
 
-def wait_until_instances_get_stopped(super_client, service, timeout=60):
+def wait_until_instances_get_stopped(admin_client, service, timeout=60):
     stopped_count = 0
     start = time.time()
     while stopped_count != service.scale:
         time.sleep(.5)
-        container_list = get_service_container_list(super_client, service)
+        container_list = get_service_container_list(admin_client, service)
         stopped_count = 0
         for con in container_list:
             if con.state == "stopped":
@@ -1689,7 +1689,7 @@ def wait_until_instances_get_stopped(super_client, service, timeout=60):
 
 
 def get_service_containers_with_name(
-        super_client, service, name, managed=None):
+        admin_client, service, name, managed=None):
 
     nameformat = re.compile(name + "_[0-9]{1,2}")
     start = time.time()
@@ -1701,14 +1701,14 @@ def get_service_containers_with_name(
         time.sleep(.5)
         if managed is not None:
             all_instance_maps = \
-                super_client.list_serviceExposeMap(serviceId=service.id,
+                admin_client.list_serviceExposeMap(serviceId=service.id,
                                                    managed=managed)
         else:
             all_instance_maps = \
-                super_client.list_serviceExposeMap(serviceId=service.id)
+                admin_client.list_serviceExposeMap(serviceId=service.id)
         for instance_map in all_instance_maps:
             if instance_map.state == "active":
-                c = super_client.by_id('container', instance_map.instanceId)
+                c = admin_client.by_id('container', instance_map.instanceId)
                 if nameformat.match(c.name) \
                         and c.state in ("running", "stopped"):
                     instance_list.append(c)
@@ -1719,7 +1719,7 @@ def get_service_containers_with_name(
     container = []
     for instance in instance_list:
         assert instance.externalId is not None
-        containers = super_client.list_container(
+        containers = admin_client.list_container(
             externalId=instance.externalId,
             include="hosts")
         assert len(containers) == 1
@@ -1728,13 +1728,13 @@ def get_service_containers_with_name(
 
 
 def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
-        super_client, service, timeout=60):
+        admin_client, service, timeout=60):
     stopped_count = 0
     start = time.time()
     container_count = service.scale*(len(service.secondaryLaunchConfigs)+1)
     while stopped_count != container_count:
         time.sleep(.5)
-        container_list = get_service_container_list(super_client, service)
+        container_list = get_service_container_list(admin_client, service)
         stopped_count = 0
         for con in container_list:
             if con.state == "stopped":
@@ -1744,12 +1744,12 @@ def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
                 'Timed out waiting for instances to get to stopped state')
 
 
-def validate_lb_service_for_no_access(super_client, lb_service, port,
+def validate_lb_service_for_no_access(admin_client, lb_service, port,
                                       hostheader, path):
 
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
-        host = super_client.by_id('host', lb_con.hosts[0].id)
+        host = admin_client.by_id('host', lb_con.hosts[0].id)
         wait_until_lb_is_active(host, port)
         check_for_service_unavailable(host, port, hostheader, path)
 
@@ -2076,12 +2076,12 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
     return env, services, lb_service
 
 
-def wait_for_config_propagation(super_client, lb_service, timeout=30):
-    lb_instances = get_service_container_list(super_client, lb_service)
+def wait_for_config_propagation(admin_client, lb_service, timeout=30):
+    lb_instances = get_service_container_list(admin_client, lb_service)
     assert len(lb_instances) == lb_service.scale
     for lb_instance in lb_instances:
         agentId = lb_instance.agentId
-        agent = super_client.by_id('agent', agentId)
+        agent = admin_client.by_id('agent', agentId)
         assert agent is not None
         item = get_config_item(agent, "haproxy")
         start = time.time()
@@ -2091,20 +2091,20 @@ def wait_for_config_propagation(super_client, lb_service, timeout=30):
             print "requested_version " + str(item.requestedVersion)
             print "applied_version " + str(item.appliedVersion)
             time.sleep(.1)
-            agent = super_client.reload(agent)
+            agent = admin_client.reload(agent)
             item = get_config_item(agent, "haproxy")
             if time.time() - start > timeout:
                 raise Exception('Timed out waiting for config propagation')
 
 
-def wait_for_metadata_propagation(super_client, timeout=30):
-    networkAgents = super_client.list_container(
+def wait_for_metadata_propagation(admin_client, timeout=30):
+    networkAgents = admin_client.list_container(
         name='Network Agent', removed_null=True)
-    assert len(networkAgents) == len(super_client.list_host(kind='docker',
+    assert len(networkAgents) == len(admin_client.list_host(kind='docker',
                                                             removed_null=True))
     for networkAgent in networkAgents:
         agentId = networkAgent.agentId
-        agent = super_client.by_id('agent', agentId)
+        agent = admin_client.by_id('agent', agentId)
         assert agent is not None
         item = get_config_item(agent, "hosts")
         start = time.time()
@@ -2115,7 +2115,7 @@ def wait_for_metadata_propagation(super_client, timeout=30):
             print "requested_version " + str(item.requestedVersion)
             print "applied_version " + str(item.appliedVersion)
             time.sleep(.1)
-            agent = super_client.reload(agent)
+            agent = admin_client.reload(agent)
             item = get_config_item(agent, "hosts")
             if time.time() - start > timeout:
                 raise Exception('Timed out waiting for config propagation')
@@ -2150,23 +2150,23 @@ def create_env(client):
     return env
 
 
-def get_env(super_client, service):
-    e = super_client.by_id('stack', service.stackId)
+def get_env(admin_client, service):
+    e = admin_client.by_id('stack', service.stackId)
     return e
 
 
-def get_service_container_with_label(super_client, service, name, label):
+def get_service_container_with_label(admin_client, service, name, label):
 
     containers = []
     found = False
-    instance_maps = super_client.list_serviceExposeMap(serviceId=service.id,
+    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active")
     nameformat = re.compile(name + "_[0-9]{1,2}")
     for instance_map in instance_maps:
-        c = super_client.by_id('container', instance_map.instanceId)
+        c = admin_client.by_id('container', instance_map.instanceId)
         if nameformat.match(c.name) \
                 and c.labels["io.rancher.service.deployment.unit"] == label:
-            containers = super_client.list_container(
+            containers = admin_client.list_container(
                 externalId=c.externalId,
                 include="hosts")
             assert len(containers) == 1
@@ -2176,25 +2176,25 @@ def get_service_container_with_label(super_client, service, name, label):
     return containers[0]
 
 
-def get_side_kick_container(super_client, container, service, service_name):
+def get_side_kick_container(admin_client, container, service, service_name):
     label = container.labels["io.rancher.service.deployment.unit"]
     print container.name + " - " + label
     secondary_con = get_service_container_with_label(
-        super_client, service, service_name, label)
+        admin_client, service, service_name, label)
     return secondary_con
 
 
-def validate_internal_lb(super_client, lb_service, services,
+def validate_internal_lb(admin_client, lb_service, services,
                          host, con_port, lb_port):
     # Access each of the LB Agent from the client container
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     assert len(lb_containers) == lb_service.scale
     for lb_con in lb_containers:
         lb_ip = lb_con.primaryIpAddress
         target_count = 0
         for service in services:
             target_count = target_count + service.scale
-        expected_lb_response = get_container_names_list(super_client,
+        expected_lb_response = get_container_names_list(admin_client,
                                                         services)
         assert len(expected_lb_response) == target_count
         # Validate port mapping
@@ -2354,7 +2354,7 @@ def cleanup_images(client, delete_images):
 
 
 @pytest.fixture(scope='session')
-def certs(client, super_client, request):
+def certs(client, admin_client, request):
 
     if len(cert_list.keys()) > 0:
         return
@@ -2561,11 +2561,11 @@ def get_env_service_by_name(client, env_name, service_name):
     return env[0], service[0]
 
 
-def check_for_appcookie_policy(super_client, client, lb_service, port,
+def check_for_appcookie_policy(admin_client, client, lb_service, port,
                                target_services, cookie_name):
-    container_names = get_container_names_list(super_client,
+    container_names = get_container_names_list(admin_client,
                                                target_services)
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
@@ -2576,11 +2576,11 @@ def check_for_appcookie_policy(super_client, client, lb_service, port,
         check_for_stickiness(url, container_names, headers=headers)
 
 
-def check_for_lbcookie_policy(super_client, client, lb_service, port,
+def check_for_lbcookie_policy(admin_client, client, lb_service, port,
                               target_services):
-    container_names = get_container_names_list(super_client,
+    container_names = get_container_names_list(admin_client,
                                                target_services)
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
@@ -2604,11 +2604,11 @@ def check_for_lbcookie_policy(super_client, client, lb_service, port,
             assert response == sticky_response
 
 
-def check_for_balancer_first(super_client, client, lb_service, port,
+def check_for_balancer_first(admin_client, client, lb_service, port,
                              target_services):
-    container_names = get_container_names_list(super_client,
+    container_names = get_container_names_list(admin_client,
                                                target_services)
-    lb_containers = get_service_container_list(super_client, lb_service)
+    lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
@@ -2700,8 +2700,8 @@ def get_service_instance_count(client, service):
     return scale
 
 
-def check_config_for_service(super_client, service, labels, managed):
-    containers = get_service_container_list(super_client, service, managed)
+def check_config_for_service(admin_client, service, labels, managed):
+    containers = get_service_container_list(admin_client, service, managed)
     assert len(containers) == service.scale
     for con in containers:
         for key in labels.keys():
