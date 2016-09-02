@@ -18,81 +18,81 @@ def get_host_droplets(ha_hosts, socat_containers):
 
 @if_test_host_down
 def test_service_with_healthcheck_1_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_healthcheck_services(
-        super_client, client, host_down_count=1)
+        admin_client, client, host_down_count=1)
 
 
 @if_test_host_down
 def test_service_with_healthcheck_2_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_healthcheck_services(
-        super_client, client, host_down_count=2)
+        admin_client, client, host_down_count=2)
 
 
 @if_test_host_down
 def test_service_with_healthcheck_3_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_healthcheck_services(
-        super_client, client, host_down_count=3)
+        admin_client, client, host_down_count=3)
 
 
 @if_test_host_down
 def test_service_with_healthcheck_and_retainIp_2_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_healthcheck_services(
-        super_client, client, host_down_count=2, retainIp=True)
+        admin_client, client, host_down_count=2, retainIp=True)
 
 
 @if_test_host_down
 def test_lbservice_with_healthcheck_1_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     lb_port = "7770"
     host_down_with_lb_services(
-        super_client, client, lb_port, host_down_count=1)
+        admin_client, client, lb_port, host_down_count=1)
 
 
 @if_test_host_down
 def test_lbservice_with_healthcheck_2_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     lb_port = "7771"
     host_down_with_lb_services(
-        super_client, client, lb_port, host_down_count=2)
+        admin_client, client, lb_port, host_down_count=2)
 
 
 @if_test_host_down
 def test_global_lbservice_with_healthcheck_1_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     lb_port = "7772"
     host_down_with_lb_services(
-        super_client, client, lb_port, host_down_count=1, globalf=True)
+        admin_client, client, lb_port, host_down_count=1, globalf=True)
 
 
 @if_test_host_down
 def test_global_lbservice_with_healthcheck_2_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     lb_port = "7773"
     host_down_with_lb_services(
-        super_client, client, lb_port, host_down_count=2, globalf=True)
+        admin_client, client, lb_port, host_down_count=2, globalf=True)
 
 
 @if_test_host_down
 def test_service_with_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_services(
-        super_client, client, host_down_count=2)
+        admin_client, client, host_down_count=2)
 
 
 @if_test_host_down
 def test_global_service_with_host_down(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
     host_down_with_services(
-        super_client, client, host_down_count=2, globalf=True)
+        admin_client, client, host_down_count=2, globalf=True)
 
 
 @if_test_host_down
 def test_global_service_with_reconnecting_host(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
 
     # Pick one of the host and power down hosts
     host_down = ha_host_list[0]
@@ -108,7 +108,7 @@ def test_global_service_with_reconnecting_host(
     service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     assert len(container_list) == get_service_instance_count(client, service)
 
     # Power on the host
@@ -116,7 +116,7 @@ def test_global_service_with_reconnecting_host(
     wait_for_host_agent_state(client, host_down, "active")
 
     wait_success(client, service)
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     assert len(container_list) == get_service_instance_count(client, service)
     instance_list = get_containers_on_host_for_service(
         client, host_down, service)
@@ -125,7 +125,7 @@ def test_global_service_with_reconnecting_host(
 
 @if_test_host_down
 def test_global_service_with_inactive_host(
-        super_client, client, ha_hosts, socat_containers):
+        admin_client, client, ha_hosts, socat_containers):
 
     # Pick one of the host and deactivate this host
     host_down = ha_host_list[0]
@@ -145,7 +145,7 @@ def test_global_service_with_inactive_host(
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     assert len(container_list) == get_service_instance_count(client, service)
 
     # Activate the host that is in deactivated state
@@ -156,14 +156,14 @@ def test_global_service_with_inactive_host(
                                    lambda x: 'Host state is ' + x.state
                                    )
     wait_success(client, service)
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     assert len(container_list) == get_service_instance_count(client, service)
     instance_list = get_containers_on_host_for_service(
         client, host_down, service)
     assert len(instance_list) == 1
 
 
-def host_down_with_lb_services(super_client, client, lb_port, host_down_count,
+def host_down_with_lb_services(admin_client, client, lb_port, host_down_count,
                                scale=2, lb_scale=2, globalf=False):
 
     # Wait for hosts in "reconnecting" state to get to "active" state
@@ -173,7 +173,7 @@ def host_down_with_lb_services(super_client, client, lb_port, host_down_count,
     # service targets
     env, lb_service, service1, service2 = \
         env_with_lb_service_with_health_check_enabled_targets(
-            super_client, client, lb_port, scale, lb_scale, globalf)
+            admin_client, client, lb_port, scale, lb_scale, globalf)
 
     # Pick hosts (and collect instances that will fgo unhealthy) that need
     # to be powered down
@@ -201,8 +201,8 @@ def host_down_with_lb_services(super_client, client, lb_port, host_down_count,
     # Check for service reconcile
 
     check_for_service_reconcile(
-        super_client, client, lb_service, down_instances, instance_list)
-    validate_lb_service(super_client, client, lb_service,
+        admin_client, client, lb_service, down_instances, instance_list)
+    validate_lb_service(admin_client, client, lb_service,
                         lb_port, [service1, service2])
     # Power on hosts that were powered off
 
@@ -216,16 +216,16 @@ def host_down_with_lb_services(super_client, client, lb_port, host_down_count,
 
     if (globalf):
         check_hosts_state(client)
-        wait_for_scale_to_adjust(super_client, service1)
-        wait_for_scale_to_adjust(super_client, service2)
-        wait_for_scale_to_adjust(super_client, lb_service)
-        validate_lb_service(super_client, client, lb_service,
+        wait_for_scale_to_adjust(admin_client, service1)
+        wait_for_scale_to_adjust(admin_client, service2)
+        wait_for_scale_to_adjust(admin_client, lb_service)
+        validate_lb_service(admin_client, client, lb_service,
                             lb_port, [service1, service2])
 
     delete_all(client, [env])
 
 
-def host_down_with_healthcheck_services(super_client, client, host_down_count,
+def host_down_with_healthcheck_services(admin_client, client, host_down_count,
                                         retainIp=False):
     # Wait for hosts in "reconnecting" state to get to "active" state
     check_hosts_state(client)
@@ -233,7 +233,7 @@ def host_down_with_healthcheck_services(super_client, client, host_down_count,
     # Create service that is healthcheck enabled
     scale = 10
     env, service = service_with_healthcheck_enabled(
-        client, super_client, scale, retainIp=retainIp)
+        client, admin_client, scale, retainIp=retainIp)
 
     # Pick hosts (and collect instances that will fgo unhealthy) that need
     # to be powered down
@@ -261,7 +261,7 @@ def host_down_with_healthcheck_services(super_client, client, host_down_count,
     # Check for service reconcile
 
     check_for_service_reconcile(
-        super_client, client, service, down_instances, instance_list)
+        admin_client, client, service, down_instances, instance_list)
 
     # If retainIp is turned on , make sure that ip address assigned to
     # reconciled instances are the same
@@ -269,7 +269,7 @@ def host_down_with_healthcheck_services(super_client, client, host_down_count,
     if (retainIp):
         for con in down_instances:
             container_name = con.name
-            containers = super_client.list_container(name=container_name,
+            containers = admin_client.list_container(name=container_name,
                                                      removed_null=True)
             assert len(containers) == 1
             container = containers[0]
@@ -285,7 +285,7 @@ def host_down_with_healthcheck_services(super_client, client, host_down_count,
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_on")
 
 
-def host_down_with_services(super_client, client, host_down_count,
+def host_down_with_services(admin_client, client, host_down_count,
                             globalf=False):
     # Wait for hosts in "reconnecting" state to get to "active" state
     check_hosts_state(client)
@@ -301,7 +301,7 @@ def host_down_with_services(super_client, client, host_down_count,
     service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     assert len(container_list) == get_service_instance_count(client, service)
 
     # Pick hosts (and collect instances that will go unhealthy) that need
@@ -378,7 +378,7 @@ def get_containers_on_host_for_service(client, host, service):
     return instance_list
 
 
-def check_for_service_reconcile(super_client, client, service,
+def check_for_service_reconcile(admin_client, client, service,
                                 unhealthy_con_list, instance_list):
 
     # Validate that unhealthy instances in the service get deleted
@@ -395,12 +395,12 @@ def check_for_service_reconcile(super_client, client, service,
             client, con,
             lambda x: x.state in ('removed', 'purged'),
             lambda x: 'State is: ' + x.healthState)
-        wait_for_scale_to_adjust(super_client, service)
+        wait_for_scale_to_adjust(admin_client, service)
         con = client.reload(con)
         assert con.state in ('removed', 'purged')
 
     # Validate all instances in the service are healthy
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(admin_client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -439,7 +439,7 @@ def check_hosts_state(client, timeout=60):
     time.sleep(30)
 
 
-def env_with_lb_service_with_health_check_enabled_targets(super_client, client,
+def env_with_lb_service_with_health_check_enabled_targets(admin_client, client,
                                                           lb_port,
                                                           scale=2, lb_scale=2,
                                                           globalf=False):
@@ -464,7 +464,7 @@ def env_with_lb_service_with_health_check_enabled_targets(super_client, client,
         client, launch_config, scale)
 
     service1 = activate_svc(client, service1)
-    container_list = get_service_container_list(super_client, service1)
+    container_list = get_service_container_list(admin_client, service1)
     assert len(container_list) == get_service_instance_count(client, service1)
     for con in container_list:
         wait_for_condition(
@@ -474,7 +474,7 @@ def env_with_lb_service_with_health_check_enabled_targets(super_client, client,
 
     service2 = create_svc(client, env, launch_config, scale)
     service2 = activate_svc(client, service2)
-    container_list = get_service_container_list(super_client, service2)
+    container_list = get_service_container_list(admin_client, service2)
     assert len(container_list) == get_service_instance_count(client, service2)
     for con in container_list:
         wait_for_condition(
@@ -498,7 +498,7 @@ def env_with_lb_service_with_health_check_enabled_targets(super_client, client,
     lb_service.setservicelinks(
         serviceLinks=[service_link1, service_link2])
 
-    validate_lb_service(super_client, client, lb_service,
+    validate_lb_service(admin_client, client, lb_service,
                         lb_port, [service1, service2])
 
     return env, lb_service, service1, service2

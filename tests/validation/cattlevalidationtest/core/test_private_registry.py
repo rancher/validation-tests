@@ -56,7 +56,7 @@ def create_registry(client, registry_creds):
 
 
 @pytest.fixture(scope='session')
-def registries(client, super_client, request):
+def registries(client, admin_client, request):
 
     if len(registry_list.keys()) > 0:
         return
@@ -72,7 +72,7 @@ def registries(client, super_client, request):
             reg_cred = client.delete(reg_cred)
             reg_cred = client.wait_success(reg_cred)
             assert reg_cred.state == 'removed'
-            registry = super_client.by_id('registry', reg_cred.registryId)
+            registry = admin_client.by_id('registry', reg_cred.registryId)
             registry = client.wait_success(registry.deactivate())
             assert registry.state == 'inactive'
             registry = client.delete(registry)
@@ -100,7 +100,7 @@ def test_create_container_with_quay_registry_credential(client,
 
 
 @if_quay_creds_available
-def test_create_services_with_quay_registry_credential(client, super_client,
+def test_create_services_with_quay_registry_credential(client, admin_client,
                                                        socat_containers,
                                                        registries):
     image_id = quay_creds["serverAddress"]+"/" + quay_creds["image"]
@@ -116,7 +116,7 @@ def test_create_services_with_quay_registry_credential(client, super_client,
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(super_client, service)
+    check_container_in_service(admin_client, service)
     delete_all(client, [env])
 
 
@@ -140,7 +140,7 @@ def test_create_container_with_docker_registry_credential(client,
 
 
 @if_docker_creds_available
-def test_create_services_with_docker_registry_credential(client, super_client,
+def test_create_services_with_docker_registry_credential(client, admin_client,
                                                          socat_containers,
                                                          registries):
 
@@ -160,7 +160,7 @@ def test_create_services_with_docker_registry_credential(client, super_client,
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(super_client, service)
+    check_container_in_service(admin_client, service)
 
     delete_all(client, [env])
 
