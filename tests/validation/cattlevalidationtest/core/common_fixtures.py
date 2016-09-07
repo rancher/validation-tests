@@ -2940,11 +2940,12 @@ def rancher_cli_container(admin_client, client, request):
 
     def remove_rancher_cli_container():
         delete_all(client, [rancher_cli_con["container"]])
+        print "Hello"
     request.addfinalizer(remove_rancher_cli_container)
 
 
-def execute_rancher_cli(client, env_name, docker_compose,
-                        rancher_compose, command, expected_resp,
+def execute_rancher_cli(client, env_name, command,
+                        expected_resp, docker_compose, rancher_compose,
                         timeout=SERVICE_WAIT_TIMEOUT):
     access_key = client._access_key
     secret_key = client._secret_key
@@ -2952,42 +2953,49 @@ def execute_rancher_cli(client, env_name, docker_compose,
     rancher_filename = env_name + "-rancher-compose.yml"
     project_name = env_name
 
-    cmd1 = "export RANCHER_URL=" + cattle_url()
+    cmd1 = "export RANCHER_URL=" + cattle_url() + "/v1"
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-v*"
-    cmd5 = "echo '" + docker_compose + "' > " + docker_filename
+    if docker_compose is not None:
+        cmd5 = "echo '" + docker_compose + "' > " + docker_filename + ";"
+    else:
+        cmd5 = ""
     if rancher_compose is not None:
         rcmd = "echo '" + rancher_compose + "' > " + rancher_filename + ";"
         cmd6 = rcmd + "./rancher " + command + " -s " + project_name + " -f " \
             + docker_filename + " --rancher-file " + rancher_filename
-    else:
+    elif rancher_compose is None and docker_compose is not None:
         cmd6 = "./rancher " + command + " -s " + project_name + \
-               " -f " + docker_filename + " " + command
+               " -f " + docker_filename
+    else:
+        cmd6 = "./rancher " + command
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
         rancher_cli_con["host"].ipAddresses()[0].address, username="root",
         password="root", port=int(rancher_cli_con["port"]))
-    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
-    print "Final Command" + cmd
+    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+cmd6
+    print "Final Command \n" + cmd
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
-    print "Obtained Response: " + str(response)
-    print "Expected Response: " + expected_resp
-    print "End is there"
-    found = False
-    for resp in response:
-        if expected_resp in resp:
-            found = True
-    assert found
+    return response
 
 
-def launch_rancher_cli_from_file(client, subdir, docker_compose,
-                                 env_name, command, response,
+def launch_rancher_cli_from_file(client, subdir, env_name, command,
+                                 expected_response, docker_compose=None,
                                  rancher_compose=None):
     docker_compose = readDataFile(subdir, docker_compose)
     if rancher_compose is not None:
         rancher_compose = readDataFile(subdir, rancher_compose)
-    execute_rancher_cli(client, env_name, docker_compose,
-                        rancher_compose, command, response)
+    cli_response = execute_rancher_cli(client, env_name, command,
+                                       expected_response,
+                                       docker_compose, rancher_compose)
+    print "Obtained Response: " + str(cli_response)
+    print "Expected Response: " + str(expected_response)
+    found = False
+    for resp in cli_response:
+        if expected_response in resp:
+            found = True
+    assert found

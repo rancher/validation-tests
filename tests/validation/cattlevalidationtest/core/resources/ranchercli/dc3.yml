@@ -1,0 +1,15 @@
+test1:
+  restart: always
+  tty: true
+  image: ubuntu:14.04.2
+  stdin_open: true
+  labels:
+    test1: value1
+test2:
+  restart: always
+  tty: true
+  image: ubuntu:14.04.2
+  stdin_open: true
+  labels:
+    test2: value2
+  
