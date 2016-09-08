@@ -965,7 +965,7 @@ def test_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "unhealthy"
     assert con1.state == "running"
 
-    mark_container_healthy(admin_client, admin_client, container_list[1], port)
+    mark_container_healthy(admin_client, container_list[1], port)
     # Make sure that the container gets marked healthy
 
     wait_for_condition(
@@ -1167,7 +1167,7 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "unhealthy"
     assert con1.state == "running"
 
-    mark_container_healthy(admin_client, admin_client, container_list[1], port)
+    mark_container_healthy(admin_client, container_list[1], port)
 
     # Make sure that the container gets marked healthy
 
