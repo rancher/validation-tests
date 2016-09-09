@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress16
+ annotations:
+   http.port: "101"
+spec:
+ rules:
+ - host: foo.bar.com
+   http:
+     paths:
+     - path: /service3.html
+       backend:
+         serviceName: k8test16-two
+         servicePort: 81
