@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress19
+ annotations:
+   http.port: "103"
+spec:
+ rules:
+ - host: foo.bar.com
+   http:
+     paths:
+     - path: /service3.html
+       backend:
+         serviceName: k8test1
+         servicePort: 81
+     - path: /name.html
+       backend:
+         serviceName: k8test2
+         servicePort: 80
