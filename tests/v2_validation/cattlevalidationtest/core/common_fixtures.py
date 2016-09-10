@@ -64,7 +64,7 @@ kube_host_list = []
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
-kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.2.2")
+kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.3.0")
 
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 

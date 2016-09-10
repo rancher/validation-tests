@@ -1121,7 +1121,13 @@ def test_k8s_env_service_lb(
             if 'lb-' in s.name:
                 lbservice = s
         containers = get_service_container_list(admin_client, lbservice)
-        lbip = containers[0]['dockerHostIp']
+        assert len(containers) == 1
+        lb_containers = admin_client.list_container(
+            externalId=containers[0].externalId,
+            include="hosts",
+            removed_null=True)
+        assert len(lb_containers) == 1
+        lbip = lb_containers[0].hosts[0].ipAddresses()[0].address
     elif kubectl_version == "v1.3.0":
         time.sleep(20)
         get_response = execute_kubectl_cmds(
