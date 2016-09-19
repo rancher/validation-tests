@@ -372,7 +372,7 @@ def test_multiple_level_volume_mount_delete_services_1(client, admin_client,
     assert primary_container.state == "removed"
     print primary_container.name + " - " + primary_container.state
 
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service1])
@@ -418,7 +418,7 @@ def test_multiple_level_volume_mount_delete_services_2(client, admin_client,
     # Delete instance
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     # Wait for primary (consuming) container to be removed
     wait_for_condition(admin_client, primary_container,
@@ -507,7 +507,7 @@ def test_volume_mount_consumed_services_stop_start_instance(
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
@@ -559,7 +559,7 @@ def test_volume_mount_consumed_services_delete_instance(
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     # Wait for primary (consuming) container to be removed
     wait_for_condition(admin_client, primary_container,
@@ -611,7 +611,7 @@ def test_volume_mount_services_stop_start_instance(
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
@@ -663,7 +663,7 @@ def test_volume_mount_services_delete_instance(
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])

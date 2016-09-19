@@ -166,7 +166,7 @@ def test_dns_discovery_consumed_services_stop_start_instance(
 
     # Stop instance
     container = client.wait_success(container.stop(), SERVICE_WAIT_TIMEOUT)
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, consumed_service)
 

@@ -176,6 +176,11 @@ def wait_success(client, obj, timeout=DEFAULT_TIMEOUT):
     return client.wait_success(obj, timeout=timeout)
 
 
+def wait_state(client, obj, state):
+    wait_for(lambda: client.reload(obj).state == state)
+    return client.reload(obj)
+
+
 def create_type_by_uuid(admin_client, type, uuid, activate=True, validate=True,
                         **kw):
     opts = dict(kw)
@@ -686,7 +691,7 @@ def get_docker_client(host):
 
 
 def wait_for_scale_to_adjust(admin_client, service):
-    service = admin_client.wait_success(service)
+    service = wait_state(admin_client, service, "active")
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active",
                                                        managed=1)

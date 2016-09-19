@@ -746,7 +746,7 @@ def test_service_reconcile_stop_instance_restart_policy_no(
     container2 = containers[1]
     container2 = client.wait_success(container2.stop())
 
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
     time.sleep(30)
     assert service.state == "active"
 
@@ -1436,7 +1436,7 @@ def check_service_activate_stop_instance_scale(admin_client, client,
         # assert container.state == 'stopped'
         logger.info("Stopped container - " + container_name)
 
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
 
     logger.info("service being updated - " + service.name + " - " + service.id)
     # Scale service
@@ -1474,7 +1474,8 @@ def check_service_activate_delete_instance_scale(admin_client, client,
         assert container.state == 'removed'
         logger.info("Delete Container -" + container_name)
 
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
+
     logger.info("service being updated " + service.name + " - " + service.id)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
@@ -1590,7 +1591,7 @@ def check_for_service_reconciliation_on_stop(admin_client, client, service):
     container2 = containers[1]
     container2 = client.wait_success(container2.stop())
 
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, service)
 

@@ -446,7 +446,7 @@ def test_sidekick_consumed_services_stop_start_instance(client,  admin_client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
@@ -498,7 +498,7 @@ def test_sidekick_consumed_services_delete_instance(client,  admin_client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
@@ -551,7 +551,7 @@ def test_sidekick_services_stop_start_instance(client,  admin_client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
@@ -602,7 +602,7 @@ def test_sidekick_services_delete_instance(client,  admin_client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    client.wait_success(service)
+    wait_state(client, service, "active")
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,

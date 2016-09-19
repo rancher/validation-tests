@@ -285,7 +285,7 @@ def test_link_consumed_services_stop_start_instance(admin_client, client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, consumed_service)
 
@@ -605,7 +605,7 @@ def test_link_services_stop_start_instance(admin_client, client):
 
     # Stop service instance
     service_instance = client.wait_success(service_instance.stop(), 120)
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
     wait_for_scale_to_adjust(admin_client, service)
 
     validate_linked_service(admin_client, service, [consumed_service], port,
