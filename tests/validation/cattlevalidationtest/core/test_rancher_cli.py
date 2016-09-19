@@ -327,6 +327,33 @@ def test_cli_list_process(admin_client, client,
     delete_all(client, [env])
 
 
+
+def test_cli_stack_list(admin_client, client, rancher_cli_container):
+
+    stack_name = random_str().replace("-", "")
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc2.yml", "rc2.yml")
+
+    stack, service = get_env_service_by_name(client, stack_name, "test2")
+    print service.id
+
+    command = "stack ls"
+    expected_response = "cattle"
+    cli_response = execute_rancher_cli(client, stack_name, command,
+                                       expected_response, docker_compose=None,
+                                       rancher_compose=None)
+    envlist = client.list_stacks()
+    print "The list of stacks is"
+    print envlist
+    print "The cli response is :"
+    print cli_response
+    if expected_response in cli_response:
+        assert True
+
+    delete_all(client, [stack])
+
+
 def test_cli_env_list(admin_client, client, rancher_cli_container):
 
     stack_name = random_str().replace("-", "")
@@ -354,10 +381,57 @@ def test_cli_env_list(admin_client, client, rancher_cli_container):
     cli_response = execute_rancher_cli(client, stack_name, command,
                                        expected_response, docker_compose=None,
                                        rancher_compose=None)
+    print "The cli response is \n"
+    print cli_response
     if expected_response in cli_response:
         assert True
 
     delete_all(client, [stack])
+
+
+def test_cli_env_create(admin_client, client, rancher_cli_container):
+
+
+    stack_name = random_str().replace("-", "")
+
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc2.yml", "rc2.yml")
+
+    stack, service = get_env_service_by_name(client, stack_name, "test2")
+    print service.id
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+    assert service.scale == 4
+    assert service.name == "test2"
+
+    check_config_for_service(admin_client, service, {"test2": "value2"}, 1)
+
+    container_list = get_service_container_list(admin_client, service)
+    assert len(container_list) == 4
+    for container in container_list:
+        assert container.state == "running"
+
+
+    command = "env create newenv1"
+    #envlist = []
+    #envlist = client.list_environment(name="newenv")
+    print command
+    #print "The list of environements is\n"
+    #print envlist
+    expected_response = "cattle"
+    cli_response = execute_rancher_cli(client, stack_name, command,
+                                       expected_response, docker_compose=None,
+                                       rancher_compose=None)
+    print cli_response
+    if expected_response in cli_response:
+        assert True
+    envlist = client.list_environment(name="newenv")
+    print "The list of environements is\n"
+    print envlist
+    #delete_all(client, [stack])
+
 
 
 def test_cli_catalog_list(admin_client, client,
