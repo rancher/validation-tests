@@ -95,6 +95,7 @@ def get_pod_container_list(admin_client, pod, namespace='default'):
         if bool(cont.labels):
             if "io.kubernetes.pod.name" in cont.labels.keys():
                 if (cont['labels']['io.kubernetes.pod.name'] == pod and
+                    cont['state'] == 'running' and
                     cont.imageUuid != 'docker:gcr.io/'
                     'google_containers/pause:2.0' and
                     cont['labels']
@@ -1120,7 +1121,6 @@ def test_k8s_env_service_lb(
         for s in services:
             if 'lb-' in s.name:
                 lbservice = s
-        containers = get_service_container_list(admin_client, lbservice)
         containers = get_service_container_list(admin_client, lbservice)
         assert len(containers) == 1
         lb_containers = admin_client.list_container(
