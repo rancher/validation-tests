@@ -333,7 +333,7 @@ def test_dns_consumed_services_stop_start_instance(admin_client, client):
 
     # Stop instance
     container = client.wait_success(container.stop(), 120)
-    consumed_service = client.wait_success(consumed_service)
+    consumed_service = wait_state(client, consumed_service, "active")
     wait_for_scale_to_adjust(admin_client, consumed_service)
 
     validate_dns_service(
