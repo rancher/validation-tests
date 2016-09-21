@@ -317,15 +317,8 @@ def test_services_random_expose_port_exhaustrange(
     service1, env1 = create_env_and_svc(client, launch_config, 3)
     env1 = env1.activateservices()
     service1 = client.wait_success(service1, 60)
-    print service.publicEndpoints
-    wait_for_condition(client,
-                       service1,
-                       lambda x: x.publicEndpoints is not None,
-                       lambda x:
-                       "publicEndpoints is " + str(x.publicEndpoints))
-    service1 = client.reload(service1)
-    print service.publicEndpoints
-    assert len(service1.publicEndpoints) == 0
+    time.sleep(30)
+    assert service1.publicEndpoints is None
 
     # Delete the service that consumed 5 random ports
     delete_all(client, [env])
