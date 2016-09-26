@@ -621,7 +621,7 @@ def test_selectorContainer_for_service_reconciliation_on_stop(
     container2 = containers[1]
     container2 = client.wait_success(container2.stop())
 
-    service = client.wait_success(service)
+    service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, service)
 
