@@ -16,17 +16,15 @@ quay_creds["name"] = "quay"
 registry_list = {}
 
 if_test_k8s = pytest.mark.skipif(
-    not os.environ.get('DIGITALOCEAN_KEY') or
     not os.environ.get('TEST_K8S'),
-    reason='DIGITALOCEAN_KEY/TEST_K8S is not set')
+    reason='TEST_K8S is not set')
 
 if_test_privatereg = pytest.mark.skipif(
-    not os.environ.get('DIGITALOCEAN_KEY') or
     not os.environ.get('TEST_K8S') or
     not os.environ.get('QUAY_EMAIL') or
     not os.environ.get('QUAY_USERNAME') or
     not os.environ.get('QUAY_IMAGE'),
-    reason='PRIVATEREG_CREDENTIALS/DIGITALOCEAN_KEY/TEST_K8S not set')
+    reason='PRIVATEREG_CREDENTIALS/TEST_K8S not set')
 
 if_test_kubectl_1_3 = pytest.mark.skipif(
     not kubectl_version == "v1.3.0",

@@ -59,7 +59,7 @@ socat_container_list = []
 host_container_list = []
 ha_host_list = []
 ha_host_count = 4
-kube_host_count = 2
+kube_host_count = 3
 kube_host_list = []
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
@@ -503,37 +503,38 @@ def kube_hosts(request, client, admin_client):
         project = admin_client.update(
             project, kubernetes=True)
         project = wait_success(admin_client, project)
-        hosts = client.list_host(
-            kind='docker', removed_null=True, state="active",
-            include="physicalHost")
-        do_host_count = 0
-        if len(hosts) >= kube_host_count:
-            for i in range(0, len(hosts)):
-                if hosts[i].physicalHost.driver == "digitalocean":
-                    do_host_count += 1
-                    kube_host_list.append(hosts[i])
-        if do_host_count < kube_host_count:
-            host_list = \
-                add_digital_ocean_hosts(
-                    client, kube_host_count - do_host_count)
-            kube_host_list.extend(host_list)
 
-        # Wait for Kubernetes environment to get created successfully
-        start = time.time()
+    # If there are not enough hosts in the set up , deploy hosts from DO
+    hosts = client.list_host(
+        kind='docker', removed_null=True, state="active",
+        include="physicalHost")
+    host_count = len(hosts)
+    if host_count >= kube_host_count:
+        for i in range(0, host_count):
+            kube_host_list.append(hosts[i])
+    if host_count < kube_host_count:
+        host_list = \
+            add_digital_ocean_hosts(
+                client, kube_host_count - host_count)
+        kube_host_list.extend(host_list)
+
+    # Wait for Kubernetes environment to get created successfully
+    start = time.time()
+    env = client.list_stack(name="Kubernetes")
+    while len(env) != 1:
+        time.sleep(.5)
         env = client.list_stack(name="Kubernetes")
-        while len(env) != 1:
-            time.sleep(.5)
-            env = client.list_stack(name="Kubernetes")
-            if time.time() - start > 30:
-                raise Exception(
-                    'Timed out waiting for Kubernetes env to get created')
+        if time.time() - start > 30:
+            raise Exception(
+                'Timed out waiting for Kubernetes env to get created')
 
-        environment = env[0]
-        wait_for_condition(
-            admin_client, environment,
-            lambda x: x.state == "active",
-            lambda x: 'State is: ' + x.state,
-            timeout=600)
+    environment = env[0]
+    wait_for_condition(
+        admin_client, environment,
+        lambda x: x.healthState == "healthy",
+        lambda x: 'State is: ' + x.state,
+        timeout=600)
+
     if kubectl_client_con["container"] is None:
         test_client_con = create_kubectl_client_container(client, "9999")
         kubectl_client_con["container"] = test_client_con["container"]
@@ -2660,7 +2661,8 @@ def add_digital_ocean_hosts(client, count, size="1gb"):
     # Create a Digital Ocean Machine
     machines = []
     hosts = []
-
+    assert do_access_key is not None, \
+        "Test Set up failed for not having enough hosts in k8s environment"
     for i in range(0, count):
         create_args = {"name": random_str(),
                        "digitaloceanConfig": {"accessToken": do_access_key,

@@ -1,9 +1,8 @@
 from common_fixtures import *  # NOQA
 
 if_test_k8s = pytest.mark.skipif(
-    not os.environ.get('DIGITALOCEAN_KEY') or
     not os.environ.get('TEST_K8S'),
-    reason='DIGITALOCEAN_KEY/TEST_K8S is not set')
+    reason='TEST_K8S is not set')
 
 
 @if_test_k8s
