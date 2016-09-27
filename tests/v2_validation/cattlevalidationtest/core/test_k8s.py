@@ -26,9 +26,9 @@ if_test_privatereg = pytest.mark.skipif(
     not os.environ.get('QUAY_IMAGE'),
     reason='PRIVATEREG_CREDENTIALS/TEST_K8S not set')
 
-if_test_kubectl_1_3 = pytest.mark.skipif(
-    not kubectl_version == "v1.3.0",
-    reason='Kubernetes version is not 1.3')
+if_test_kubectl_1_2_skip = pytest.mark.skipif(
+    kubectl_version.startswith("v1.2"),
+    reason='Kubernetes version is v1.2.x')
 
 
 def create_registry(client, registry_creds):
@@ -821,6 +821,7 @@ def test_k8s_env_restartPolicy(
         admin_client, name, namespace=namespace)
     for c in containers:
         admin_client.wait_success(c.stop())
+    time.sleep(5)
     get_response = execute_kubectl_cmds(
         "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
@@ -852,9 +853,6 @@ def test_k8s_env_podspec_activeDeadlineSeconds(
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Failed"
-    assert pod['status']['message'] == ("Pod was active on the"
-                                        " node longer than specified"
-                                        " deadline")
     assert pod['status']['reason'] == "DeadlineExceeded"
     teardown_ns(namespace)
 
@@ -1114,7 +1112,7 @@ def test_k8s_env_service_lb(
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
     # Check for loadbalancer service
-    if kubectl_version == "v1.2.2":
+    if kubectl_version.startswith("v1.2"):
         services = admin_client.list_service()
         for s in services:
             if 'lb-' in s.name:
@@ -1127,7 +1125,7 @@ def test_k8s_env_service_lb(
             removed_null=True)
         assert len(lb_containers) == 1
         lbip = lb_containers[0].hosts[0].ipAddresses()[0].address
-    elif kubectl_version == "v1.3.0":
+    else:
         time.sleep(20)
         get_response = execute_kubectl_cmds(
             "get service " + lbname + " -o json --namespace=" + namespace)
@@ -1165,16 +1163,17 @@ def test_k8s_env_service_clusterip(
     pods = json.loads(get_response)
     clusterurl = clusterip+":"+str(clusterport)
     nginxpod = pods['items'][0]['metadata']['name']
-    if kubectl_version == "v1.3.0":
-        nginxcont = get_pod_container_list(
-            admin_client, nginxpod, namespace=namespace)[1]
-    else:
+    if kubectl_version.startswith("v1.2"):
         nginxcont = get_pod_container_list(
             admin_client, nginxpod, namespace=namespace)[0]
+    else:
+        nginxcont = get_pod_container_list(
+            admin_client, nginxpod, namespace=namespace)[1]
     cmd_result = execute_cmd(
-        nginxcont, ['curl', '-s', '-w', '"%{http_code}\\n"',
+        nginxcont, ['curl', '-s', '-w', '%{http_code}\\n',
                     clusterurl, '-o', '/dev/null'])
-    assert cmd_result == '"200'
+    cmd_result = cmd_result.rstrip("\r\n")
+    assert cmd_result == "200"
     teardown_ns(namespace)
 
 
@@ -1368,7 +1367,7 @@ def test_k8s_env_serviceaccount(
 
 
 # exec/logs
-@if_test_kubectl_1_3
+@if_test_kubectl_1_2_skip
 @if_test_k8s
 def test_k8s_env_logs(
         admin_client, client, kube_hosts):
@@ -1389,7 +1388,7 @@ def test_k8s_env_logs(
     teardown_ns(namespace)
 
 
-@if_test_kubectl_1_3
+@if_test_kubectl_1_2_skip
 @if_test_k8s
 def test_k8s_env_exec(
         admin_client, client, kube_hosts):
