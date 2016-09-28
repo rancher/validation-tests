@@ -65,6 +65,7 @@ kube_host_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.2.2")
+rancher_cli_con = {"container": None, "host": None, "port": "7879"}
 
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
@@ -1378,6 +1379,7 @@ def execute_rancher_compose(client, env_name, docker_compose,
         cmd6 = "./rancher-compose -p " + project_name + \
                " -f " + docker_filename + " " + command
 
+    print "Cm6::: is " + cmd6
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
@@ -2884,3 +2886,5 @@ def create_service_ingress(ingresses, services, port, namespace,
         lbips.append(lb_ip)
 
     return(podnames, lbips)
+
+
