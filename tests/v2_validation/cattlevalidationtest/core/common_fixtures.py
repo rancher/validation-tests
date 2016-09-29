@@ -748,12 +748,7 @@ def validate_remove_service_link(admin_client, service, consumedService):
     service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
                                consumedServiceId=consumedService.id)
-    assert len(service_maps) == 1
-    service_map = service_maps[0]
-    wait_for_condition(
-        admin_client, service_map,
-        lambda x: x.state == "removed",
-        lambda x: 'State is: ' + x.state)
+    assert len(service_maps) == 0
 
 
 def get_service_container_list(admin_client, service, managed=None):
@@ -1662,6 +1657,7 @@ def check_container_in_service(admin_client, service):
         inspect = docker_client.inspect_container(container.externalId)
         logger.info("Checked for containers running - " + container.name)
         assert inspect["State"]["Running"]
+    return container_list
 
 
 def create_svc(client, env, launch_config, scale=None, retainIp=False):

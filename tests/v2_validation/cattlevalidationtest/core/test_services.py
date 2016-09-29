@@ -1075,6 +1075,7 @@ def test_service_with_healthcheck_quorum_containers_unhealthy_1(
     delete_all(client, [env])
 
 
+@pytest.mark.skipif(True, reason="Known issue - #5411")
 def test_service_with_healthcheck_quorum_container_unhealthy_2(
         admin_client, client, socat_containers):
     scale = 3
@@ -1402,18 +1403,29 @@ def check_service_scale(admin_client, client, socat_containers,
     service, env = create_env_and_svc_activate(admin_client, client,
                                                initial_scale)
 
+    container_list = check_container_in_service(admin_client, service)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
     service = client.wait_success(service, 300)
     assert service.state == "active"
     assert service.scale == final_scale
 
-    check_container_in_service(admin_client, service)
+    updated_container_list = check_container_in_service(admin_client, service)
+    removed_container_list = []
+
+    for con in container_list:
+        removed = True
+        for updated_con in updated_container_list:
+            if (con.id == updated_con.id):
+                removed = False
+                break
+        if removed:
+            removed_container_list.append(con)
 
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale:
-        check_container_removed_from_service(admin_client, service, env,
-                                             removed_instance_count)
+        check_container_removed_from_service(admin_client, service,
+                                             removed_container_list)
     delete_all(client, [env])
 
 
@@ -1425,7 +1437,7 @@ def check_service_activate_stop_instance_scale(admin_client, client,
 
     service, env = create_env_and_svc_activate(admin_client, client,
                                                initial_scale)
-
+    container_list = check_container_in_service(admin_client, service)
     # Stop instance
     for i in stop_instance_index:
         container_name = env.name + "_" + service.name + "_" + str(i)
@@ -1446,12 +1458,22 @@ def check_service_activate_stop_instance_scale(admin_client, client,
     assert service.scale == final_scale
     logger.info("Scaled service - " + str(final_scale))
 
-    check_container_in_service(admin_client, service)
+    updated_container_list = check_container_in_service(admin_client, service)
+    removed_container_list = []
+
+    for con in container_list:
+        removed = True
+        for updated_con in updated_container_list:
+            if (con.id == updated_con.id):
+                removed = False
+                break
+        if removed:
+            removed_container_list.append(con)
 
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale and removed_instance_count > 0:
-        check_container_removed_from_service(admin_client, service, env,
-                                             removed_instance_count)
+        check_container_removed_from_service(admin_client, service,
+                                             removed_container_list)
     delete_all(client, [env])
 
 
@@ -1489,7 +1511,7 @@ def check_service_activate_delete_instance_scale(admin_client, client,
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale and removed_instance_count > 0:
         if removed_instance_count is not None:
-            check_container_removed_from_service(admin_client, service, env,
+            check_container_removed_from_service(admin_client, service,
                                                  removed_instance_count)
     """
     delete_all(client, [env])
@@ -1524,23 +1546,12 @@ def check_stopped_container_in_service(admin_client, service):
         assert inspect["State"]["Running"] is False
 
 
-def check_container_removed_from_service(admin_client, service, env,
-                                         removed_count):
-    container = []
-    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="removed")
-    start = time.time()
+def check_container_removed_from_service(admin_client, service,
+                                         removed_container_list):
+    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id)
+    assert len(instance_maps) == service.scale
 
-    while len(instance_maps) != removed_count:
-        time.sleep(.5)
-        instance_maps = admin_client.list_serviceExposeMap(
-            serviceId=service.id, state="removed")
-        if time.time() - start > 30:
-            raise Exception('Timed out waiting for Service Expose map to be ' +
-                            'removed for scaled down instances')
-
-    for instance_map in instance_maps:
-        container = admin_client.by_id('container', instance_map.instanceId)
+    for container in removed_container_list:
         wait_for_condition(
             admin_client, container,
             lambda x: x.state == "removed" or x.state == "purged",
