@@ -305,7 +305,7 @@ def test_lb_services_stop_start_instance(
     validate_lb_service(admin_client, client, lb_service, port, [service])
 
     # Stop instance
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -333,7 +333,7 @@ def test_lb_services_delete_purge_instance(
     validate_lb_service(admin_client, client, lb_service, port, [service])
 
     # Delete instance
-    container_name = env.name + "_" + service.name + "_1"
+    container_name = get_container_name(env, service, "1")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -362,7 +362,7 @@ def test_lb_services_restart_instance(
     validate_lb_service(admin_client, client, lb_service, port, [service])
 
     # restart instance
-    container_name = env.name + "_" + service.name + "_1"
+    container_name = get_container_name(env, service, "1")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]

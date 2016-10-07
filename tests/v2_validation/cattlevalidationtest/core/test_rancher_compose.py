@@ -161,7 +161,7 @@ def test_rancher_compose_services_port_and_link_options(
     rancher_service = get_rancher_compose_service(
         client, rancher_env.id, service)
 
-    container_name = rancher_env.name + "_" + rancher_service.name + "_1"
+    container_name = get_container_name(rancher_env, rancher_service, 1)
     containers = client.list_container(name=container_name, state="running")
     assert len(containers) == 1
     con = containers[0]

@@ -210,7 +210,7 @@ def test_services_port_and_link_options(admin_client, client,
     env = env.activateservices()
     service = client.wait_success(service, 300)
 
-    container_name = env.name + "_" + service.name + "_1"
+    container_name = get_container_name(env, service, 1)
     containers = client.list_container(name=container_name, state="running")
     assert len(containers) == 1
     con = containers[0]
@@ -1337,7 +1337,7 @@ def test_service_retain_ip(admin_client, client):
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    container_name = env.name + "_" + service.name+"_1"
+    container_name = get_container_name(env, service, "1")
     containers = admin_client.list_container(name=container_name,
                                              removed_null=True)
     assert len(containers) == 1
@@ -1349,7 +1349,7 @@ def test_service_retain_ip(admin_client, client):
     assert container.state == 'removed'
     wait_for_scale_to_adjust(admin_client, service)
 
-    container_name = env.name + "_" + service.name+"_1"
+    container_name = get_container_name(env, service, 1)
     containers = admin_client.list_container(name=container_name,
                                              removed_null=True)
     assert len(containers) == 1
@@ -1440,7 +1440,7 @@ def check_service_activate_stop_instance_scale(admin_client, client,
     container_list = check_container_in_service(admin_client, service)
     # Stop instance
     for i in stop_instance_index:
-        container_name = env.name + "_" + service.name + "_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = client.list_container(name=container_name)
         assert len(containers) == 1
         container = containers[0]
@@ -1488,7 +1488,8 @@ def check_service_activate_delete_instance_scale(admin_client, client,
 
     # Delete instance
     for i in delete_instance_index:
-        container_name = env.name + "_" + service.name + "_" + str(i)
+        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(env, service, str(i))
         containers = client.list_container(name=container_name)
         assert len(containers) == 1
         container = containers[0]
