@@ -282,12 +282,14 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
         admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -296,10 +298,12 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -312,7 +316,8 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -337,12 +342,14 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
         admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        admin_client,
+        service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -753,12 +760,14 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary(
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
-    validate_volume_mount(admin_client, service,
-                          env_name+FIELD_SEPARATOR+"test1",
-                          [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
-    validate_volume_mount(admin_client, service,
-                          env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-                          [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 

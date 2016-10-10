@@ -50,7 +50,6 @@ K8S_RE_DEPLOY = os.environ.get(
 K8S_TEMPLATE_FOLDER_NUMBER = os.environ.get(
     'K8S_TEMPLATE_FOLDER_NUMBER', "0")
 
-
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
@@ -64,6 +63,7 @@ RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
 
+
 SERVICE_WAIT_TIMEOUT = 120
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -75,6 +75,8 @@ K8_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
+
+k8s_stackname = "kubernetes"
 
 socat_container_list = []
 host_container_list = []
@@ -534,7 +536,7 @@ def kube_hosts(request, client, admin_client):
     # Wait for sometime for the settings to take effect
     time.sleep(30)
 
-    k8s_stack = client.list_stack(name="Kubernetes")
+    k8s_stack = client.list_stack(name=k8s_stackname)
     if len(k8s_stack) > 0:
         delete_all(client, [k8s_stack[0]])
 
@@ -555,11 +557,11 @@ def kube_hosts(request, client, admin_client):
 
     # Wait for Kubernetes environment to get created successfully
     start = time.time()
-    env = client.list_stack(name="Kubernetes",
+    env = client.list_stack(name=k8s_stackname,
                             state="activating")
     while len(env) != 1:
         time.sleep(.5)
-        env = client.list_stack(name="Kubernetes",
+        env = client.list_stack(name=k8s_stackname,
                                 state="activating")
         if time.time() - start > 30:
             raise Exception(
@@ -1367,11 +1369,12 @@ def rancher_compose_container(admin_client, client, request):
         return
     setting = admin_client.by_id_setting(
         "default.cattle.rancher.compose.linux.url")
-    rancher_compose_url = setting.value
-    cmd1 = \
-        "wget " + rancher_compose_url
+    default_rancher_compose_url = setting.value
+    rancher_compose_url = \
+        os.environ.get('RANCHER_COMPOSE_URL', default_rancher_compose_url)
     compose_file = rancher_compose_url.split("/")[-1]
-#   cmd2 = "tar xvf rancher-compose-linux-amd64.tar.gz"
+
+    cmd1 = "wget " + rancher_compose_url
     cmd2 = "tar xvf " + compose_file
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
