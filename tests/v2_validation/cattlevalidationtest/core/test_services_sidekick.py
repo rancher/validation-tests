@@ -35,9 +35,8 @@ def env_with_sidekick_config(client, service_scale,
     assert service.state == "inactive"
 
     consumed_service_name = \
-        env.name + "_" + service.name + "_" + consumed_service_name
-
-    service_name = env.name + "_" + service.name
+        get_sidekick_service_name(env, service, consumed_service_name)
+    service_name = get_service_name(env, service)
     return env, service, service_name, consumed_service_name
 
 
@@ -181,12 +180,10 @@ def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
     assert service.state == "inactive"
 
     consumed_service_name1 = \
-        env.name + "_" + service.name + "_" + consumed_service_name1
-
+        get_sidekick_service_name(env, service, consumed_service_name1)
     consumed_service_name2 = \
-        env.name + "_" + service.name + "_" + consumed_service_name2
-
-    service_name = env.name + "_" + service.name
+        get_sidekick_service_name(env, service, consumed_service_name2)
+    service_name = get_service_name(env, service)
     return env, service, service_name, \
         consumed_service_name1, consumed_service_name2
 
@@ -439,7 +436,7 @@ def test_sidekick_consumed_services_stop_start_instance(client,  admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = consumed_service_name + "_2"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "2"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -461,7 +458,7 @@ def test_sidekick_consumed_services_restart_instance(client,  admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = consumed_service_name + "_2"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "2"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -484,7 +481,7 @@ def test_sidekick_consumed_services_delete_instance(client,  admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = consumed_service_name + "_1"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "1"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -544,7 +541,7 @@ def test_sidekick_services_stop_start_instance(client,  admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -566,7 +563,7 @@ def test_sidekick_services_restart_instance(client, admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -588,7 +585,7 @@ def test_sidekick_services_delete_instance(client,  admin_client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(admin_client, client, service_scale, exposed_port)
 
-    container_name = env.name + "_" + service.name + "_1"
+    container_name = get_container_name(env, service, "1")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]

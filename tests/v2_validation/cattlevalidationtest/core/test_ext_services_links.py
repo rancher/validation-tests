@@ -397,7 +397,7 @@ def test_extservice_services_stop_start_instance(admin_client, client):
     validate_external_service(admin_client, service,
                               [ext_service], port, con_list)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, 2)
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     service_instance = containers[0]
@@ -426,7 +426,7 @@ def test_extservice_services_restart_instance(admin_client, client):
     validate_external_service(
         admin_client, service, [ext_service], port, con_list)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, 2)
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     service_instance = containers[0]

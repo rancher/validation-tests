@@ -36,9 +36,9 @@ def env_with_2_svc_and_volume_mount_with_config(client, service_scale,
     assert service.state == "inactive"
 
     consumed_service_name = \
-        env.name + "_" + service.name + "_" + consumed_service_name
+        get_sidekick_service_name(env, service, consumed_service_name)
+    service_name = get_service_name(env, service)
 
-    service_name = env.name + "_" + service.name
     return env, service, service_name, consumed_service_name
 
 
@@ -100,12 +100,11 @@ def create_env_with_multiple_svcs_and_volume_mounts(
     assert service.state == "inactive"
 
     consumed_service_name1 = \
-        env.name + "_" + service.name + "_" + consumed_service_name1
-
+        get_sidekick_service_name(env, service, consumed_service_name1)
     consumed_service_name2 = \
-        env.name + "_" + service.name + "_" + consumed_service_name2
+        get_sidekick_service_name(env, service, consumed_service_name2)
 
-    service_name = env.name + "_" + service.name
+    service_name = get_service_name(env, service)
     return env, service, service_name, \
         [consumed_service_name1, consumed_service_name2]
 
@@ -155,12 +154,11 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts(
     assert service.state == "inactive"
 
     consumed_service_name1 = \
-        env.name + "_" + service.name + "_" + consumed_service_name1
-
+        get_sidekick_service_name(env, service, consumed_service_name1)
     consumed_service_name2 = \
-        env.name + "_" + service.name + "_" + consumed_service_name2
+        get_sidekick_service_name(env, service, consumed_service_name2)
 
-    service_name = env.name + "_" + service.name
+    service_name = get_service_name(env, service)
 
     return \
         env, service, service_name, consumed_service_name1, \
@@ -216,12 +214,11 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts_circular(
     assert service.state == "inactive"
 
     consumed_service_name1 = \
-        env.name + "_" + service.name + "_" + consumed_service_name1
-
+        get_sidekick_service_name(env, service, consumed_service_name1)
     consumed_service_name2 = \
-        env.name + "_" + service.name + "_" + consumed_service_name2
+        get_sidekick_service_name(env, service, consumed_service_name2)
 
-    service_name = env.name + "_" + service.name
+    service_name = get_service_name(env, service)
     return \
         env, service, service_name, consumed_service_name1, \
         consumed_service_name2
@@ -337,7 +334,7 @@ def test_multiple_level_volume_mount_delete_services_1(client, admin_client,
                           [consumed_service2])
 
     # Delete container from consumed_service2
-    container_name = consumed_service2 + "_1"
+    container_name = consumed_service2 + FIELD_SEPARATOR + "1"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -401,7 +398,7 @@ def test_multiple_level_volume_mount_delete_services_2(client, admin_client,
                           [consumed_service2])
 
     # Delete container from consumed_service1
-    container_name = consumed_service1 + "_1"
+    container_name = consumed_service1 + FIELD_SEPARATOR + "1"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -500,7 +497,7 @@ def test_volume_mount_consumed_services_stop_start_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = consumed_service_name + "_2"
+    container_name = consumed_service_name + FIELD_SEPARATOR +"2"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -522,7 +519,7 @@ def test_volume_mount_consumed_services_restart_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = consumed_service_name + "_2"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "2"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -545,7 +542,7 @@ def test_volume_mount_consumed_services_delete_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = consumed_service_name + "_1"
+    container_name = consumed_service_name + FIELD_SEPARATOR +"1"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -604,7 +601,7 @@ def test_volume_mount_services_stop_start_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -626,7 +623,7 @@ def test_volume_mount_services_restart_instance(client, admin_client,
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = env.name + "_" + service.name + "_2"
+    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -649,7 +646,7 @@ def test_volume_mount_services_delete_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = env.name + "_" + service.name + "_1"
+    container_name = get_container_name(env, service, "1")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]

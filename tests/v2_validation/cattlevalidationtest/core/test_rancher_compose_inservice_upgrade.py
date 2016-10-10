@@ -157,12 +157,14 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk1", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -171,10 +173,10 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -191,7 +193,7 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -218,12 +220,14 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk1", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -232,10 +236,10 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -251,7 +255,7 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -278,12 +282,12 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -292,10 +296,10 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -308,7 +312,7 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -333,12 +337,12 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -347,10 +351,12 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick_rollback(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -363,7 +369,8 @@ def test_rancher_compose_inservice_upgrade_sk_only_sidekick_rollback(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -388,13 +395,15 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -404,16 +413,20 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
@@ -426,10 +439,12 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
@@ -454,13 +469,16 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -470,16 +488,20 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks_rollback(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
@@ -492,10 +514,12 @@ def test_rancher_compose_inservice_upgrade_sk_both_sidekicks_rollback(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
@@ -520,13 +544,15 @@ def test_rancher_compose_inservice_upgrade_sk_all(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     # Upgrade environment using up --upgrade
@@ -537,24 +563,28 @@ def test_rancher_compose_inservice_upgrade_sk_all(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0, primary=False)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0, primary=False)
 
     # Confirm upgrade
@@ -566,15 +596,17 @@ def test_rancher_compose_inservice_upgrade_sk_all(
     assert service.state == "active"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
@@ -598,13 +630,15 @@ def test_rancher_compose_inservice_upgrade_sk_all_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     # Upgrade environment using up --upgrade
@@ -615,24 +649,28 @@ def test_rancher_compose_inservice_upgrade_sk_all_rollback(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0, primary=False)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0, primary=False)
 
     # Rollback upgrade
@@ -644,15 +682,17 @@ def test_rancher_compose_inservice_upgrade_sk_all_rollback(
     assert service.state == "active"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
@@ -676,12 +716,14 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk1", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -690,10 +732,10 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -706,15 +748,17 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(admin_client, service,
+                          env_name+FIELD_SEPARATOR+"test1",
+                          [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(admin_client, service,
+                          env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+                          [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 
@@ -734,12 +778,14 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk1", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -748,10 +794,10 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary_rollback(
     service = client.reload(service)
     assert service.state == "upgraded"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -764,15 +810,19 @@ def test_rancher_compose_inservice_upgrade_volume_mount_only_primary_rollback(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 
@@ -792,12 +842,14 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -807,17 +859,19 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
@@ -831,17 +885,21 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, sk2_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 
@@ -861,12 +919,14 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1_sk2", 1)
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -876,17 +936,19 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1_rollback(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
@@ -901,20 +963,25 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1_rollback(
     assert service.state == "active"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
 
     check_container_state(client, sk2_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 
@@ -934,13 +1001,15 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -950,23 +1019,27 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
@@ -979,19 +1052,24 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
     delete_all(client, [env])
 
@@ -1011,13 +1089,15 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
 
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+"_test1", 1)
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
 
     # Upgrade environment using up --upgrade
     launch_rancher_compose_from_file(
@@ -1027,23 +1107,27 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
     assert service.state == "upgraded"
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "stopped")
 
@@ -1055,23 +1139,29 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
     service = client.reload(service)
     assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1",
+        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk1",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+"_test1_sk2",
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
 
-    validate_volume_mount(admin_client, service, env_name+"_test1",
-                          [env_name+"_test1_sk1"])
-    validate_volume_mount(admin_client, service, env_name+"_test1_sk1",
-                          [env_name+"_test1_sk2"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+    validate_volume_mount(
+        admin_client, service,
+        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
     delete_all(client, [env])
 
 
@@ -1092,7 +1182,7 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1131,7 +1221,7 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
 
     # Confirm Ips of the new containers were retained after upgrade
     for i in range(1, 6):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1161,7 +1251,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1174,7 +1264,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1215,7 +1305,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
 
     # Confirm Ips of the containers after rollback were retained after upgrade
     for i in range(1, 6):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1245,7 +1335,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1284,7 +1374,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
 
     # Confirm Ips of the new containers were retained after upgrade
     for i in range(1, 3):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1313,7 +1403,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1326,7 +1416,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1368,7 +1458,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
 
     # Confirm Ips of the containers after rollback were retained after upgrade
     for i in range(1, 3):
-        container_name = env.name + "_" + service.name+"_" + str(i)
+        container_name = get_container_name(env, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1398,7 +1488,7 @@ def check_config_for_service_sidekick(admin_client, service, service_name,
             if primary:
                 service_labels = service.launchConfig["labels"]
             else:
-                sk_name = service_name.split("_")[-1]
+                sk_name = service_name.split("-")[-1]
                 print sk_name
                 sl_configs = service.secondaryLaunchConfigs
                 for sl_config in sl_configs:

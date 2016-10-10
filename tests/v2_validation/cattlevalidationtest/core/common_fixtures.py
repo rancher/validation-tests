@@ -16,6 +16,8 @@ logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+FIELD_SEPARATOR = "-"
+
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
 
@@ -30,6 +32,24 @@ do_access_key = os.environ.get('DIGITALOCEAN_KEY')
 do_install_url = os.environ.get(
     'DOCKER_INSTALL_URL',
     'https://releases.rancher.com/install-docker/1.10.sh')
+
+COMMUNITY_CATALOG_URL = 'https://github.com/rancher/community-catalog.git'
+COMMUNITY_CATALOG_BRANCH = 'master'
+
+INFRA_CATALOG_URL = os.environ.get(
+    'INFRA_CATALOG_URL',
+    'https://github.com/rancher/infra-catalog.git')
+
+INFRA_CATALOG_BRANCH = os.environ.get(
+    'INFRA_CATALOG_BRANCH',
+    'master')
+
+K8S_RE_DEPLOY = os.environ.get(
+    'K8S_RE_DEPLOY', "True")
+
+K8S_TEMPLATE_FOLDER_NUMBER = os.environ.get(
+    'K8S_TEMPLATE_FOLDER_NUMBER', "0")
+
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
@@ -51,6 +71,7 @@ SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 
 K8_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                          'resources/k8s')
+
 PRIVATE_KEY_FILENAME = "/tmp/private_key_host_ssh"
 HOST_SSH_TEST_ACCOUNT = "ranchertest"
 HOST_SSH_PUBLIC_PORT = 2222
@@ -497,13 +518,27 @@ def ha_hosts(client, admin_client):
 @pytest.fixture(scope='session')
 def kube_hosts(request, client, admin_client):
 
-    project = admin_client.list_project(uuid="adminProject")[0]
-    # If Default project is not kubernetes, make it a kubernetes environment
-    if not project.kubernetes:
-        project = admin_client.update(
-            project, kubernetes=True)
-        project = wait_success(admin_client, project)
+    # Set the catalog for K8s system stack
+    community_catalog = {
+        "url": COMMUNITY_CATALOG_URL,
+        "branch": COMMUNITY_CATALOG_BRANCH}
+    infra_catalog = {
+        "url": INFRA_CATALOG_URL,
+        "branch": INFRA_CATALOG_BRANCH}
+    catalogs = {"infra": infra_catalog,
+                "community": community_catalog}
 
+    catalog_url = {"catalogs": catalogs}
+    admin_client.create_setting(name="catalog.url",
+                                value=json.dumps(catalog_url))
+    # Wait for sometime for the settings to take effect
+    time.sleep(30)
+
+    k8s_stack = client.list_stack(name="Kubernetes")
+    if len(k8s_stack) > 0:
+        delete_all(client, [k8s_stack[0]])
+
+    deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
     # If there are not enough hosts in the set up , deploy hosts from DO
     hosts = client.list_host(
         kind='docker', removed_null=True, state="active",
@@ -520,25 +555,30 @@ def kube_hosts(request, client, admin_client):
 
     # Wait for Kubernetes environment to get created successfully
     start = time.time()
-    env = client.list_stack(name="Kubernetes")
+    env = client.list_stack(name="Kubernetes",
+                            state="activating")
     while len(env) != 1:
         time.sleep(.5)
-        env = client.list_stack(name="Kubernetes")
+        env = client.list_stack(name="Kubernetes",
+                                state="activating")
         if time.time() - start > 30:
             raise Exception(
                 'Timed out waiting for Kubernetes env to get created')
 
     environment = env[0]
+    print environment.id
     wait_for_condition(
         admin_client, environment,
         lambda x: x.healthState == "healthy",
-        lambda x: 'State is: ' + x.state,
+        lambda x: 'State is: ' + x.healthState,
         timeout=600)
 
     if kubectl_client_con["container"] is None:
         test_client_con = create_kubectl_client_container(client, "9999")
         kubectl_client_con["container"] = test_client_con["container"]
         kubectl_client_con["host"] = test_client_con["host"]
+
+    cleanup_k8s()
 
     def remove():
         delete_all(client, [kubectl_client_con["container"]])
@@ -748,7 +788,10 @@ def validate_remove_service_link(admin_client, service, consumedService):
     service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
                                consumedServiceId=consumedService.id)
-    assert len(service_maps) == 0
+    if len(service_maps) == 1:
+        service_maps[0].state == "removing"
+    else:
+        assert len(service_maps) == 0
 
 
 def get_service_container_list(admin_client, service, managed=None):
@@ -1073,7 +1116,12 @@ def validate_linked_service(admin_client, service, consumed_services,
                         con_host = admin_client.by_id('host', con.hosts[0].id)
                         expected_dns_list.append(
                             con_host.ipAddresses()[0].address)
-                        expected_link_response.append(con_host.hostname)
+                        host_name = con_host.hostname
+                        # If host name is fqdn , get only the hostname
+                        index = host_name.find(".")
+                        if index != -1:
+                            hostname = host_name[0:index]
+                        expected_link_response.append(hostname)
                     else:
                         expected_dns_list.append(con.primaryIpAddress)
                         expected_link_response.append(con.externalId[:12])
@@ -1174,7 +1222,12 @@ def validate_dns_service(admin_client, service, consumed_services,
                 if con.networkMode == "host":
                     con_host = admin_client.by_id('host', con.hosts[0].id)
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
-                    expected_link_response.append(con_host.hostname)
+                    host_name = con_host.hostname
+                    # If host name is fqdn , get only the hostname
+                    index = host_name.find(".")
+                    if index != -1:
+                        hostname = host_name[0:index]
+                    expected_link_response.append(hostname)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
                     expected_link_response.append(con.externalId[:12])
@@ -1693,7 +1746,7 @@ def wait_until_instances_get_stopped(admin_client, service, timeout=60):
 def get_service_containers_with_name(
         admin_client, service, name, managed=None):
 
-    nameformat = re.compile(name + "_[0-9]{1,2}")
+    nameformat = re.compile(name + FIELD_SEPARATOR + "[0-9]{1,2}")
     start = time.time()
     instance_list = []
 
@@ -2179,7 +2232,7 @@ def get_service_container_with_label(admin_client, service, name, label):
     found = False
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active")
-    nameformat = re.compile(name + "_[0-9]{1,2}")
+    nameformat = re.compile(name + FIELD_SEPARATOR + "[0-9]{1,2}")
     for instance_map in instance_maps:
         c = admin_client.by_id('container', instance_map.instanceId)
         if nameformat.match(c.name) \
@@ -2750,6 +2803,14 @@ def create_ns(namespace):
     assert secret["status"]["phase"] == "Active"
 
 
+# Get all Namespaces in K8s env
+def get_all_ns():
+    get_response = execute_kubectl_cmds(
+        "get namespace -o json")
+    ns = json.loads(get_response)
+    return ns['items']
+
+
 # Teardown Environment namespace
 def teardown_ns(namespace):
     timeout = 0
@@ -2765,6 +2826,13 @@ def teardown_ns(namespace):
             timeout += 5
             if timeout == 300:
                 raise ValueError('Timeout Exception: for deleting namespace')
+
+
+# Clean up K8s env namespace
+def cleanup_k8s():
+    ns = get_all_ns()
+    for namespace in ns:
+        teardown_ns(namespace["metadata"]["name"])
 
 
 # Waitfor Pod
@@ -2899,3 +2967,49 @@ def create_service_ingress(ingresses, services, port, namespace,
         lbips.append(lb_ip)
 
     return(podnames, lbips)
+
+
+# Get container name for a service instance
+def get_container_name(env, service, index):
+    return env.name + FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + \
+        str(index)
+
+
+# Get service name
+def get_service_name(env, service):
+    return env.name + FIELD_SEPARATOR + service.name
+
+
+# Get service name for a sidekick
+def get_sidekick_service_name(env, service, sidekick_name):
+    return env.name + \
+        FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + sidekick_name
+
+
+def deploy_ks8_system_stack(client, folder_number):
+    k8s_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/infra:infra*k8s"\
+        + ":" + str(folder_number)
+    print k8s_catalog_url
+    r = requests.get(k8s_catalog_url)
+    template = json.loads(r.content)
+    print str(template)
+    r.close()
+
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+    environment = {}
+    questions = template["questions"]
+    if questions is not None:
+        for question in questions:
+            label = question["variable"]
+            value = question["default"]
+            environment[label] = value
+
+    env = client.create_stack(name="Kubernetes",
+                              dockerCompose=dockerCompose,
+                              rancherCompose=rancherCompose,
+                              environment=environment,
+                              startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    assert env.state == "active"
