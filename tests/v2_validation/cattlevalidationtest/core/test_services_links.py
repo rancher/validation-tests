@@ -279,7 +279,6 @@ def test_link_consumed_services_stop_start_instance(admin_client, client):
                             linkName="mylink")
 
     container_name = get_container_name(env, consumed_service, "2")
-    container_name = get_container_name(env, service, "2")
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]

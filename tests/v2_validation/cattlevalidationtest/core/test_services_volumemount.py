@@ -497,7 +497,7 @@ def test_volume_mount_consumed_services_stop_start_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = consumed_service_name + FIELD_SEPARATOR +"2"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "2"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
@@ -542,7 +542,7 @@ def test_volume_mount_consumed_services_delete_instance(
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(admin_client, client, service_scale)
 
-    container_name = consumed_service_name + FIELD_SEPARATOR +"1"
+    container_name = consumed_service_name + FIELD_SEPARATOR + "1"
     containers = client.list_container(name=container_name)
     assert len(containers) == 1
     container = containers[0]
