@@ -536,11 +536,18 @@ def kube_hosts(request, client, admin_client):
     # Wait for sometime for the settings to take effect
     time.sleep(30)
 
+    new_k8s_stack_deployed = False
+
     k8s_stack = client.list_stack(name=k8s_stackname)
     if len(k8s_stack) > 0:
-        delete_all(client, [k8s_stack[0]])
+        if K8S_RE_DEPLOY == "true":
+            delete_all(client, [k8s_stack[0]])
+            deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
+            new_k8s_stack_deployed = True
+    else:
+        deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
+        new_k8s_stack_deployed = True
 
-    deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
     # If there are not enough hosts in the set up , deploy hosts from DO
     hosts = client.list_host(
         kind='docker', removed_null=True, state="active",
@@ -555,18 +562,21 @@ def kube_hosts(request, client, admin_client):
                 client, kube_host_count - host_count)
         kube_host_list.extend(host_list)
 
-    # Wait for Kubernetes environment to get created successfully
-    start = time.time()
-    env = client.list_stack(name=k8s_stackname,
-                            state="activating")
-    while len(env) != 1:
-        time.sleep(.5)
+    if new_k8s_stack_deployed:
+        # Wait for Kubernetes environment to get created successfully
+        start = time.time()
         env = client.list_stack(name=k8s_stackname,
                                 state="activating")
-        if time.time() - start > 30:
-            raise Exception(
-                'Timed out waiting for Kubernetes env to get created')
+        while len(env) != 1:
+            time.sleep(.5)
+            env = client.list_stack(name=k8s_stackname,
+                                    state="activating")
+            if time.time() - start > 30:
+                raise Exception(
+                    'Timed out waiting for Kubernetes env to get created')
 
+    env = client.list_stack(name=k8s_stackname)
+    assert len(env) == 1
     environment = env[0]
     print environment.id
     wait_for_condition(
@@ -2835,7 +2845,8 @@ def teardown_ns(namespace):
 def cleanup_k8s():
     ns = get_all_ns()
     for namespace in ns:
-        teardown_ns(namespace["metadata"]["name"])
+        if namespace["metadata"]["name"] not in ("default", "kube-system"):
+            teardown_ns(namespace["metadata"]["name"])
 
 
 # Waitfor Pod
@@ -3009,7 +3020,7 @@ def deploy_ks8_system_stack(client, folder_number):
             value = question["default"]
             environment[label] = value
 
-    env = client.create_stack(name="Kubernetes",
+    env = client.create_stack(name=k8s_stackname,
                               dockerCompose=dockerCompose,
                               rancherCompose=rancherCompose,
                               environment=environment,
