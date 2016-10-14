@@ -1132,8 +1132,8 @@ def validate_linked_service(admin_client, service, consumed_services,
                         # If host name is fqdn , get only the hostname
                         index = host_name.find(".")
                         if index != -1:
-                            hostname = host_name[0:index]
-                        expected_link_response.append(hostname)
+                            host_name = host_name[0:index]
+                        expected_link_response.append(host_name)
                     else:
                         expected_dns_list.append(con.primaryIpAddress)
                         expected_link_response.append(con.externalId[:12])
@@ -1238,8 +1238,8 @@ def validate_dns_service(admin_client, service, consumed_services,
                     # If host name is fqdn , get only the hostname
                     index = host_name.find(".")
                     if index != -1:
-                        hostname = host_name[0:index]
-                    expected_link_response.append(hostname)
+                        host_name = host_name[0:index]
+                    expected_link_response.append(host_name)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
                     expected_link_response.append(con.externalId[:12])
@@ -3024,6 +3024,7 @@ def deploy_ks8_system_stack(client, folder_number):
                               dockerCompose=dockerCompose,
                               rancherCompose=rancherCompose,
                               environment=environment,
-                              startOnCreate=True)
+                              startOnCreate=True,
+                              system=True)
     env = client.wait_success(env, timeout=300)
     assert env.state == "active"

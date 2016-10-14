@@ -382,6 +382,6 @@ def test_native_fields(socat_containers, client, pull_images):
     assert rancher_container.dnsSearch == ['search.dns.com']
     assert rancher_container.capAdd == ['SYSLOG']
     assert rancher_container.capDrop == ['KILL', 'LEASE']
-    assert rancher_container.restartPolicy == {'name': 'on-failure',
-                                               'maximumRetryCount': 5}
+    assert rancher_container.restartPolicy["name"] == u"on-failure"
+    assert rancher_container.restartPolicy["maximumRetryCount"] == 5
     assert rancher_container.devices == ['/dev/null:/dev/xnull:rw']
