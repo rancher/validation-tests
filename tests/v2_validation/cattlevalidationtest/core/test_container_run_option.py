@@ -8,7 +8,7 @@ TEST_IMAGE_UUID = 'docker:' + TEST_IMAGE
 def test_container_run_with_options_1(client, test_name,
                                       socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -24,7 +24,7 @@ def test_container_run_with_options_1(client, test_name,
     cap_add = ["CHOWN"]
     cap_drop = ["KILL"]
     user = "root"
-    restart_policy = {"maximumRetryCount": 5, "name": "on-failure"}
+    restart_policy = {"maximumRetryCount": 5, "name": u"on-failure"}
     memory = 16000000
     memory_swap = 16000000
     cpu_set = "0"
@@ -97,7 +97,7 @@ def test_container_run_with_options_1(client, test_name,
     assert inspect["HostConfig"]["CapAdd"] == cap_add
     assert inspect["HostConfig"]["CapDrop"] == cap_drop
     assert inspect["Config"]["Cpuset"] == cpu_set
-    assert inspect["HostConfig"]["RestartPolicy"]["Name"] == "on-failure"
+    assert inspect["HostConfig"]["RestartPolicy"]["Name"] == u"on-failure"
     assert inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == 5
 
     assert inspect["Config"]["Cmd"] == command
