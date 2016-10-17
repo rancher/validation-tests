@@ -709,6 +709,7 @@ def test_k8s_env_delete_pod(
     expected_result = ['pod "'+name+'" deleted']
     execute_kubectl_cmds(
         "delete pods "+name+" --namespace="+namespace, expected_result)
+    waitfor_delete(name=name, namespace=namespace)
     # Verify Pod is deleted
     expected_error = \
         'Error from server: pods "'+name+'" not found'
