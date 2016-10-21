@@ -1066,3 +1066,75 @@ def test_k8s_ingress_19(client, kube_hosts):
     delete_ingress(ingress_name, namespace1)
     teardown_ns(namespace1)
     teardown_ns(namespace2)
+
+
+@if_test_k8s
+def test_k8s_ingress_20(client, kube_hosts):
+    # This method is to test an ingress in which
+    # lb traffic is routed to the same service from
+    # different domains/same paths
+
+    # Create namespace
+    namespace = "testingress20"
+    create_ns(namespace)
+
+    ingress_file_name = "ingress_20.yml"
+    ingress_name = "ingress20"
+
+    # Initial set up
+    port = "104"
+    services = []
+    service1 = {}
+    service1["name"] = "k8test20-one"
+    service1["selector"] = "k8s-app=k8test20-one-service"
+    service1["rc_name"] = "k8testrc20-one"
+    service1["filename"] = "service20_one_ingress.yml"
+    services.append(service1)
+
+    service2 = {}
+    service2["name"] = "k8test20-two"
+    service2["selector"] = "k8s-app=k8test20-two-service"
+    service2["rc_name"] = "k8testrc20-two"
+    service2["filename"] = "service20_two_ingress.yml"
+    services.append(service2)
+
+    service3 = {}
+    service3["name"] = "k8test20-three"
+    service3["selector"] = "k8s-app=k8test20-three-service"
+    service3["rc_name"] = "k8testrc20-three"
+    service3["filename"] = "service20_three_ingress.yml"
+    services.append(service3)
+
+    ingresses = []
+    ingress = {}
+    ingress["name"] = ingress_name
+    ingress["filename"] = ingress_file_name
+    ingresses.append(ingress)
+
+    # Create services, ingress and validate
+    podnames, lbips = create_service_ingress(ingresses, services,
+                                             port, namespace, scale=2)
+    print "The list of pods:"
+    print podnames[0]
+    print podnames[1]
+    print podnames[2]
+
+    # Validate the ingress
+    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/service3.html")
+
+    check_round_robin_access_lb_ip(podnames[2], lbips[0][0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+                                   hostheader="bar.foo.com",
+                                   path="/service3.html")
+
+    check_round_robin_access_lb_ip(podnames[2], lbips[0][0], port,
+                                   hostheader="bar.foo.com",
+                                   path="/name.html")
+    # Delete ingress
+    delete_ingress(ingress_name, namespace)
+    teardown_ns(namespace)
