@@ -1,0 +1,21 @@
+version: '2'
+services:
+  test3:
+    cap_drop:
+    - BLOCK_SUSPEND
+    - CHOWN
+    logging:
+      driver: syslog
+    labels:
+      io.rancher.container.pull_image: always
+    tty: true
+    hostname: rancherhost
+    pid: host
+    image: ubuntu:14.04.3
+    cpu_shares: 256
+    privileged: true
+    stdin_open: true
+    mem_limit: 104857600
+    cap_add:
+    - AUDIT_CONTROL
+    - AUDIT_WRITE

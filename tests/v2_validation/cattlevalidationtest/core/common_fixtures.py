@@ -1445,9 +1445,9 @@ def execute_rancher_compose(client, env_name, docker_compose,
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-compose-v*"
-    cmd5 = "echo '" + docker_compose + "' > " + docker_filename
+    cmd5 = 'echo "' + docker_compose + '" > ' + docker_filename
     if rancher_compose is not None:
-        rcmd = "echo '" + rancher_compose + "' > " + rancher_filename + ";"
+        rcmd = 'echo "' + rancher_compose + '" > ' + rancher_filename + ";"
         cmd6 = rcmd + "./rancher-compose -p " + project_name + " -f " \
             + docker_filename + " -r " + rancher_filename + \
             " " + command
