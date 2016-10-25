@@ -2881,6 +2881,23 @@ def waitfor_pods(selector=None,
         all_running = True
 
 
+# Waitfor Pod until its deleted
+def waitfor_delete(name=None,
+                   namespace="default"):
+    timeout = 0
+    get_response = execute_kubectl_cmds(
+        "get pod/"+name+" -o json -a --namespace="+namespace)
+    while True:
+        if get_response == "":
+            break
+        time.sleep(5)
+        timeout += 5
+        if timeout == 30:
+            raise ValueError('Timeout Exception: pod did not get deleted')
+        get_response = execute_kubectl_cmds(
+            "get pod/"+name+" -o json -a --namespace="+namespace)
+
+
 # Create K8 service
 def create_k8_service(file_name, namespace, service_name, rc_name,
                       selector_name, scale=2, wait_for_service=True):
