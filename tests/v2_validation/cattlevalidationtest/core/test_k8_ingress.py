@@ -44,13 +44,13 @@ def test_k8s_ingress_1(client, kube_hosts):
 
     print podnames
     print lbips
-    print lbips[0][0]
+    print lbips[0]
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
 
@@ -94,8 +94,7 @@ def test_k8s_ingress_2(client, kube_hosts):
 
     print podnames
     print lbips[0]
-    print lbips[0][0]
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -135,7 +134,7 @@ def test_k8s_ingress_3(client, kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -196,13 +195,11 @@ def test_k8s_ingress_4(client, kube_hosts):
 
     print podnames1
     print podnames2
-    print lbips1[0][0]
-    print lbips2[0][0]
 
-    check_round_robin_access_lb_ip(podnames1[0], lbips1[0][0], port1,
+    check_round_robin_access_lb_ip(podnames1[0], lbips1[0], port1,
                                    path="/name.html")
 
-    check_round_robin_access_lb_ip(podnames2[0], lbips2[0][0], port2,
+    check_round_robin_access_lb_ip(podnames2[0], lbips2[0], port2,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
 
@@ -246,7 +243,7 @@ def test_k8s_ingress_5(client, kube_hosts):
     # Create services, ingress and validate
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -287,7 +284,7 @@ def test_k8s_ingress_6(client, kube_hosts):
     print lb_ip[0]
     print pod1_names
     check_round_robin_access_lb_ip(pod1_names, lb_ip[0], port,
-                                   path="/service3.html")
+                                   path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
     teardown_ns(namespace)
@@ -333,12 +330,11 @@ def test_k8s_ingress_7(client, kube_hosts):
                                              port, namespace)
 
     print lbips[0]
-    print lbips[0][0]
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    path="/name.html")
 
     # Delete ingress
@@ -385,11 +381,11 @@ def test_k8s_ingress_8(client, kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="bar.foo.com", path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -434,10 +430,10 @@ def test_k8s_ingress_9(client, kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -475,11 +471,13 @@ def test_k8s_ingress_10(client, kube_hosts):
 
     # Create services, ingress and validate
     podnames, lbips = create_service_ingress(ingresses, services,
-                                             port, namespace)
-
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+                                             port, namespace, ing_scale=2)
+    print lbips
+    print lbips[0]
+    print lbips[1]
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][1], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[1], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -517,7 +515,7 @@ def test_k8s_ingress_11(client, kube_hosts):
 
     lb_ip = create_ingress(ingress_file_name, ingress_name, namespace,
                            wait_for_ingress=True)
-    wait_until_lb_ip_is_active(lb_ip[0], port)
+    wait_until_lb_ip_is_active(lb_ip[0], port, 45)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
@@ -545,7 +543,8 @@ def test_k8s_ingress_11(client, kube_hosts):
         print "Same IP"
     except:
         lb_ip_updated = wait_for_ingress_to_become_active(ingress_name,
-                                                          namespace)
+                                                          namespace,
+                                                          ing_scale=1)
         print "New IP"
         print lb_ip_updated[0]
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
@@ -602,12 +601,12 @@ def test_k8s_ingress_12(client, kube_hosts, certs):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     client_port = port + "0"
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
 
-    check_round_robin_access_for_ssl_lb_ip(podnames[0], lbips[0][0], "443",
+    check_round_robin_access_for_ssl_lb_ip(podnames[0], lbips[0], "443",
                                            domain, test_ssl_client_con,
                                            hostheader=None,
                                            path="/name.html")
@@ -654,7 +653,7 @@ def test_k8s_ingress_13(client, kube_hosts, certs):
                                              port, namespace,
                                              scale=1)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
 
     # Replace the rc with replica=3
@@ -672,7 +671,7 @@ def test_k8s_ingress_13(client, kube_hosts, certs):
 
     print lbips[0][0]
     print pod_new_names
-    check_round_robin_access_lb_ip(pod_new_names, lbips[0][0], port,
+    check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
                                    path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -713,7 +712,7 @@ def test_k8s_ingress_14(client, kube_hosts, certs):
                                              port, namespace,
                                              scale=3)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
 
@@ -732,7 +731,7 @@ def test_k8s_ingress_14(client, kube_hosts, certs):
 
     print lbips[0][0]
     print pod_new_names
-    check_round_robin_access_lb_ip(pod_new_names, lbips[0][0], port,
+    check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
     # Delete ingress
@@ -773,7 +772,7 @@ def test_k8s_ingress_15(client, kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
@@ -792,14 +791,14 @@ def test_k8s_ingress_15(client, kube_hosts):
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
-    wait_until_lb_ip_is_active(lbips[0][0], port, timeout=120)
+    wait_until_lb_ip_is_active(lbips[0], port, timeout=120)
 
     # Validate Ingress rules
     pod2_names = get_pod_names_for_selector(selector2, namespace, scale=2)
 
-    print lbips[0][0]
+    print lbips[0]
     print pod2_names
-    check_round_robin_access_lb_ip(pod2_names, lbips[0][0], port,
+    check_round_robin_access_lb_ip(pod2_names, lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
     # Delete ingress
@@ -841,7 +840,7 @@ def test_k8s_ingress_16(client, kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/service3.html")
 
     # Create service2
@@ -860,14 +859,16 @@ def test_k8s_ingress_16(client, kube_hosts):
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
-    lb_ip_updated = lbips[0]
+    lb_ip_updated = lbips
+    print "Lb IP"
     print lb_ip_updated
     try:
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
         print "Same IP"
     except:
         lb_ip_updated = wait_for_ingress_to_become_active(ingress_name,
-                                                          namespace)
+                                                          namespace,
+                                                          ing_scale=1)
         print "New IP"
         print lb_ip_updated[0]
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
@@ -923,10 +924,10 @@ def test_k8s_ingress_17(client, kube_hosts):
 
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="bar.foo.com",
                                    path="/name.html")
     # Delete ingress
@@ -976,13 +977,13 @@ def test_k8s_ingress_18(client, kube_hosts):
 
     print podnames
     print lbips
-    print lbips[0][0]
+    print lbips[0]
 
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
 
@@ -1055,11 +1056,11 @@ def test_k8s_ingress_19(client, kube_hosts):
     print lbips[0][0]
 
     # Validate the ingress
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
     # Delete ingress
@@ -1120,19 +1121,19 @@ def test_k8s_ingress_20(client, kube_hosts):
     print podnames[2]
 
     # Validate the ingress
-    check_round_robin_access_lb_ip(podnames[0], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[2], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[2], lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
 
-    check_round_robin_access_lb_ip(podnames[1], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[1], lbips[0], port,
                                    hostheader="bar.foo.com",
                                    path="/service3.html")
 
-    check_round_robin_access_lb_ip(podnames[2], lbips[0][0], port,
+    check_round_robin_access_lb_ip(podnames[2], lbips[0], port,
                                    hostheader="bar.foo.com",
                                    path="/name.html")
     # Delete ingress

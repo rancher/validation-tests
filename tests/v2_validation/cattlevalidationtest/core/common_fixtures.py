@@ -1064,6 +1064,7 @@ def wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False):
         print "No access yet"
         if time.time() - start > timeout:
             raise Exception('Timed out waiting for LB to become active')
+    time.sleep(5)
     return
 
 
@@ -2924,22 +2925,26 @@ def get_pod_names_for_selector(selector_name, namespace, scale=2):
 
 
 # Collect names of the pods in the service1
-def create_ingress(file_name, ingress_name, namespace, scale=1,
+def create_ingress(file_name, ingress_name, namespace, ing_scale=1,
                    wait_for_ingress=True):
+
     expected_result = ['ingress "'+ingress_name+'" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace, expected_result,
         file_name=file_name)
+    lb_ips = []
     if wait_for_ingress:
-        return wait_for_ingress_to_become_active(ingress_name, namespace,
-                                                 scale=1)
+        lb_ips = wait_for_ingress_to_become_active(ingress_name, namespace,
+                                                   ing_scale)
+    return lb_ips
 
 
-def wait_for_ingress_to_become_active(ingress_name, namespace, scale=1):
+def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
     # Returns a list of lb_ips [Supports ingress scaling]
+
     lb_ip = []
     startTime = time.time()
-    while len(lb_ip) < scale:
+    while len(lb_ip) < ing_scale:
         if time.time() - startTime > 60:
             raise \
                 ValueError("Timed out waiting "
@@ -2977,7 +2982,7 @@ def delete_ingress(ingress_name, namespace):
 
 
 # Create service and ingress
-def create_service_ingress(ingresses, services, port, namespace,
+def create_service_ingress(ingresses, services, port, namespace, ing_scale=1,
                            scale=2):
     podnames = []
     for i in range(0, len(services)):
@@ -2992,10 +2997,11 @@ def create_service_ingress(ingresses, services, port, namespace,
     lbips = []
     for i in range(0, len(ingresses)):
         lb_ip = create_ingress(ingresses[i]["filename"],
-                               ingresses[i]["name"], namespace,
+                               ingresses[i]["name"], namespace, ing_scale,
                                wait_for_ingress=True)
-        wait_until_lb_ip_is_active(lb_ip[i], port)
-        lbips.append(lb_ip)
+        lbips.extend(lb_ip)
+        for i in range(0, len(lbips)):
+            wait_until_lb_ip_is_active(lbips[i], port)
 
     return(podnames, lbips)
 
