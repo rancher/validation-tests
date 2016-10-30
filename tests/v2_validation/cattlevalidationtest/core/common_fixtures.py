@@ -1064,7 +1064,7 @@ def wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False):
         print "No access yet"
         if time.time() - start > timeout:
             raise Exception('Timed out waiting for LB to become active')
-    time.sleep(5)
+    time.sleep(10)
     return
 
 

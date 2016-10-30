@@ -475,6 +475,7 @@ def test_k8s_ingress_10(client, kube_hosts):
     print lbips
     print lbips[0]
     print lbips[1]
+    time.sleep(15)
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     check_round_robin_access_lb_ip(podnames[0], lbips[1], port,
@@ -515,7 +516,7 @@ def test_k8s_ingress_11(client, kube_hosts):
 
     lb_ip = create_ingress(ingress_file_name, ingress_name, namespace,
                            wait_for_ingress=True)
-    wait_until_lb_ip_is_active(lb_ip[0], port, 45)
+    wait_until_lb_ip_is_active(lb_ip[0], port, 55)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
