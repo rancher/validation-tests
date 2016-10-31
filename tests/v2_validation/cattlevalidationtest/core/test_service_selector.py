@@ -111,14 +111,16 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
 
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
                      "labels": {"test2": "bar"}}
-    launch_config_lb = {"ports": port+":80"}
+    launch_config_lb = {"ports": [port],
+                        "imageUuid": HAPROXY_IMAGE_UUID}
 
     env = create_env(client)
     lb_service = client.create_loadBalancerService(
         name="lb-1",
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=1, selectorLink="test2=bar")
+        scale=1, selectorLink="test2=bar",
+        lbConfig={})
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
 
@@ -146,6 +148,27 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
     assert linked_service2.state == "active"
     lb_service = client.wait_success(lb_service, 300)
     assert lb_service.state == "active"
+
+    port_rules = []
+    port_rule = {"serviceId": linked_service1.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    port_rule = {"serviceId": linked_service2.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
+    lb_service = client.wait_success(lb_service, 120)
 
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [linked_service1, linked_service2],
@@ -407,7 +430,8 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
-    launch_config_lb = {"ports": [port+":80"]}
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+                        "ports": port}
 
     c1 = client.create_container(name=random_str(),
                                  networkMode=MANAGED_NETWORK,
@@ -460,7 +484,8 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=lb_scale)
+        scale=lb_scale,
+        lbConfig={})
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -469,12 +494,6 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
     service2.activate()
     lb_service.activate()
 
-    service_link = {"serviceId": service1.id}
-    lb_service.addservicelink(serviceLink=service_link)
-
-    service_link = {"serviceId": service2.id}
-    lb_service.addservicelink(serviceLink=service_link)
-
     service1 = client.wait_success(service1, 180)
     service2 = client.wait_success(service2, 180)
     lb_service = client.wait_success(lb_service, 180)
@@ -482,6 +501,27 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
     assert service1.state == "active"
     assert service2.state == "active"
     assert lb_service.state == "active"
+
+    port_rules = []
+    port_rule = {"serviceId": service1.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    port_rule = {"serviceId": service2.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
+    lb_service = client.wait_success(lb_service, 120)
 
     unmanaged_con = {}
     unmanaged_con[service1.id] = [c1.externalId[:12]]
@@ -504,7 +544,8 @@ def test_selectorContainer_no_image_with_lb(
 
     launch_config_svc = {"imageUuid": "docker:rancher/none"}
 
-    launch_config_lb = {"ports": [port+":80"]}
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+                        "ports": [port]}
 
     # Create Environment
     env = create_env(client)
@@ -543,7 +584,8 @@ def test_selectorContainer_no_image_with_lb(
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=lb_scale)
+        scale=lb_scale,
+        lbConfig={})
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -552,12 +594,6 @@ def test_selectorContainer_no_image_with_lb(
     service2.activate()
     lb_service.activate()
 
-    service_link = {"serviceId": service1.id}
-    lb_service.addservicelink(serviceLink=service_link)
-
-    service_link = {"serviceId": service2.id}
-    lb_service.addservicelink(serviceLink=service_link)
-
     service1 = client.wait_success(service1, 180)
     service2 = client.wait_success(service2, 180)
     lb_service = client.wait_success(lb_service, 180)
@@ -565,6 +601,27 @@ def test_selectorContainer_no_image_with_lb(
     assert service1.state == "active"
     assert service2.state == "active"
     assert lb_service.state == "active"
+
+    port_rules = []
+    port_rule = {"serviceId": service1.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    port_rule = {"serviceId": service2.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "selectorLink": "test2=bar"
+                 }
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
+    lb_service = client.wait_success(lb_service, 120)
 
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service1, service2], lb_service)

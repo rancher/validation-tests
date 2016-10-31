@@ -57,6 +57,8 @@ SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
+HAPROXY_IMAGE_UUID = "docker:rancher/lb-service-haproxy:latest"
+
 DEFAULT_TIMEOUT = 45
 DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
@@ -925,7 +927,8 @@ def validate_exposed_port_and_container_link(admin_client, con, link_name,
 def wait_for_lb_service_to_become_active(admin_client, client,
                                          services, lb_service,
                                          unmanaged_con_count=None):
-    wait_for_config_propagation(admin_client, lb_service)
+    # wait_for_config_propagation(admin_client, lb_service)
+    time.sleep(10)
     lb_containers = get_service_container_list(admin_client, lb_service)
     assert len(lb_containers) == lb_service.scale
 
@@ -1485,14 +1488,14 @@ def launch_rancher_compose_from_file(client, subdir, docker_compose,
 
 
 def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
-                               internal=False, lb_config=None):
+                               internal=False, stickiness_policy=None,
+                               config=None, includePortRule=True):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
-    if internal:
-        launch_config_lb = {"expose": [port+":80"]}
-    else:
-        launch_config_lb = {"ports": [port+":80"]}
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+    if not internal:
+        launch_config_lb["ports"] = [port]
 
     # Create Environment
     env = create_env(client)
@@ -1512,22 +1515,42 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 
+    port_rules = []
+    if includePortRule:
+        protocol = "http"
+        target_port = "80"
+        service_id = service.id
+        port_rule = {"sourcePort": port, "protocol": protocol,
+                     "serviceId": service_id, "targetPort": target_port}
+        port_rules.append(port_rule)
     lb_service = client.create_loadBalancerService(
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
         scale=scale_lb,
-        loadBalancerConfig=lb_config)
-
+        lbConfig=create_lb_config(
+            port_rules, None, None, stickiness_policy, config))
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
 
     return env, service, lb_service
 
 
+def create_lb_config(
+        port_rules, certificate_ids=None,
+        default_certificate_id=None, stickiness_policy=None, config=None):
+    lbConfig = {"portRules": port_rules,
+                "config": config,
+                "certificateIds": certificate_ids,
+                "defaultCertificateId": default_certificate_id,
+                "stickinessPolicy": stickiness_policy}
+    return lbConfig
+
+
 def create_env_with_ext_svc_and_lb(client, scale_lb, port):
 
-    launch_config_lb = {"ports": [port+":80"]}
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+                        "ports": [port]}
 
     env, service, ext_service, con_list = create_env_with_ext_svc(
         client, 1, port)
@@ -1536,11 +1559,19 @@ def create_env_with_ext_svc_and_lb(client, scale_lb, port):
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 
+    port_rule = {"serviceId": ext_service.id,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    lb_config = {"portRules": [port_rule]}
+
     lb_service = client.create_loadBalancerService(
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=scale_lb)
+        scale=scale_lb,
+        lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -2027,12 +2058,11 @@ def execute_command(ssh, cmd):
 
 
 def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
-                                        ports, count, crosslinking=False):
+                                        ports, count, port_rules=[],
+                                        config=None, crosslinking=False):
 
+    """
     target_port = ["80", "81"]
-    launch_config_svc = \
-        {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
-
     assert len(ports) in (1, 2)
 
     launch_port = []
@@ -2044,6 +2074,13 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
         launch_port.append(listening_port)
 
     launch_config_lb = {"ports": launch_port}
+    """
+
+    launch_config_svc = \
+        {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
+
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+    launch_config_lb["ports"] = ports
 
     services = []
     # Create Environment
@@ -2071,11 +2108,18 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 
+    # Override serviceId (which currently has service index)
+    # with actual service Id of the services created.
+    for port_rule in port_rules:
+        port_rule["serviceId"] = services[port_rule["serviceId"]].id
+
     lb_service = client.create_loadBalancerService(
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=scale_lb)
+        scale=scale_lb,
+        lbConfig=create_lb_config(
+            port_rules, None, None, None, config))
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -2094,12 +2138,15 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
 
 
 def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
-                                            ports, count, ssl_ports,
+                                            ports, port_rules,
+                                            count, ssl_ports,
                                             default_cert, certs=[]):
-    target_port = ["80", "81"]
+
     launch_config_svc = \
         {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
 
+    """
+    target_port = ["80", "81"]
     assert len(ports) in (1, 2)
 
     launch_port = []
@@ -2113,6 +2160,10 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
     launch_config_lb = {"ports": launch_port,
                         "labels":
                             {'io.rancher.loadbalancer.ssl.ports': ssl_ports}}
+    """
+
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+    launch_config_lb["ports"] = ports
 
     services = []
     # Create Environment
@@ -2138,13 +2189,19 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
     supported_cert_list = []
     for cert in certs:
         supported_cert_list.append(cert.id)
+
+    # Override serviceId (which currently has service index)
+    # with actual service Id of the services created.
+    for port_rule in port_rules:
+        port_rule["serviceId"] = services[port_rule["serviceId"]].id
+
     lb_service = client.create_loadBalancerService(
         name=service_name,
         stackId=env.id,
         launchConfig=launch_config_lb,
         scale=scale_lb,
-        certificateIds=supported_cert_list,
-        defaultCertificateId=default_cert.id)
+        lbConfig=create_lb_config(
+            port_rules, supported_cert_list, default_cert.id))
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -2516,6 +2573,7 @@ def create_kubectl_client_container(client, port):
     kube_config = readDataFile(K8_SUBDIR, "config.txt")
     kube_config = kube_config.replace("uuuuu", client._access_key)
     kube_config = kube_config.replace("ppppp", client._secret_key)
+
     server_ip = \
         cattle_url()[cattle_url().index("//") + 2:cattle_url().index(":8080")]
     kube_config = kube_config.replace("sssss", server_ip)
@@ -2692,7 +2750,7 @@ def check_for_lbcookie_policy(admin_client, client, lb_service, port,
 
 
 def check_for_balancer_first(admin_client, client, lb_service, port,
-                             target_services):
+                             target_services, headers=None, path="name.html"):
     container_names = get_container_names_list(admin_client,
                                                target_services)
     lb_containers = get_service_container_list(admin_client, lb_service)
@@ -2700,8 +2758,8 @@ def check_for_balancer_first(admin_client, client, lb_service, port,
         host = client.by_id('host', lb_con.hosts[0].id)
 
         url = "http://" + host.ipAddresses()[0].address + \
-              ":" + port + "/name.html"
-        check_for_stickiness(url, container_names)
+              ":" + port + "/" + path
+        check_for_stickiness(url, container_names, headers)
 
 
 def check_for_stickiness(url, expected_responses, headers=None):

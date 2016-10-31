@@ -277,28 +277,32 @@ def test_sidekick_for_lb(client, admin_client, socat_containers):
 
     # Add LB services
 
-    launch_config_lb = {"ports": [port+":80"]}
+    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+                        "ports": [port]}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
+    port_rule1 = {"serviceId": service1.id,
+                  "sourcePort": port,
+                  "targetPort": "80",
+                  "protocol": "http"
+                  }
+    port_rule2 = {"serviceId": service2.id,
+                  "sourcePort": port,
+                  "targetPort": "80",
+                  "protocol": "http"
+                  }
 
+    lb_config = {"portRules": [port_rule1, port_rule2]}
     lb_service = client.create_loadBalancerService(
         name=service_name, stackId=env.id, launchConfig=launch_config_lb,
-        scale=1)
+        scale=1, lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
 
-    lb_service.setservicelinks(
-        serviceLinks=[{"serviceId": service1.id, "ports": []},
-                      {"serviceId": service2.id, "ports": []}])
-
     lb_service = lb_service.activate()
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
-
-    validate_add_service_link(admin_client, lb_service, service1)
-
-    validate_add_service_link(admin_client, lb_service, service2)
 
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service1, service2], lb_service)
@@ -653,21 +657,18 @@ def test_sidekick_lbactivation_after_linking(client,
 
     # Add LB service
 
-    launch_config_lb = {"ports": [port + ":80"]}
+    launch_config_lb = {"ports": [port],
+                        "imageUuid": HAPROXY_IMAGE_UUID}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 
+    lb_config = {}
     lb_service = client.create_loadBalancerService(
         name=service_name, stackId=env.id, launchConfig=launch_config_lb,
-        scale=1)
+        scale=1, lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
-
-    lb_service.setservicelinks(
-        serviceLinks=[{"serviceId": service1.id, "ports": []}])
-
-    validate_add_service_link(admin_client, lb_service, service1)
 
     # Activate LB service
 
@@ -675,6 +676,17 @@ def test_sidekick_lbactivation_after_linking(client,
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
+    # After activating LB , add targets
+
+    port_rule1 = {"serviceId": service1.id,
+                  "sourcePort": port,
+                  "targetPort": "80",
+                  "protocol": "http"
+                  }
+    lb_config = {"portRules": [port_rule1]}
+
+    lb_service = client.update(lb_service, lbConfig=lb_config)
+    lb_service = client.wait_success(lb_service, 120)
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service1], lb_service)
 
