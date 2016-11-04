@@ -329,12 +329,7 @@ def test_rancher_compose_lbservice(admin_client, client,
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port)
 
-    service_link = {"serviceId": service.id, "ports": ["80"]}
-    lb_service.addservicelink(serviceLink=service_link)
-
-    validate_add_service_link(admin_client, lb_service, service)
-
-    # Add another service link to the LB service
+    # Add another target to LB service
     launch_config = {"imageUuid": WEB_IMAGE_UUID}
     service_name = random_str()
     service1 = client.create_service(name=service_name,
@@ -343,10 +338,19 @@ def test_rancher_compose_lbservice(admin_client, client,
                                      scale=2)
     service1 = client.wait_success(service1)
     assert service1.state == "inactive"
+    service = activate_svc(client, service)
+    service1 = activate_svc(client, service1)
+    # Set LB targets
+    port_rules = lb_service.lbConfig["portRules"]
+    protocol = "http"
+    target_port = "80"
+    service_id = service1.id
+    port_rule = {"sourcePort": port, "protocol": protocol,
+                 "serviceId": service_id, "targetPort": target_port}
+    port_rules.append(port_rule)
 
-    service_link = {"serviceId": service1.id, "ports": ["80"]}
-    lb_service.addservicelink(serviceLink=service_link)
-    validate_add_service_link(admin_client, lb_service, service1)
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
 
     launch_rancher_compose(client, env)
 
@@ -354,23 +358,13 @@ def test_rancher_compose_lbservice(admin_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_service = get_rancher_compose_service(
-        client, rancher_env.id, service)
-    rancher_service1 = get_rancher_compose_service(
-        client, rancher_env.id, service1)
     rancher_lb_service = get_rancher_compose_service(
         client, rancher_env.id, lb_service)
 
-    client.wait_success(rancher_service)
-    client.wait_success(rancher_service1)
     client.wait_success(rancher_lb_service)
-    validate_add_service_link(
-        admin_client, rancher_lb_service, rancher_service)
-    validate_add_service_link(
-        admin_client, rancher_lb_service, rancher_service1)
 
     validate_lb_service(admin_client, client, rancher_lb_service, port,
-                        [rancher_service, rancher_service1])
+                        [service, service1])
     delete_all(client, [env, rancher_env])
 
 
@@ -397,12 +391,7 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port, internal=True)
 
-    service_link = {"serviceId": service.id, "ports": ["80"]}
-    lb_service.addservicelink(serviceLink=service_link)
-
-    validate_add_service_link(admin_client, lb_service, service)
-
-    # Add another service link to the LB service
+    # Add another target to LB service
     launch_config = {"imageUuid": WEB_IMAGE_UUID}
     service_name = random_str()
     service1 = client.create_service(name=service_name,
@@ -412,9 +401,19 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
     service1 = client.wait_success(service1)
     assert service1.state == "inactive"
 
-    service_link = {"serviceId": service1.id, "ports": ["80"]}
-    lb_service.addservicelink(serviceLink=service_link)
-    validate_add_service_link(admin_client, lb_service, service1)
+    service = activate_svc(client, service)
+    service1 = activate_svc(client, service1)
+    # Set LB targets
+    port_rules = lb_service.lbConfig["portRules"]
+    protocol = "http"
+    target_port = "80"
+    service_id = service1.id
+    port_rule = {"sourcePort": port, "protocol": protocol,
+                 "serviceId": service_id, "targetPort": target_port}
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
 
     launch_rancher_compose(client, env)
 
@@ -422,26 +421,12 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
-    rancher_service = get_rancher_compose_service(
-        client, rancher_env.id, service)
-    rancher_service1 = get_rancher_compose_service(
-        client, rancher_env.id, service1)
     rancher_lb_service = get_rancher_compose_service(
         client, rancher_env.id, lb_service)
 
-    client.wait_success(rancher_service)
-    client.wait_success(rancher_service1)
     client.wait_success(rancher_lb_service)
-    validate_add_service_link(
-        admin_client, rancher_lb_service, rancher_service)
-    validate_add_service_link(
-        admin_client, rancher_lb_service, rancher_service1)
-
-    wait_for_lb_service_to_become_active(admin_client, client,
-                                         [rancher_service, rancher_service1],
-                                         rancher_lb_service)
     validate_internal_lb(admin_client, rancher_lb_service,
-                         [rancher_service, rancher_service1],
+                         [service, service1],
                          host, con_port, port)
     # Check that port in the host where LB Agent is running is not accessible
     lb_containers = get_service_container_list(
@@ -548,33 +533,66 @@ def test_rancher_compose_external_services(admin_client, client,
 
 def test_rancher_compose_lbservice_host_routing(admin_client, client,
                                                 rancher_compose_container):
+
     port1 = "7906"
-    port2 = "7907"
-
-    port1_target = "80"
-    port2_target = "81"
-
     service_scale = 2
     lb_scale = 1
-    service_count = 4
+    service_count = 3
 
-    env, services, lb_service = \
-        create_env_with_multiple_svc_and_lb(
-            client, service_scale, lb_scale, [port1, port2], service_count)
+    port_rules = []
+    port_rule = {"hostname": "www.abc1.com",
+                 "path": "/service1.html",
+                 "serviceId": 0,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"hostname": "www.abc2.com",
+                 "path": "/service2.html",
+                 "serviceId": 0,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
 
-    service_link1 = {"serviceId": services[0].id,
-                     "ports": ["www.abc1.com:"+port1+"/service1.html",
-                               "www.abc1.com:"+port2+"/service3.html"]}
-    service_link2 = {"serviceId": services[1].id,
-                     "ports": ["www.abc1.com"]}
-    service_link3 = {"serviceId": services[2].id,
-                     "ports": ["/service1.html="+port1_target,
-                               "/service3.html="+port2_target]}
-    service_link4 = {"serviceId": services[3].id}
+    port_rule = {"hostname": "www.abc1.com",
+                 "path": "/service1.html",
+                 "serviceId": 1,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"hostname": "www.abc2.com",
+                 "path": "/service2.html",
+                 "serviceId": 1,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
 
-    lb_service.setservicelinks(
-        serviceLinks=[service_link1, service_link2,
-                      service_link3, service_link4])
+    port_rule = {"hostname": "www.abc1.com",
+                 "path": "/name.html",
+                 "serviceId": 2,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"hostname": "www.abc2.com",
+                 "path": "/name.html",
+                 "serviceId": 2,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port1], service_count, port_rules)
 
     launch_rancher_compose(client, env)
 
@@ -584,50 +602,81 @@ def test_rancher_compose_lbservice_host_routing(admin_client, client,
 
     rancher_lb_service = get_rancher_compose_service(client, rancher_env.id,
                                                      lb_service)
-    rancher_services = []
-    for service in services:
-        rancher_services.append(
-            get_rancher_compose_service(client, rancher_env.id, service))
+    client.wait_success(rancher_lb_service)
 
-    validate_add_service_link(admin_client, rancher_lb_service,
-                              rancher_services[0])
-    validate_add_service_link(admin_client, rancher_lb_service,
-                              rancher_services[1])
-    validate_add_service_link(admin_client, rancher_lb_service,
-                              rancher_services[2])
-    validate_add_service_link(admin_client, rancher_lb_service,
-                              rancher_services[3])
-
-    wait_for_lb_service_to_become_active(admin_client, client,
-                                         rancher_services,
-                                         rancher_lb_service)
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1,
-                        [rancher_services[0]],
+                        rancher_lb_service, port1, [services[0], services[1]],
                         "www.abc1.com", "/service1.html")
+
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [rancher_services[1]],
-                        "www.abc1.com", "/service2.html")
-    validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [rancher_services[2]],
-                        "www.abc2.com", "/service1.html")
-    validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [rancher_services[3]],
+                        rancher_lb_service, port1, [services[0], services[1]],
                         "www.abc2.com", "/service2.html")
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port2,
-                        [rancher_services[0]],
-                        "www.abc1.com", "/service3.html")
+                        rancher_lb_service, port1, [services[2]],
+                        "www.abc1.com", "/name.html")
+
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port2, [rancher_services[1]],
-                        "www.abc1.com", "/service4.html")
+                        rancher_lb_service, port1, [services[2]],
+                        "www.abc2.com", "/name.html")
+
+    validate_lb_service_for_no_access(admin_client, rancher_lb_service, port1,
+                                      "www.abc1.com",
+                                      "/service2.html")
+    validate_lb_service_for_no_access(admin_client, rancher_lb_service, port1,
+                                      "www.abc2.com",
+                                      "/service1.html")
+    delete_all(client, [env, rancher_env])
+
+
+def test_rancher_compose_lbservice_multiple_port(admin_client, client,
+                                                 rancher_compose_container):
+
+    port1 = "7907"
+    port2 = "7908"
+    service_scale = 2
+    lb_scale = 1
+    service_count = 2
+
+    port_rules = []
+    port_rule = {"hostname": "www.abc1.com",
+                 "path": "/service1.html",
+                 "serviceId": 0,
+                 "sourcePort": port1,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"hostname": "www.abc2.com",
+                 "path": "/service3.html",
+                 "serviceId": 1,
+                 "sourcePort": port2,
+                 "targetPort": "81",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port1, port2],
+        service_count, port_rules)
+
+    launch_rancher_compose(client, env)
+
+    rancher_envs = client.list_stack(name=env.name+"rancher")
+    assert len(rancher_envs) == 1
+    rancher_env = rancher_envs[0]
+
+    rancher_lb_service = get_rancher_compose_service(client, rancher_env.id,
+                                                     lb_service)
+    client.wait_success(rancher_lb_service)
+
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port2, [rancher_services[2]],
+                        rancher_lb_service, port1, [services[0]],
+                        "www.abc1.com", "/service1.html")
+
+    validate_lb_service(admin_client, client,
+                        rancher_lb_service, port2, [services[1]],
                         "www.abc2.com", "/service3.html")
-    validate_lb_service(admin_client, client,
-                        rancher_lb_service, port2, [rancher_services[3]],
-                        "www.abc2.com", "/service4.html")
     delete_all(client, [env, rancher_env])
 
 
