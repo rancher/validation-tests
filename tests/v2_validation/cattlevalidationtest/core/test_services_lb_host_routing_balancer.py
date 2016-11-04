@@ -1558,3 +1558,46 @@ def test_lbservice_host_routing_wildcard_order(
                         "abc.domain.com", "/service1.html")
 
     delete_all(client, [env])
+
+
+def test_lbservice_host_routing_priority_override_1(
+        admin_client, client, socat_containers):
+
+    port = "1015"
+
+    service_scale = 2
+    lb_scale = 1
+    service_count = 2
+
+    port_rules = []
+    port_rule = {"hostname": "*.com",
+                 "path": "/service1.html",
+                 "serviceId": 0,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "priority": 1
+                 }
+    port_rules.append(port_rule)
+
+    port_rule = {"hostname": "abc.domain.com",
+                 "path": "/service1.html",
+                 "serviceId": 1,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http",
+                 "priority": 2
+                 }
+    port_rules.append(port_rule)
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, [port], service_count, port_rules)
+
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         services, lb_service)
+
+    validate_lb_service(admin_client, client,
+                        lb_service, port,
+                        [services[0]],
+                        "abc.domain.com", "/service1.html")
+
+    delete_all(client, [env])
