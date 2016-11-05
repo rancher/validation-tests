@@ -103,6 +103,7 @@ dns_labels = {"io.rancher.container.dns": "true",
               "io.rancher.stack_service.name=${stack_name}/${service_name}"}
 
 api_version = "v2-beta"
+sleep_interval = 10
 
 
 @pytest.fixture(scope='session')
@@ -1195,7 +1196,7 @@ def validate_linked_service(admin_client, service, consumed_services,
 def validate_dns_service(admin_client, service, consumed_services,
                          exposed_port, dnsname, exclude_instance=None,
                          exclude_instance_purged=False, unmanaged_cons=None):
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == service.scale
@@ -1290,7 +1291,7 @@ def validate_external_service(admin_client, service, ext_services,
                               exposed_port, container_list,
                               exclude_instance=None,
                               exclude_instance_purged=False):
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
@@ -1354,7 +1355,7 @@ def validate_external_service(admin_client, service, ext_services,
 def validate_external_service_for_hostname(admin_client, service, ext_services,
                                            exposed_port):
 
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
