@@ -831,6 +831,7 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
 def validate_for_container_dns_resolution(
         admin_client, service, sshport, container, dns_name):
 
+    time.sleep(sleep_interval)
     client_containers = get_service_container_list(admin_client, service)
     assert len(client_containers) == service.scale
     for con in client_containers:

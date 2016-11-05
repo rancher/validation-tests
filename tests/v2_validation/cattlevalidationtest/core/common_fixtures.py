@@ -1090,7 +1090,7 @@ def validate_linked_service(admin_client, service, consumed_services,
                             exposed_port, exclude_instance=None,
                             exclude_instance_purged=False,
                             unmanaged_cons=None, linkName=None):
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
