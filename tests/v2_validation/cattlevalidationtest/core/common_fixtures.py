@@ -1405,7 +1405,7 @@ def rancher_compose_container(admin_client, client, request):
 
     c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -2241,6 +2241,8 @@ def wait_for_config_propagation(admin_client, lb_service, timeout=30):
 
 
 def wait_for_metadata_propagation(admin_client, timeout=30):
+    time.sleep(sleep_interval)
+    """
     networkAgents = admin_client.list_container(
         name='Network Agent', removed_null=True)
     assert len(networkAgents) == len(admin_client.list_host(kind='docker',
@@ -2262,6 +2264,7 @@ def wait_for_metadata_propagation(admin_client, timeout=30):
             item = get_config_item(agent, "hosts")
             if time.time() - start > timeout:
                 raise Exception('Timed out waiting for config propagation')
+    """
 
 
 def get_config_item(agent, config_name):
@@ -2532,7 +2535,7 @@ def create_client_container_for_ssh(client, port):
 
     c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
-    time.sleep(5)
+    time.sleep(sleep_interval)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host.ipAddresses()[0].address, username="root",
@@ -2569,7 +2572,7 @@ def create_kubectl_client_container(client, port):
                                 )
     c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     kube_config = readDataFile(K8_SUBDIR, "config.txt")
     kube_config = kube_config.replace("uuuuu", client._access_key)
@@ -3140,7 +3143,7 @@ def rancher_cli_container(admin_client, client, request):
                                 )
     c = client.wait_success(c, SERVICE_WAIT_TIMEOUT)
     assert c.state == "running"
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
