@@ -866,7 +866,7 @@ def activate_svc(client, service):
 def validate_exposed_port(admin_client, service, public_port):
     con_list = get_service_container_list(admin_client, service)
     assert len(con_list) == service.scale
-    time.sleep(5)
+    time.sleep(sleep_interval)
     for con in con_list:
         con_host = admin_client.by_id('host', con.hosts[0].id)
         for port in public_port:
@@ -876,7 +876,7 @@ def validate_exposed_port(admin_client, service, public_port):
 
 def validate_exposed_port_and_container_link(admin_client, con, link_name,
                                              link_port, exposed_port):
-    time.sleep(10)
+    time.sleep(sleep_interval)
     # Validate that the environment variables relating to link containers are
     # set
     containers = admin_client.list_container(externalId=con.externalId,
@@ -929,7 +929,7 @@ def wait_for_lb_service_to_become_active(admin_client, client,
                                          services, lb_service,
                                          unmanaged_con_count=None):
     # wait_for_config_propagation(admin_client, lb_service)
-    time.sleep(10)
+    time.sleep(sleep_interval)
     lb_containers = get_service_container_list(admin_client, lb_service)
     assert len(lb_containers) == lb_service.scale
 
