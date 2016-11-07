@@ -103,7 +103,7 @@ dns_labels = {"io.rancher.container.dns": "true",
               "io.rancher.stack_service.name=${stack_name}/${service_name}"}
 
 api_version = "v2-beta"
-sleep_interval = 10
+sleep_interval = int(os.environ.get('CATTLE_SLEEP_INTERVAL', 5))
 
 
 @pytest.fixture(scope='session')
