@@ -773,7 +773,6 @@ def test_dns_discovery_for_service_with_sidekick(admin_client, client):
     assert service1.state == "active"
     client_containers = get_service_container_list(admin_client, service1)
 
-    time.sleep(5)
     dnsname = service.secondaryLaunchConfigs[0].name + "." + service.name
     validate_dns(
         admin_client, client_containers, secondary_cons, port, dnsname)
@@ -818,7 +817,6 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
     assert service1.state == "active"
     client_containers = get_service_container_list(admin_client, service1)
 
-    time.sleep(5)
     dnsname = \
         service.secondaryLaunchConfigs[0].name + "." + service.name + \
         "." + env.name + "." + RANCHER_FQDN

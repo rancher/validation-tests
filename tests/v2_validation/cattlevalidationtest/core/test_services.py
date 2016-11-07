@@ -215,7 +215,6 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
 
     dev_opts_inspect = {u"Path": "/dev/null",
                         u"Rate": 400}
-    cgroup = "abc"
     cgroup_parent = "xyz"
     extraHosts = ["host1:10.1.1.1", "host2:10.2.2.2"]
     tmp_fs = {"/tmp": "rw"}
@@ -227,7 +226,6 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
                      "cpuShares": cpu_shares,
                      "blkioWeight": blkio_weight,
                      "blkioDeviceOptions": dev_opts,
-                     "cgroup": cgroup,
                      "cgroupParent": cgroup_parent,
                      "cpuShares": cpu_shares,
                      "cpuPeriod": cpu_period,
@@ -290,7 +288,6 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteIOps"] == [dev_opts_inspect]
         assert inspect["Config"]["CpuShares"] == cpu_shares
-        assert inspect["HostConfig"]["Cgroup"] == cgroup
         assert inspect["HostConfig"]["CgroupParent"] == cgroup_parent
         assert inspect["HostConfig"]["CpuPeriod"] == cpu_period
         assert inspect["HostConfig"]["CpuQuota"] == cpu_quota

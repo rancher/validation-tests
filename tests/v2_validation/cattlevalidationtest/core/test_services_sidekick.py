@@ -743,7 +743,7 @@ def validate_sidekick(admin_client, primary_service, service_name,
 
 def validate_dns(admin_client, service_containers, consumed_service,
                  exposed_port, dnsname):
-    time.sleep(5)
+    time.sleep(sleep_interval)
 
     for service_con in service_containers:
         host = admin_client.by_id('host', service_con.hosts[0].id)
