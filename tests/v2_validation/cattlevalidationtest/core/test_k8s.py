@@ -590,7 +590,7 @@ def test_k8s_env_daemonsets(
     expected_result = ['daemonset "'+name+'" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="daemonset.yml")
-    waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=2)
+    waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds(
         "get pods --selector=app=daemonset-nginx"
         " -o json --namespace="+namespace)
