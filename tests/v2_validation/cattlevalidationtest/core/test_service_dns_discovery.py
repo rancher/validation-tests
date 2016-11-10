@@ -432,7 +432,8 @@ def test_dns_discoverys_with_hostnetwork_2(admin_client, client):
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=True)
     validate_linked_service(
-        admin_client, service, [consumed_service], ssh_port)
+        admin_client, service, [consumed_service], ssh_port,
+        linkName=consumed_service.name + "." + env.name + ".rancher.internal")
 
     delete_all(client, [env])
 
@@ -453,7 +454,8 @@ def test_dns_discoverys_with_hostnetwork_3(admin_client, client):
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
-        admin_client, service, [consumed_service], ssh_port)
+        admin_client, service, [consumed_service], ssh_port,
+        linkName=consumed_service.name + "." + env.name + ".rancher.internal")
     delete_all(client, [env])
 
 
@@ -484,7 +486,8 @@ def test_dns_discoverys_with_hostnetwork_externalService(admin_client, client):
     assert ext_service.state == "active"
 
     validate_external_service(
-        admin_client, host_service, [ext_service], 33, con_list)
+        admin_client, host_service, [ext_service], 33, con_list,
+        fqdn="." + env.name + ".rancher.internal")
     con_list.append(env)
     delete_all(client, con_list)
 

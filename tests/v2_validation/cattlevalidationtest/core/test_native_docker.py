@@ -53,7 +53,7 @@ def test_native_net_blank(socat_containers, client, native_name, pull_images):
                                                          docker_container,
                                                          docker_client,
                                                          native_name)
-    common_network_asserts(rancher_container, docker_container, 'bridge')
+    common_network_asserts(rancher_container, docker_container, 'default')
 
 
 def test_native_net_bridge(socat_containers, client, native_name, pull_images):
@@ -306,7 +306,11 @@ def common_network_asserts(rancher_container, docker_container,
                            expected_net_mode):
     assert rancher_container.externalId == docker_container['Id']
     assert rancher_container.state == 'running'
-    assert rancher_container.primaryIpAddress == \
+    if rancher_container.primaryIpAddress is None:
+        ip_address = ""
+    else:
+        ip_address = rancher_container.primaryIpAddress
+    assert ip_address == \
         docker_container['NetworkSettings']['IPAddress']
 
     assert rancher_container.networkMode == expected_net_mode

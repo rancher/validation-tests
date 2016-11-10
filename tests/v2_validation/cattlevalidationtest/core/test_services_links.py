@@ -686,6 +686,7 @@ def test_links_with_hostnetwork_1(admin_client, client):
                             linkName="mylink")
     delete_all(client, [env])
 
+"""
 
 def test_links_with_hostnetwork_2(admin_client, client):
 
@@ -720,6 +721,7 @@ def test_links_with_hostnetwork_3(admin_client, client):
     validate_linked_service(
         admin_client, service, [consumed_service], ssh_port, linkName="mylink")
     delete_all(client, [env])
+"""
 
 
 def test_link_name_uppercase(admin_client, client):

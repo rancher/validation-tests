@@ -1290,7 +1290,8 @@ def validate_dns_service(admin_client, service, consumed_services,
 def validate_external_service(admin_client, service, ext_services,
                               exposed_port, container_list,
                               exclude_instance=None,
-                              exclude_instance_purged=False):
+                              exclude_instance_purged=False,
+                              fqdn=None):
     time.sleep(sleep_interval)
 
     containers = get_service_container_list(admin_client, service)
@@ -1319,9 +1320,12 @@ def validate_external_service(admin_client, service, ext_services,
             ssh.connect(host.ipAddresses()[0].address, username="root",
                         password="root", port=int(exposed_port))
 
+            ext_service_name = ext_service.name
+            if fqdn is not None:
+                ext_service_name += fqdn
             # Validate link containers
             cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
-                  ext_service.name + ":80/name.html;cat result.txt"
+                  ext_service_name + ":80/name.html;cat result.txt"
             print cmd
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
@@ -1332,7 +1336,7 @@ def validate_external_service(admin_client, service, ext_services,
             assert resp in (expected_link_response)
 
             # Validate DNS resolution using dig
-            cmd = "dig " + ext_service.name + " +short"
+            cmd = "dig " + ext_service_name + " +short"
             print cmd
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
