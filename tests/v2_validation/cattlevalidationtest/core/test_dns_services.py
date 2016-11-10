@@ -878,10 +878,10 @@ def test_dns_svc_hostnetwork_cosumed_service_hostnetwork(admin_client, client):
             admin_client, client, service_scale, consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=True)
 
+    dns_name = dns.name + "." + env.name + ".rancher.internal"
     validate_dns_service(
         admin_client, service, [consumed_service, consumed_service1], "33",
-        dns.name)
-
+        dns_name)
     delete_all(client, [env])
 
 
@@ -898,8 +898,9 @@ def test_dns_svc_hostnetwork_cosumed_service_managednetwork(
             admin_client, client, service_scale, consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=False)
 
+    dns_name = dns.name + "." + env.name + ".rancher.internal"
     validate_dns_service(
         admin_client, service, [consumed_service, consumed_service1], "33",
-        dns.name)
+        dns_name)
 
     delete_all(client, [env])
