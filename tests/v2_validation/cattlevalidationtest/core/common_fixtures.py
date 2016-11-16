@@ -51,13 +51,15 @@ K8S_TEMPLATE_FOLDER_NUMBER = os.environ.get(
     'K8S_TEMPLATE_FOLDER_NUMBER', "0")
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
+WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
+WEB_SSL_IMAGE2_UUID = "docker:sangeetha/ssllbtarget2:latest"
 SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
 LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
 SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
 HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
-HAPROXY_IMAGE_UUID = "docker:rancher/lb-service-haproxy:latest"
+MICROSERVICE_IMAGES = {"haproxy_image_uuid": None}
 
 DEFAULT_TIMEOUT = 45
 DEFAULT_MACHINE_TIMEOUT = 900
@@ -260,6 +262,7 @@ def client(admin_client):
 def admin_client():
     admin_client = _admin_client()
     assert admin_client.valid()
+    set_haproxy_image(admin_client)
     return admin_client
 
 
@@ -1494,11 +1497,15 @@ def launch_rancher_compose_from_file(client, subdir, docker_compose,
 
 def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
                                internal=False, stickiness_policy=None,
-                               config=None, includePortRule=True):
-
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
-
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+                               config=None, includePortRule=True,
+                               lb_protocol="http", target_with_certs=False):
+    if not target_with_certs:
+        launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+        target_port = 80
+    else:
+        launch_config_svc = {"imageUuid": WEB_SSL_IMAGE1_UUID}
+        target_port = 443
+    launch_config_lb = {"imageUuid": get_haproxy_image()}
     if not internal:
         launch_config_lb["ports"] = [port]
 
@@ -1522,10 +1529,8 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
 
     port_rules = []
     if includePortRule:
-        protocol = "http"
-        target_port = "80"
         service_id = service.id
-        port_rule = {"sourcePort": port, "protocol": protocol,
+        port_rule = {"sourcePort": port, "protocol": lb_protocol,
                      "serviceId": service_id, "targetPort": target_port}
         port_rules.append(port_rule)
     lb_service = client.create_loadBalancerService(
@@ -1554,7 +1559,7 @@ def create_lb_config(
 
 def create_env_with_ext_svc_and_lb(client, scale_lb, port):
 
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+    launch_config_lb = {"imageUuid": get_haproxy_image(),
                         "ports": [port]}
 
     env, service, ext_service, con_list = create_env_with_ext_svc(
@@ -2065,26 +2070,10 @@ def execute_command(ssh, cmd):
 def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
                                         ports, count, port_rules=[],
                                         config=None, crosslinking=False):
-
-    """
-    target_port = ["80", "81"]
-    assert len(ports) in (1, 2)
-
-    launch_port = []
-    for i in range(0, len(ports)):
-        listening_port = ports[i]+":"+target_port[i]
-        if "/" in ports[i]:
-            port_mode = ports[i].split("/")
-            listening_port = port_mode[0]+":"+target_port[i]+"/"+port_mode[1]
-        launch_port.append(listening_port)
-
-    launch_config_lb = {"ports": launch_port}
-    """
-
     launch_config_svc = \
         {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
 
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+    launch_config_lb = {"imageUuid": get_haproxy_image()}
     launch_config_lb["ports"] = ports
 
     services = []
@@ -2149,25 +2138,7 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
 
     launch_config_svc = \
         {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID}
-
-    """
-    target_port = ["80", "81"]
-    assert len(ports) in (1, 2)
-
-    launch_port = []
-    for i in range(0, len(ports)):
-        listening_port = ports[i]+":"+target_port[i]
-        if "/" in ports[i]:
-            port_mode = ports[i].split("/")
-            listening_port = port_mode[0]+":"+target_port[i]+"/"+port_mode[1]
-        launch_port.append(listening_port)
-
-    launch_config_lb = {"ports": launch_port,
-                        "labels":
-                            {'io.rancher.loadbalancer.ssl.ports': ssl_ports}}
-    """
-
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID}
+    launch_config_lb = {"imageUuid": get_haproxy_image()}
     launch_config_lb["ports"] = ports
 
     services = []
@@ -3225,3 +3196,14 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
         if expected_response in resp:
             found = True
     assert found
+
+
+@pytest.fixture(scope='session')
+def set_haproxy_image(admin_client):
+    if MICROSERVICE_IMAGES["haproxy_image_uuid"] is None:
+        setting = admin_client.by_id_setting("lb.instance.image.uuid")
+        MICROSERVICE_IMAGES["haproxy_image_uuid"] = setting.value
+
+
+def get_haproxy_image():
+    return MICROSERVICE_IMAGES["haproxy_image_uuid"]

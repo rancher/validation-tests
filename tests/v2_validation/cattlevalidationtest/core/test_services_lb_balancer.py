@@ -1,5 +1,4 @@
 from common_fixtures import *  # NOQA
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -348,7 +347,7 @@ def test_lb_services_stop_start_instance(
     container = client.wait_success(container.stop(), 120)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
-
+    time.sleep(30)
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service], lb_service)
     validate_lb_service(admin_client, client, lb_service, port, [service])
@@ -408,6 +407,10 @@ def test_lb_services_restart_instance(
     wait_for_condition(client, container,
                        lambda x: x.state == 'running',
                        lambda x: 'State is: ' + x.state)
+    wait_for_condition(client, container,
+                       lambda x: x.startCount == 2,
+                       lambda x: 'State is: ' + x.state)
+    time.sleep(30)
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service], lb_service)
     validate_lb_service(admin_client, client, lb_service, port, [service])
@@ -597,7 +600,7 @@ def test_lb_services_add_remove_servicelinks_lb(
                  }
     port_rules.append(port_rule)
     launch_config_lb = {"ports": [port2],
-                        "imageUuid": HAPROXY_IMAGE_UUID}
+                        "imageUuid": get_haproxy_image()}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 
@@ -735,6 +738,7 @@ def test_lb_services_stop_start_lb_instance(
 
     wait_for_scale_to_adjust(admin_client, lb_service)
 
+    time.sleep(30)
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service], lb_service)
     validate_lb_service(admin_client, client, lb_service, port, [service])
@@ -976,4 +980,24 @@ def test_lbservice_lbcookie(
         lbcookie_policy)
     check_for_lbcookie_policy(admin_client, client,
                               lb_service, port, [service])
+    delete_all(client, [env])
+
+
+def test_lb_tcp(
+        admin_client, client, socat_containers):
+
+    port = "20000"
+
+    service_scale = 2
+    lb_scale = 1
+
+    env, service, lb_service = create_env_with_svc_and_lb(
+        client, service_scale, lb_scale, port, lb_protocol="tcp")
+
+    lb_service = activate_svc(client, lb_service)
+    service = activate_svc(client, service)
+
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         [service], lb_service)
+    validate_lb_service(admin_client, client, lb_service, port, [service])
     delete_all(client, [env])

@@ -277,7 +277,7 @@ def test_sidekick_for_lb(client, admin_client, socat_containers):
 
     # Add LB services
 
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+    launch_config_lb = {"imageUuid": get_haproxy_image(),
                         "ports": [port]}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
@@ -658,7 +658,7 @@ def test_sidekick_lbactivation_after_linking(client,
     # Add LB service
 
     launch_config_lb = {"ports": [port],
-                        "imageUuid": HAPROXY_IMAGE_UUID}
+                        "imageUuid": get_haproxy_image()}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 

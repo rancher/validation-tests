@@ -157,6 +157,7 @@ def test_rancher_compose_service_option_2(admin_client, client,
     shm_size = 1024
     stop_signal = "SIGTERM"
     uts = "host"
+    memory = 8000000
 
     dev_opts_inspect = {u"Path": "/dev/null",
                         u"Rate": 400}
@@ -180,6 +181,7 @@ def test_rancher_compose_service_option_2(admin_client, client,
                      "dnsOpt": dns_opt,
                      "groupAdd": group_add,
                      "kernelMemory": kernel_memory,
+                     "memory": memory,
                      "memoryReservation": memory_reservation,
                      "memorySwap": memory_swap,
                      "memorySwappiness": memory_swappiness,

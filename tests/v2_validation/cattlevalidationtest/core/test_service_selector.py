@@ -112,7 +112,7 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
                      "labels": {"test2": "bar"}}
     launch_config_lb = {"ports": [port],
-                        "imageUuid": HAPROXY_IMAGE_UUID}
+                        "imageUuid": get_haproxy_image()}
 
     env = create_env(client)
     lb_service = client.create_loadBalancerService(
@@ -430,7 +430,7 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
 
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+    launch_config_lb = {"imageUuid": get_haproxy_image(),
                         "ports": port}
 
     c1 = client.create_container(name=random_str(),
@@ -544,7 +544,7 @@ def test_selectorContainer_no_image_with_lb(
 
     launch_config_svc = {"imageUuid": "docker:rancher/none"}
 
-    launch_config_lb = {"imageUuid": HAPROXY_IMAGE_UUID,
+    launch_config_lb = {"imageUuid": get_haproxy_image(),
                         "ports": [port]}
 
     # Create Environment
