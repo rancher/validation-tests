@@ -566,6 +566,156 @@ def test_lb_ssl_multiple_certs(
 
 
 @if_certs_available
+def test_lb_sni(
+        admin_client, client, socat_containers):
+
+    port = "20001"
+    client_port = "20002"
+    service_scale = 2
+    lb_scale = 1
+
+    env, service, lb_service = create_env_with_svc_and_lb(
+        client, service_scale, lb_scale, port, includePortRule=False,
+        target_with_certs=True)
+
+    lb_service = activate_svc(client, lb_service)
+    service = activate_svc(client, service)
+
+    # Create Service1
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service1 = client.create_service(
+        name=service_name, stackId=env.id,
+        launchConfig={"imageUuid": WEB_SSL_IMAGE2_UUID}, scale=2)
+
+    service1 = client.wait_success(service1)
+    assert service1.state == "inactive"
+    service1 = activate_svc(client, service1)
+
+    port_rules = lb_service.lbConfig["portRules"]
+    port_rule = {"hostname": "test1.com",
+                 "serviceId": service.id,
+                 "sourcePort": port,
+                 "targetPort": "443",
+                 "protocol": "sni"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"hostname": "test2.com",
+                 "serviceId": service1.id,
+                 "sourcePort": port,
+                 "targetPort": "443",
+                 "protocol": "sni"
+                 }
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         [service], lb_service)
+
+    test_ssl_client_con = create_client_container_for_ssh(client, client_port)
+    validate_lb_service(admin_client, client,
+                        lb_service, port, [service],
+                        "test1.com", "/name.html", dom_list[0],
+                        test_ssl_client_con)
+    validate_lb_service(admin_client, client,
+                        lb_service, port, [service1],
+                        "test2.com", "/name.html", dom_list[1],
+                        test_ssl_client_con)
+    delete_all(client, [env, test_ssl_client_con["container"]])
+
+
+@if_certs_available
+def test_lb_tcp_ssl_pass_through(
+        admin_client, client, socat_containers):
+
+    port = "20003"
+    client_port = "20004"
+    service_scale = 2
+    lb_scale = 1
+
+    env, service, lb_service = create_env_with_svc_and_lb(
+        client, service_scale, lb_scale, port, includePortRule=False,
+        target_with_certs=True)
+
+    lb_service = activate_svc(client, lb_service)
+    service = activate_svc(client, service)
+
+    # Create Service1
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service1 = client.create_service(
+        name=service_name, stackId=env.id,
+        launchConfig={"imageUuid": WEB_SSL_IMAGE1_UUID}, scale=2)
+
+    service1 = client.wait_success(service1)
+    assert service1.state == "inactive"
+    service1 = activate_svc(client, service1)
+
+    port_rules = lb_service.lbConfig["portRules"]
+    port_rule = {"serviceId": service.id,
+                 "sourcePort": port,
+                 "targetPort": "443",
+                 "protocol": "tcp"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"serviceId": service1.id,
+                 "sourcePort": port,
+                 "targetPort": "443",
+                 "protocol": "tcp"
+                 }
+    port_rules.append(port_rule)
+
+    lb_service = client.update(lb_service,
+                               lbConfig=create_lb_config(port_rules))
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         [service], lb_service)
+
+    test_ssl_client_con = create_client_container_for_ssh(client, client_port)
+    validate_lb_service(admin_client, client,
+                        lb_service, port, [service, service1],
+                        None, "/name.html", dom_list[0],
+                        test_ssl_client_con)
+    delete_all(client, [env])
+
+
+@if_certs_available
+def test_lb_tls(
+        admin_client, client, certs, socat_containers):
+
+    service_count = 2
+    certs = []
+    port = "2005"
+    port_rules = []
+    port_rule = {"serviceId": 0,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "tls"
+                 }
+    port_rules.append(port_rule)
+    port_rule = {"serviceId": 1,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "tls"
+                 }
+    port_rules.append(port_rule)
+
+    env, services, lb_service = \
+        create_env_with_multiple_svc_and_ssl_lb(
+            client, 2, 1, [port], port_rules, service_count,
+            port, default_cert=get_cert(dom_list[0]), certs=certs)
+
+    client_port = port + "0"
+    test_ssl_client_con = create_client_container_for_ssh(client, client_port)
+    validate_lb_service(admin_client, client,
+                        lb_service, port,
+                        [services[0], services[1]],
+                        None, "/name.html", dom_list[0],
+                        test_ssl_client_con)
+    delete_all(client, [env, test_ssl_client_con["container"]])
+
+
+@if_certs_available
 def test_lb_ssl_remove_cert(
         admin_client, client, certs, socat_containers):
 
