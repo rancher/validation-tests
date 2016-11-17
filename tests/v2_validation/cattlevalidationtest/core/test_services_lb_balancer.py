@@ -442,6 +442,7 @@ def test_lb_services_deactivate_activate_lbservice(
 
     wait_for_lb_service_to_become_active(admin_client, client,
                                          [service], lb_service)
+    time.sleep(30)
     validate_lb_service(admin_client, client, lb_service, port, [service])
     delete_all(client, [env])
 

@@ -83,7 +83,7 @@ def test_container_run_with_options_1(client, test_name,
     dns_name.append(RANCHER_DNS_SERVER)
     dns_search.append(RANCHER_DNS_SEARCH)
 
-    assert inspect["HostConfig"]["Binds"] == [docker_vol_value]
+    assert docker_vol_value in inspect["HostConfig"]["Binds"]
     assert inspect["HostConfig"]["VolumesFrom"] == [docker_vol_from_value]
     assert inspect["HostConfig"]["PublishAllPorts"] is False
     assert inspect["HostConfig"]["Privileged"] is False
