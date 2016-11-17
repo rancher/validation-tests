@@ -94,7 +94,7 @@ def test_rancher_compose_service(admin_client, client,
         docker_client = get_docker_client(c.hosts[0])
         inspect = docker_client.inspect_container(c.externalId)
 
-        assert inspect["HostConfig"]["Binds"] == [docker_vol_value]
+        assert docker_vol_value in inspect["HostConfig"]["Binds"]
 #        assert inspect["HostConfig"]["VolumesFrom"] == \
 #            [vol_container.externalId]
         assert inspect["HostConfig"]["PublishAllPorts"] is False
