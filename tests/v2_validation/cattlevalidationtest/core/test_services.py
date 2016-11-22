@@ -1717,7 +1717,8 @@ def check_for_deleted_service(admin_client, env, service):
         wait_for_condition(
             admin_client, container,
             lambda x: x.state == "purged",
-            lambda x: 'State is: ' + x.state)
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
         logger.info("Checked for purged container - " + container.name)
 
 

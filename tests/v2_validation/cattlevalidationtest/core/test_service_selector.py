@@ -119,7 +119,7 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
         name="lb-1",
         stackId=env.id,
         launchConfig=launch_config_lb,
-        scale=1, selectorLink="test2=bar",
+        scale=1,
         lbConfig={})
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "inactive"
@@ -150,19 +150,17 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
     assert lb_service.state == "active"
 
     port_rules = []
-    port_rule = {"serviceId": linked_service1.id,
-                 "sourcePort": port,
+    port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selectorLink": "test2=bar"
+                 "selector": "test2=bar"
                  }
     port_rules.append(port_rule)
 
-    port_rule = {"serviceId": linked_service2.id,
-                 "sourcePort": port,
+    port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selectorLink": "test2=bar"
+                 "selector": "test2=bar"
                  }
     port_rules.append(port_rule)
 
@@ -503,19 +501,17 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
     assert lb_service.state == "active"
 
     port_rules = []
-    port_rule = {"serviceId": service1.id,
-                 "sourcePort": port,
+    port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selectorLink": "test2=bar"
+                 "selector": "test2=bar"
                  }
     port_rules.append(port_rule)
 
-    port_rule = {"serviceId": service2.id,
-                 "sourcePort": port,
+    port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selectorLink": "test2=bar"
+                 "selector": "test2=bar"
                  }
     port_rules.append(port_rule)
 
