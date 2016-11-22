@@ -525,6 +525,4 @@ def test_rancher_compose_services_volume(admin_client, client,
         logger.info("Checked for containers running " + con.name)
         assert inspect["State"]["Running"]
         assert "testvol:/home:rw" in inspect["HostConfig"]["Binds"]
-        assert inspect["HostConfig"]["VolumeDriver"] == "local"
-
     delete_all(client, [env])

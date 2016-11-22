@@ -177,7 +177,7 @@ def test_native_volumes(socat_containers, client, native_name, pull_images):
 
     assert rancher_container.externalId == docker_container['Id']
     assert rancher_container.state == 'running'
-    mounts = rancher_container.mounts()
+    mounts = rancher_container.mounts
     assert len(mounts) == 3
 
     foo_mount, var_mount, tmp_mount = None, None, None
@@ -190,20 +190,14 @@ def test_native_volumes(socat_containers, client, native_name, pull_images):
             tmp_mount = m
 
     assert foo_mount.path == '/foo'
-    volume = foo_mount.volume()
-    assert not volume.isHostPath
 
     assert var_mount.path == '/host/var'
-    assert var_mount.permissions == 'rw'
-    volume = var_mount.volume()
-    assert volume.isHostPath
-    assert volume.uri == 'file:///var'
+    assert var_mount.permission == 'rw'
+    assert var_mount.volumeName == '/var'
 
     assert tmp_mount.path == '/host/tmpreadonly'
-    assert tmp_mount.permissions == 'ro'
-    volume = tmp_mount.volume()
-    assert volume.isHostPath
-    assert volume.uri == 'file:///tmp1'
+    assert tmp_mount.permission == 'ro'
+    assert tmp_mount.volumeName == '/tmp1'
 
 
 def test_native_logs(client, socat_containers, native_name, pull_images):
