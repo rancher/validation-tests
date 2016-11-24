@@ -244,8 +244,11 @@ def test_rancher_compose_service_option_2(admin_client, client,
         assert inspect["HostConfig"]["CpuPeriod"] == cpu_period
         assert inspect["HostConfig"]["CpuQuota"] == cpu_quota
         assert inspect["HostConfig"]["CpusetCpus"] == cpu_set
+        # Bug - 6700
+        """
         assert inspect["HostConfig"]["CpusetMems"] == cpu_setmems
         assert inspect["HostConfig"]["KernelMemory"] == kernel_memory
+        """
         assert inspect["HostConfig"]["MemoryReservation"] == memory_reservation
         assert inspect["HostConfig"]["MemorySwap"] == memory_swap
         assert inspect["HostConfig"]["MemorySwappiness"] == memory_swappiness
