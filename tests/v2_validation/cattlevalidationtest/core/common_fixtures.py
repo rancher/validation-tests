@@ -45,7 +45,7 @@ INFRA_CATALOG_BRANCH = os.environ.get(
     'master')
 
 K8S_RE_DEPLOY = os.environ.get(
-    'K8S_RE_DEPLOY', "True")
+    'K8S_RE_DEPLOY', "False")
 
 K8S_TEMPLATE_FOLDER_NUMBER = os.environ.get(
     'K8S_TEMPLATE_FOLDER_NUMBER', "0")
@@ -526,49 +526,48 @@ def ha_hosts(client, admin_client):
 @pytest.fixture(scope='session')
 def kube_hosts(request, client, admin_client):
 
-    # Set the catalog for K8s system stack
-    community_catalog = {
-        "url": COMMUNITY_CATALOG_URL,
-        "branch": COMMUNITY_CATALOG_BRANCH}
-    infra_catalog = {
-        "url": INFRA_CATALOG_URL,
-        "branch": INFRA_CATALOG_BRANCH}
-    catalogs = {"infra": infra_catalog,
-                "community": community_catalog}
-
-    catalog_url = {"catalogs": catalogs}
-    admin_client.create_setting(name="catalog.url",
-                                value=json.dumps(catalog_url))
-    # Wait for sometime for the settings to take effect
-    time.sleep(30)
-
     new_k8s_stack_deployed = False
 
     k8s_stack = client.list_stack(name=k8s_stackname)
     if len(k8s_stack) > 0:
         if K8S_RE_DEPLOY == "true":
             delete_all(client, [k8s_stack[0]])
-            deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
             new_k8s_stack_deployed = True
     else:
-        deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
         new_k8s_stack_deployed = True
 
-    # If there are not enough hosts in the set up , deploy hosts from DO
-    hosts = client.list_host(
-        kind='docker', removed_null=True, state="active",
-        include="physicalHost")
-    host_count = len(hosts)
-    if host_count >= kube_host_count:
-        for i in range(0, host_count):
-            kube_host_list.append(hosts[i])
-    if host_count < kube_host_count:
-        host_list = \
-            add_digital_ocean_hosts(
-                client, kube_host_count - host_count)
-        kube_host_list.extend(host_list)
-
     if new_k8s_stack_deployed:
+        # Set the catalog for K8s system stack
+        community_catalog = {
+            "url": COMMUNITY_CATALOG_URL,
+            "branch": COMMUNITY_CATALOG_BRANCH}
+        infra_catalog = {
+            "url": INFRA_CATALOG_URL,
+            "branch": INFRA_CATALOG_BRANCH}
+        catalogs = {"infra": infra_catalog,
+                    "community": community_catalog}
+
+        catalog_url = {"catalogs": catalogs}
+        admin_client.create_setting(name="catalog.url",
+                                    value=json.dumps(catalog_url))
+        # Wait for sometime for the settings to take effect
+        time.sleep(30)
+        deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
+
+        # If there are not enough hosts in the set up , deploy hosts from DO
+        hosts = client.list_host(
+            kind='docker', removed_null=True, state="active",
+            include="physicalHost")
+        host_count = len(hosts)
+        if host_count >= kube_host_count:
+            for i in range(0, host_count):
+                kube_host_list.append(hosts[i])
+        if host_count < kube_host_count:
+            host_list = \
+                add_digital_ocean_hosts(
+                    client, kube_host_count - host_count)
+            kube_host_list.extend(host_list)
+
         # Wait for Kubernetes environment to get created successfully
         start = time.time()
         env = client.list_stack(name=k8s_stackname,

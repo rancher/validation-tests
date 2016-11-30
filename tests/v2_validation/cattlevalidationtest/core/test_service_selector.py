@@ -504,14 +504,14 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
     port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selector": "web1=lb"
+                 "serviceId": service1.id
                  }
     port_rules.append(port_rule)
 
     port_rule = {"sourcePort": port,
                  "targetPort": "80",
                  "protocol": "http",
-                 "selector": "web2=lb"
+                 "serviceId": service2.id
                  }
     port_rules.append(port_rule)
 
