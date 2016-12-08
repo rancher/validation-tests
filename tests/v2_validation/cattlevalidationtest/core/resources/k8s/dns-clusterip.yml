@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: dns-nginx
+spec:
+  replicas: 1
+  selector:
+    name: dns-nginx
+  template:
+    metadata:
+      labels:
+        name: dns-nginx
+    spec:
+      containers:
+        - name: dns-nginx
+          image: sangeetha/testnewhostrouting:latest
+          ports:
+            - containerPort: 80
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-nginx
+  labels:
+    name: dns-nginx
+spec:
+  sessionAffinity: ClientIP
+  type: ClusterIP
+  clusterIP: 10.43.0.60
+  ports:
+  - port: 8000
+    targetPort: 80
+  selector:
+    name: dns-nginx
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-test-namespace
+  labels:
+    app: dns-test-namespace
+spec:
+  containers:
+  - name: dns-test-namespace
+    image: sangeetha/testclient
+    ports:
+    - containerPort: 80
