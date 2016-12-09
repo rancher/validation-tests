@@ -6,7 +6,7 @@ DEFAULT_TIMEOUT = 900
 
 # Digital Ocean configurations
 access_key = os.environ.get('DIGITALOCEAN_KEY')
-image_name = "ubuntu-14-04-x64"
+image_name = "ubuntu-16-04-x64"
 region = "sfo1"
 size = "1gb"
 
@@ -30,17 +30,6 @@ if_machine_digocean = pytest.mark.skipif(
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session', autouse=True)
-def register_host(admin_client):
-    setting = admin_client.by_id_setting("api.host")
-    if setting.value is None or len(setting.value) == 0:
-        test_url = cattle_url()
-        start = test_url.index("//") + 2
-        api_host = test_url[start:]
-        admin_client.create_setting(name="api.host", value=api_host)
-        time.sleep(15)
-
-
 @if_machine_digocean
 def test_machine_labels(client):
 
@@ -48,7 +37,7 @@ def test_machine_labels(client):
     labels = {"abc": "def",
               "foo": "bar",
               "spam": "eggs"}
-    create_args = {"name": name,
+    create_args = {"hostname": name,
                    "digitaloceanConfig": {"accessToken": access_key,
                                           "image": image_name,
                                           "region": region,
@@ -74,7 +63,7 @@ def test_machine_labels(client):
 def test_digital_ocean_machine_all_params(client):
 
     name = random_str()
-    create_args = {"name": name,
+    create_args = {"hostname": name,
                    "digitaloceanConfig": {"accessToken": access_key,
                                           "image": image_name,
                                           "region": region,
@@ -96,7 +85,7 @@ def test_digital_ocean_machine_all_params(client):
 def test_digital_ocean_machine_accesstoken(client):
 
     name = random_str()
-    create_args = {"name": random_str(),
+    create_args = {"hostname": random_str(),
                    "digitaloceanConfig": {"accessToken": access_key
                                           }
                    }
@@ -113,50 +102,47 @@ def test_digital_ocean_machine_accesstoken(client):
 
 @if_machine_digocean
 def test_digital_ocean_machine_parallel(client):
-    create_args = {"name": None,
+    create_args = {"hostname": None,
                    "digitaloceanConfig": {"accessToken": access_key,
                                           "image": image_name
                                           }
                    }
-    machines = []
+    hosts = []
     try:
         # Create 2 Digital Ocean Machines in parallel
         for n in range(0, 2):
             name = random_str() + "-parallel-" + str(n)
-            create_args["name"] = name
-            machine = client.create_machine(**create_args)
-            machines.append(machine)
+            create_args["hostname"] = name
+            host = client.create_host(**create_args)
+            hosts.append(host)
 
         # Check if both the machine and host get to "active" state
 
-        for machine in machines:
-            machine = client.wait_success(machine, timeout=DEFAULT_TIMEOUT)
-            assert machine.state == 'active'
-            machine = wait_for_host(client, machine)
-            host = machine.hosts()[0]
+        for host in hosts:
+            host = client.wait_success(host, timeout=DEFAULT_TIMEOUT)
             assert host.state == 'active'
 
-        for machine in machines:
-            machine = client.wait_success(machine.remove())
-            assert machine.state == 'removed'
-
-            host = machine.hosts()[0]
-            host = wait_for_condition(client, host,
-                                      lambda x: x.state == 'removed',
-                                      lambda x: 'State is: ' + x.state)
+        for host in hosts:
+            host = client.wait_success(host.deactivate())
+            assert host.state == "inactive"
+            host = client.wait_success(client.delete(host))
             assert host.state == 'removed'
             wait_for_host_destroy_in_digital_ocean(
                 host.ipAddresses()[0].address)
     finally:
-        for machine in machines:
-            delete_host_in_digital_ocean(machine.name)
+        for host in hosts:
+            hostname = host.hostname
+            index = host.hostname.find(".")
+            if index != -1:
+                hostname = host.hostname[0:index]
+            delete_host_in_digital_ocean(hostname)
 
 
 @if_machine_digocean
 def test_digital_ocean_machine_invalid_access_token(client):
 
     name = random_str()
-    create_args = {"name": name,
+    create_args = {"hostname": name,
                    "digitaloceanConfig": {"accessToken": "1234abcdefg",
                                           "image": image_name,
                                           "region": region,
@@ -164,26 +150,23 @@ def test_digital_ocean_machine_invalid_access_token(client):
                                           }
                    }
     # Create a Digital Ocean Machine with invalid access token
-    machine = client.create_machine(**create_args)
-    machine = wait_for_condition(client,
-                                 machine,
-                                 lambda x: x.state == 'error',
-                                 lambda x: 'Machine state is ' + x.state
-                                 )
-    assert error_msg_auth_failure in machine.transitioningMessage
+    host = client.create_host(**create_args)
 
-    hosts = machine.hosts()
-    assert len(hosts) == 0
-
-    machine = client.wait_success(machine.remove())
-    assert machine.state == 'removed'
+    host = wait_for_condition(client,
+                              host,
+                              lambda x: x.state == 'error',
+                              lambda x: 'Machine state is ' + x.state
+                              )
+    assert error_msg_auth_failure in host.transitioningMessage
+    host = client.wait_success(client.delete(host))
+    assert host.state == 'removed'
 
 
 @if_machine_digocean
 def test_digital_ocean_machine_invalid_region(client):
 
     name = random_str()
-    create_args = {"name": name,
+    create_args = {"hostname": name,
                    "digitaloceanConfig": {"accessToken": access_key,
                                           "image": image_name,
                                           "region": "abc",
@@ -191,36 +174,23 @@ def test_digital_ocean_machine_invalid_region(client):
                                           }
                    }
     # Create a Digital Ocean Machine with invalid access token
-    machine = client.create_machine(**create_args)
-
-    machine = wait_for_condition(client,
-                                 machine,
-                                 lambda x: x.state == 'error',
-                                 lambda x: 'Machine state is ' + x.state
-                                 )
-
-    assert error_msg_invalid_region in machine.transitioningMessage
-
-    hosts = machine.hosts()
-    assert len(hosts) == 0
-
-    machine = client.wait_success(machine.remove())
-    assert machine.state == 'removed'
+    host = client.create_host(**create_args)
+    host = wait_for_condition(client,
+                              host,
+                              lambda x: x.state == 'error',
+                              lambda x: 'Machine state is ' + x.state
+                              )
+    assert error_msg_invalid_region in host.transitioningMessage
+    host = client.wait_success(client.delete(host))
+    assert host.state == 'removed'
 
 
 def digital_ocean_machine_life_cycle(client, configs, expected_values,
                                      labels=None):
     # Create a Digital Ocean Machine
-    machine = client.create_machine(**configs)
-
-    machine = client.wait_success(machine, timeout=DEFAULT_TIMEOUT)
-    assert machine.state == 'active'
-
-    # Wait until host shows up with some physicalHostId
-    machine = wait_for_host(client, machine)
-    host = machine.hosts()[0]
+    host = client.create_host(**configs)
+    host = client.wait_success(host, timeout=DEFAULT_TIMEOUT)
     assert host.state == 'active'
-    assert machine.accountId == host.accountId
 
     # Check that the droplet that is being created in Digital Ocean has the
     # correct configurations
@@ -234,23 +204,19 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
                 assert labels[label.key] == label.value
 
     assert droplet is not None
-    assert droplet["name"] == machine.name
+    index = host.hostname.find(".")
+    if index != -1:
+        hostname = host.hostname[0:index]
+    assert droplet["name"] == hostname
     assert droplet["image"]["slug"] == expected_values["image"]
     assert droplet["size_slug"] == expected_values["size"]
     assert droplet["region"]["slug"] == expected_values["region"]
 
-    # Remove the machine and make sure that the host
-    # and the machine get removed
-
-    machine = client.wait_success(machine.remove())
-    assert machine.state == 'removed'
-
-    host = client.reload(machine.hosts()[0])
-    host = wait_for_condition(client, host,
-                              lambda x: x.state == 'removed',
-                              lambda x: 'State is: ' + x.state)
+    # Remove the host
+    host = client.wait_success(host.deactivate())
+    assert host.state == "inactive"
+    host = client.wait_success(client.delete(host))
     assert host.state == 'removed'
-
     wait_for_host_destroy_in_digital_ocean(host.ipAddresses()[0].address)
 
 
@@ -347,12 +313,11 @@ def wait_for_host_destroy_in_digital_ocean(ipaddress, timeout=300):
     time_elapsed = 0
     host = check_host_in_digital_ocean(ipaddress)
     while host is not None:
-        assert host["locked"] is True
         time.sleep(2)
         host = check_host_in_digital_ocean(ipaddress)
         time_elapsed = time.time() - start
         if time_elapsed > timeout:
-            time_elapsed_msg = "Timeout waiting for host to be created " \
+            time_elapsed_msg = "Timeout waiting for host to be deleted " \
                                "- str(time_elapsed)" + " seconds"
             logger.error(msg=time_elapsed_msg)
             raise Exception(time_elapsed_msg)
