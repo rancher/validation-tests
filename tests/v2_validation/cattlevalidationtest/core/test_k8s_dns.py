@@ -7,6 +7,19 @@ if_test_k8s = pytest.mark.skipif(
     reason='TEST_K8S is not set')
 
 
+def waitfor_dns_records(cmd, namespace, pod):
+    t = 0
+    while True:
+        if t >= 100:
+            assert False
+        cmd_result = execute_cmd(pod, cmd, namespace)
+        if cmd_result.rstrip() != "":
+            break
+        else:
+            time.sleep(5)
+            t += 5
+
+
 @pytest.fixture(scope='session', autouse=True)
 def create_test_pod(kube_hosts, request):
     namespace = 'dns-test'
@@ -47,8 +60,10 @@ def test_k8s_dns_service_clusterip(kube_hosts):
     clusterip = service['spec']['clusterIP']
 
     # test resolving service name
+    cmd = "dig "+name+" +search +short"
+    waitfor_dns_records(cmd, namespace, test_pod_namespace)
     cmd_result = execute_cmd(
-        test_pod_namespace, "dig "+name+" +search +short", namespace)
+        test_pod_namespace, cmd, namespace)
     assert cmd_result.rstrip() == clusterip
 
     # test resolving service_name.namespace
@@ -104,20 +119,12 @@ def test_k8s_dns_headless_service_clusterip(kube_hosts):
         assert pod["status"]["phase"] == "Running"
 
     # test resolving service name
-    t = 0
-    while True:
-        if t >= 100:
-            assert False
-        cmd_result = execute_cmd(
-            test_pod,
-            'dig '+name+"."+namespace+'.svc.cluster.local. +short',
-            "dns-test")
-        if len(cmd_result.splitlines()) == 2:
-            break
-        else:
-            time.sleep(5)
-            t += 5
-
+    cmd = 'dig '+name+"."+namespace+'.svc.cluster.local. +short'
+    waitfor_dns_records(cmd, "dns-test", test_pod)
+    cmd_result = execute_cmd(
+        test_pod,
+        cmd,
+        "dns-test")
     ips = cmd_result.splitlines()
     ips = [ip.rstrip() for ip in ips]
     assert set(ips) == set(pods_ips)
@@ -152,10 +159,12 @@ def test_k8s_dns_service_namedport(kube_hosts):
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
     # test SRV record
+    cmd = 'dig SRV ' \
+          '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short'
+    waitfor_dns_records(cmd, "dns-test", test_pod)
     cmd_result = execute_cmd(
         test_pod,
-        'dig SRV ' +
-        '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short',
+        cmd,
         "dns-test")
     srv_record = cmd_result.rsplit()
     assert srv_record[2] == '9999'
@@ -191,28 +200,16 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
     assert service['spec']['ports'][0]['protocol'] == "TCP"
 
     # test CNAME
-    t = 0
-    while True:
-        if t >= 100:
-            assert False
-        cmd_result = execute_cmd(
-            test_pod,
-            'dig ' +
-            '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short',
-            "dns-test")
-        if len(cmd_result.split()) > 0:
-            break
-        else:
-            time.sleep(5)
-            t += 5
+    cmd = 'dig ' \
+          '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short'
+    waitfor_dns_records(cmd, "dns-test", test_pod)
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=dns-headless-namedport"
         " -o json --namespace="+namespace)
     pod = json.loads(get_response)
     cmd_result = execute_cmd(
         test_pod,
-        'dig ' +
-        '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short',
+        cmd,
         "dns-test")
     cname_record = cmd_result.rsplit()
     assert cname_record[1] == pod["items"][0]['status']['podIP']
@@ -256,10 +253,12 @@ def test_k8s_dns_pod(kube_hosts):
     pod_ip2 = pod_ip.replace(".", "-")
 
     # test ip
+    cmd = 'dig ' + \
+          pod_ip2+'.'+namespace+'.pod.cluster.local. +short'
+    waitfor_dns_records(cmd, "dns-test", test_pod)
     cmd_result = execute_cmd(
         test_pod,
-        'dig ' +
-        pod_ip2+'.'+namespace+'.pod.cluster.local. +short',
+        cmd,
         "dns-test")
     assert cmd_result.rstrip() == pod_ip
 
@@ -294,10 +293,12 @@ def test_k8s_dns_pod_hostname(kube_hosts):
     pod_ip = pod["items"][0]['status']['podIP']
 
     # test ip
+    cmd = 'dig ' \
+          'foo.bar.'+namespace+'.svc.cluster.local. +short'
+    waitfor_dns_records(cmd, "dns-test", test_pod)
     cmd_result = execute_cmd(
         test_pod,
-        'dig ' +
-        'foo.bar.'+namespace+'.svc.cluster.local. +short',
+        cmd,
         "dns-test")
     assert cmd_result.rstrip() == pod_ip
 
