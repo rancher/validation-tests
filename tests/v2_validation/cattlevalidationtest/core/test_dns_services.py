@@ -829,24 +829,6 @@ def test_dns_add_remove_servicelinks_using_set(admin_client, client):
     delete_all(client, [env])
 
 
-def test_dns_svc_cosumed_service_hostnetwork(admin_client, client):
-
-    port = "3118"
-
-    service_scale = 1
-    consumed_service_scale = 2
-
-    env, service, consumed_service, consumed_service1, dns = \
-        create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
-
-    validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
-        dns.name)
-
-    delete_all(client, [env])
-
-
 def test_dns_svc_managed_cosumed_service_hostnetwork(admin_client, client):
 
     port = "3118"
