@@ -30,9 +30,8 @@ SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
                                   'docker:rancher/socat-docker:v0.2.0')
 
 do_access_key = os.environ.get('DIGITALOCEAN_KEY')
-do_install_url = os.environ.get(
-    'DOCKER_INSTALL_URL',
-    'https://releases.rancher.com/install-docker/1.10.sh')
+docker_version = os.environ.get(
+    'DOCKER_VERSION', "1.12")
 
 COMMUNITY_CATALOG_URL = 'https://git.rancher.io/community-catalog.git'
 COMMUNITY_CATALOG_BRANCH = 'master'
@@ -662,7 +661,8 @@ def kube_hosts(admin_user_client, admin_client, client, request):
         if host_count < kube_host_count:
             host_list = \
                 add_digital_ocean_hosts(
-                    k8s_client, kube_host_count - host_count)
+                    k8s_client, kube_host_count - host_count,
+                    docker_version=docker_version)
             kube_host_list.extend(host_list)
 
         env = k8s_client.list_stack(name=k8s_stackname)
@@ -2851,17 +2851,24 @@ def check_for_stickiness(url, expected_responses, headers=None):
             assert response == sticky_response
 
 
-def add_digital_ocean_hosts(client, count, size="1gb"):
-    # Create a Digital Ocean Machine
-    hosts = []
+def add_digital_ocean_hosts(client, count, size="1gb",
+                            docker_version="1.12"):
     assert do_access_key is not None, \
         "DigitalOcean access key not set"
+
+    # Create a Digital Ocean Machine
+    hosts = []
+    docker_install_url = \
+        'https://releases.rancher.com/install-docker/' + docker_version + '.sh'
+    os_version = "ubuntu-16-04-x64"
+    if docker_version == "1.10":
+        os_version = "ubuntu-14-04-x64"
     for i in range(0, count):
         create_args = {"hostname": random_str(),
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
-                                              "image": "ubuntu-16-04-x64"}
-                       }
+                                              "image": os_version},
+                       "engineInstallUrl": docker_install_url}
         host = client.create_host(**create_args)
         hosts.append(host)
 
