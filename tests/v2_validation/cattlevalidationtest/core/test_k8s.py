@@ -1,7 +1,5 @@
 from common_fixtures import *  # NOQA
 from urllib2 import urlopen
-import websocket as ws
-import base64
 import os
 
 quay_creds = {}
@@ -66,23 +64,10 @@ def remove_registry(client, admin_client, registry_creds, reg_cred):
 
 
 # Execute command in container
-def execute_cmd(container, cmd):
-    ex = container.execute(
-        attachStdin=True,
-        attachStdout=True,
-        command=cmd,
-        tty=True)
-    conn = ws.create_connection(ex.url + '?token=' + ex.token, timeout=10)
-
-    # Python is weird about closures
-    closure_wrapper = {
-        'result': ''
-    }
-
-    msg = conn.recv()
-    print msg
-    closure_wrapper['result'] += base64.b64decode(msg)
-    return closure_wrapper['result'].rstrip()
+def execute_cmd(pod, cmd, namespace):
+    result = execute_kubectl_cmds(
+                "exec " + pod + " --namespace=" + namespace + " -- " + cmd)
+    return result
 
 
 # Get containers of Pod
@@ -797,15 +782,14 @@ def test_k8s_env_podspec_volume(
 
 
 @if_test_k8s
-def test_k8s_env_restartPolicy(
-        admin_client, client, kube_hosts):
+def test_k8s_env_restartPolicy(kube_hosts):
     namespace = 'restartpolicy-namespace'
     create_ns(namespace)
-    name = "nginx"
+    name = "alpine"
     # Create pod with service
     execute_kubectl_cmds("create --namespace="+namespace,
-                         file_name="pod-nginx-rp.yml")
-    waitfor_pods(selector="app=nginx", namespace=namespace, number=1)
+                         file_name="pod-alpine-rp.yml")
+    waitfor_pods(selector="app=alpine", namespace=namespace, number=1)
     get_response = execute_kubectl_cmds(
         "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
@@ -813,16 +797,12 @@ def test_k8s_env_restartPolicy(
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert container['image'] == "alpine"
     assert container['restartCount'] == 0
     assert container['ready']
-    assert container['name'] == "nginx"
+    assert container['name'] == "alpine"
     # stop containers in the pod
-    containers = get_pod_container_list(
-        admin_client, name, namespace=namespace)
-    for c in containers:
-        admin_client.wait_success(c.stop())
-    time.sleep(5)
+    time.sleep(15)
     get_response = execute_kubectl_cmds(
         "get pod "+name+" -o json --namespace="+namespace)
     pod = json.loads(get_response)
@@ -830,10 +810,10 @@ def test_k8s_env_restartPolicy(
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Succeeded"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert container['image'] == "alpine"
     assert container['restartCount'] == 0
     assert not container['ready']
-    assert container['name'] == "nginx"
+    assert container['name'] == "alpine"
     teardown_ns(namespace)
 
 
@@ -957,8 +937,7 @@ def test_k8s_env_podspec_nodeName(
 
 
 @if_test_k8s
-def test_k8s_env_podspec_hostPID(
-        admin_client, client, kube_hosts):
+def test_k8s_env_podspec_hostPID(kube_hosts):
     namespace = 'hostpid-namespace'
     create_ns(namespace)
     name = "nginx"
@@ -979,9 +958,9 @@ def test_k8s_env_podspec_hostPID(
     assert container['ready']
     assert container['name'] == "nginx"
     # check for PID
-    cont = get_pod_container_list(admin_client, name, namespace=namespace)
-    cmd_result = execute_cmd(cont[0], ['ps', '-p', '1', '-o', 'comm='])
-    assert cmd_result != 'nginx'
+    cmd_result = execute_cmd(
+        name, "ps -p 1 -o comm=", namespace)
+    assert cmd_result.rstrip() != 'nginx'
     teardown_ns(namespace)
 
 
@@ -1138,8 +1117,7 @@ def test_k8s_env_service_lb(
 
 
 @if_test_k8s
-def test_k8s_env_service_clusterip(
-        admin_client, client, kube_hosts):
+def test_k8s_env_service_clusterip(kube_hosts):
     namespace = 'service-namespace-clusterip'
     create_ns(namespace)
     clusteripname = "clusterip-nginx"
@@ -1164,16 +1142,12 @@ def test_k8s_env_service_clusterip(
     pods = json.loads(get_response)
     clusterurl = clusterip+":"+str(clusterport)
     nginxpod = pods['items'][0]['metadata']['name']
-    if kubectl_version.startswith("v1.2"):
-        nginxcont = get_pod_container_list(
-            admin_client, nginxpod, namespace=namespace)[0]
-    else:
-        nginxcont = get_pod_container_list(
-            admin_client, nginxpod, namespace=namespace)[1]
+
     cmd_result = execute_cmd(
-        nginxcont, ['curl', '-s', '-w', '%{http_code}\\n',
-                    clusterurl, '-o', '/dev/null'])
-    cmd_result = cmd_result.rstrip("\r\n")
+        nginxpod,
+        '''curl -s -w "%{http_code}" ''' + clusterurl + " -o /dev/null",
+        namespace)
+    cmd_result = cmd_result.rstrip()
     assert cmd_result == "200"
     teardown_ns(namespace)
 
