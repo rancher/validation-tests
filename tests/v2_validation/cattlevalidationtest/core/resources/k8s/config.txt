@@ -4,16 +4,16 @@ clusters:
 - cluster:
     api-version: v1
     insecure-skip-tls-verify: true
-    server: "https://sssss:8080/r/projects/1a5/kubernetes"
-  name: "Default"
+    server: "https://$server:8080/r/projects/$pid/kubernetes"
+  name: $environment
 contexts:
 - context:
-    cluster: "Default"
-    user: "Default"
-  name: "Default"
-current-context: "Default"
+    cluster: $environment
+    user: $environment
+  name: $environment
+current-context: $environment
 users:
-- name: "Default"
+- name: $environment
   user:
-    username: uuuuu 
-    password: ppppp
+    username: $username
+    password: $password

@@ -6,7 +6,7 @@ if_test_k8s = pytest.mark.skipif(
 
 
 @if_test_k8s
-def test_k8s_ingress_1(client, kube_hosts):
+def test_k8s_ingress_1(kube_hosts):
     # This method tests an ingress with host, paths specified and two services
 
     # Create namespace
@@ -60,7 +60,7 @@ def test_k8s_ingress_1(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_2(client, kube_hosts):
+def test_k8s_ingress_2(kube_hosts):
 
     # This method tests a simple ingress with just backend
     # specified and one service
@@ -102,7 +102,7 @@ def test_k8s_ingress_2(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_3(client, kube_hosts):
+def test_k8s_ingress_3(kube_hosts):
 
     # This method tests an ingress with just backend,
     # one service and http.port specified
@@ -142,7 +142,7 @@ def test_k8s_ingress_3(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_4(client, kube_hosts):
+def test_k8s_ingress_4(kube_hosts):
 
     # This method tests multiple ingresses
 
@@ -212,7 +212,7 @@ def test_k8s_ingress_4(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_5(client, kube_hosts):
+def test_k8s_ingress_5(kube_hosts):
 
     # This method case tests deletion of an ingress with just backend,
     # one service and http.port specified
@@ -251,7 +251,7 @@ def test_k8s_ingress_5(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_6(client, kube_hosts):
+def test_k8s_ingress_6(kube_hosts):
 
     # This method tests an ingress creation before the
     # creation of its associated service
@@ -291,7 +291,7 @@ def test_k8s_ingress_6(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_7(client, kube_hosts):
+def test_k8s_ingress_7(kube_hosts):
 
     # This method tests an ingress with two paths
     # specified[no host] and two services
@@ -343,7 +343,7 @@ def test_k8s_ingress_7(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_8(client, kube_hosts):
+def test_k8s_ingress_8(kube_hosts):
 
     # This method tests an ingress with two hosts/paths
     # specified and two services
@@ -393,7 +393,7 @@ def test_k8s_ingress_8(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_9(client, kube_hosts):
+def test_k8s_ingress_9(kube_hosts):
 
     # This method tests an ingress with rule of one host/path
     # for one service and just path specified for another service
@@ -441,7 +441,7 @@ def test_k8s_ingress_9(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_10(client, kube_hosts):
+def test_k8s_ingress_10(kube_hosts):
 
     # This method tests ingress scaling
 
@@ -486,7 +486,7 @@ def test_k8s_ingress_10(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_11(client, kube_hosts):
+def test_k8s_ingress_11(kube_hosts):
 
     # This method tests updating an ingress with just backend,
     # one service and http.port specified
@@ -563,7 +563,7 @@ def test_k8s_ingress_11(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_12(client, kube_hosts, certs):
+def test_k8s_ingress_12(kube_hosts):
 
     # This method tests updating an ingress with just backend,
     # one service and http.port specified
@@ -577,9 +577,9 @@ def test_k8s_ingress_12(client, kube_hosts, certs):
     dom_list = ["test1.com"]
     domain = dom_list[0]
     certname = "certificate"
-
+    k8s_client = kubectl_client_con["k8s_client"]
     # Create Certificate
-    cert = create_cert(client, domain, certname)
+    cert = create_cert(k8s_client, domain, certname)
 
     ingress_file_name = "ingress_12.yml"
     ingress_name = "ingress12"
@@ -605,7 +605,8 @@ def test_k8s_ingress_12(client, kube_hosts, certs):
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     client_port = port + "0"
-    test_ssl_client_con = create_client_container_for_ssh(client, client_port)
+    test_ssl_client_con = \
+        create_client_container_for_ssh(k8s_client, client_port)
 
     check_round_robin_access_for_ssl_lb_ip(podnames[0], lbips[0], "443",
                                            domain, test_ssl_client_con,
@@ -616,12 +617,12 @@ def test_k8s_ingress_12(client, kube_hosts, certs):
     teardown_ns(namespace)
 
     # Delete Certificate
-    cert1 = client.wait_success(cert.remove(), timeout=60)
+    cert1 = k8s_client.wait_success(cert.remove(), timeout=60)
     assert cert1.state == "removed"
 
 
 @if_test_k8s
-def test_k8s_ingress_13(client, kube_hosts, certs):
+def test_k8s_ingress_13(kube_hosts):
 
     # This method tests incrementing pod scale and
     # testing an ingress with just backend,
@@ -680,7 +681,7 @@ def test_k8s_ingress_13(client, kube_hosts, certs):
 
 
 @if_test_k8s
-def test_k8s_ingress_14(client, kube_hosts, certs):
+def test_k8s_ingress_14(kube_hosts):
 
     # This method tests decrementing pod scale and
     # testing an ingress with just backend
@@ -741,7 +742,7 @@ def test_k8s_ingress_14(client, kube_hosts, certs):
 
 
 @if_test_k8s
-def test_k8s_ingress_15(client, kube_hosts):
+def test_k8s_ingress_15(kube_hosts):
 
     # This method tests updating an ingress with hostheader, path
     # specified to an ingress pointing to a different service
@@ -808,7 +809,7 @@ def test_k8s_ingress_15(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_16(client, kube_hosts):
+def test_k8s_ingress_16(kube_hosts):
 
     # This method tests updating an ingress with just backend,
     # to an ingress with different http.port, hostheader,
@@ -887,7 +888,7 @@ def test_k8s_ingress_16(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_17(client, kube_hosts):
+def test_k8s_ingress_17(kube_hosts):
 
     # This method tests an ingress with http.port pointing to two services
     # with different hostheaders and same serviceport
@@ -937,7 +938,7 @@ def test_k8s_ingress_17(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_18(client, kube_hosts):
+def test_k8s_ingress_18(kube_hosts):
     # This method tests an ingress with a "-" in the namespace
     # Creating a namespace with "-" in Kubernetes 1.2 fails
     # to inject IP for the ingress. It works in Kubernetes 1.3
@@ -994,7 +995,7 @@ def test_k8s_ingress_18(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_19(client, kube_hosts):
+def test_k8s_ingress_19(kube_hosts):
     # This method is to test that for an ingress, the lb traffic
     # is not directed to pods with the same selector
     # in different namespaces (Bug #5215)
@@ -1071,7 +1072,7 @@ def test_k8s_ingress_19(client, kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_20(client, kube_hosts):
+def test_k8s_ingress_20(kube_hosts):
     # This method is to test an ingress in which
     # lb traffic is routed to the same service from
     # different domains/same paths

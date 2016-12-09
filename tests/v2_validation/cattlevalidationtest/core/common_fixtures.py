@@ -10,6 +10,7 @@ import paramiko
 import inspect
 import re
 import json
+
 from docker import Client
 
 logging.basicConfig()
@@ -33,22 +34,20 @@ do_install_url = os.environ.get(
     'DOCKER_INSTALL_URL',
     'https://releases.rancher.com/install-docker/1.10.sh')
 
-COMMUNITY_CATALOG_URL = 'https://github.com/rancher/community-catalog.git'
+COMMUNITY_CATALOG_URL = 'https://git.rancher.io/community-catalog.git'
 COMMUNITY_CATALOG_BRANCH = 'master'
 
-INFRA_CATALOG_URL = os.environ.get(
-    'INFRA_CATALOG_URL',
-    'https://github.com/rancher/infra-catalog.git')
-
-INFRA_CATALOG_BRANCH = os.environ.get(
-    'INFRA_CATALOG_BRANCH',
+LIBRARY_CATALOG_URL = os.environ.get(
+    'LIBRARY_CATALOG_URL',
+    'https://git.rancher.io/rancher-catalog.git')
+LIBRARY_CATALOG_BRANCH = os.environ.get(
+    'LIBRARY_CATALOG_BRANCH',
     'master')
+K8S_DEPLOY = os.environ.get(
+    'K8S_DEPLOY', "False")
 
-K8S_RE_DEPLOY = os.environ.get(
-    'K8S_RE_DEPLOY', "False")
-
-K8S_TEMPLATE_FOLDER_NUMBER = os.environ.get(
-    'K8S_TEMPLATE_FOLDER_NUMBER', "0")
+OVERRIDE_CATALOG = os.environ.get(
+    'OVERRIDE_CATALOG', "False")
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
@@ -92,7 +91,7 @@ kube_host_list = []
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
-kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.3.0")
+kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 
 cert_list = {}
@@ -109,10 +108,12 @@ sleep_interval = int(os.environ.get('CATTLE_SLEEP_INTERVAL', 5))
 
 
 @pytest.fixture(scope='session')
-def cattle_url():
+def cattle_url(project_id=None):
     default_url = 'http://localhost:8080'
     server_url = os.environ.get('CATTLE_TEST_URL', default_url)
     server_url = server_url + "/" + api_version
+    if project_id is not None:
+        server_url += "/projects/"+project_id
     return server_url
 
 
@@ -263,7 +264,104 @@ def admin_client():
     admin_client = _admin_client()
     assert admin_client.valid()
     set_haproxy_image(admin_client)
+    set_host_url(admin_client)
     return admin_client
+
+
+@pytest.fixture(scope='session')
+def admin_user_client(super_client):
+    admin_account = super_client.list_account(kind='admin', uuid='admin')[0]
+    key = super_client.create_api_key(accountId=admin_account.id)
+    super_client.wait_success(key)
+    client = api_client(key.publicValue, key.secretValue,
+                        super_client.list_project(uuid="adminProject")[0].id)
+    init(client)
+    return client
+
+
+def init(admin_user_client):
+    kv = {
+        'task.process.replay.schedule': '2',
+        'task.config.item.migration.schedule': '5',
+        'task.config.item.source.version.sync.schedule': '5',
+    }
+    for k, v in kv.items():
+        admin_user_client.create_setting(name=k, value=v)
+
+
+def api_client(access_key, secret_key, project_id=None):
+    return from_env(
+        url=cattle_url(project_id),
+        cache=False,
+        access_key=access_key,
+        secret_key=secret_key)
+
+
+@pytest.fixture(scope='function')
+def new_k8s_context(admin_user_client, name):
+    templates = admin_user_client.list_project_template(name="Kubernetes")
+    assert len(templates) == 1
+    ctx = create_context(admin_user_client, create_project=True,
+                         add_host=False, name=name,
+                         project_template="Kubernetes")
+    return ctx
+
+
+def create_context(admin_user_client, create_project=False, add_host=False,
+                   kind=None, name=None, project_template="Cattle"):
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    if name is None:
+        name = 'Session {} Integration Test User {}' \
+            .format(os.getpid(), now)
+        project_name = 'Session {} Integration Test Project {}' \
+            .format(os.getpid(), now)
+    else:
+        project_name = name + random_str()
+
+    if kind is None:
+        kind = 'user'
+
+    account = admin_user_client.create_account(name=name, kind=kind)
+    account = admin_user_client.wait_success(account)
+    key = admin_user_client.create_api_key(accountId=account.id)
+    admin_user_client.wait_success(key)
+    user_client = api_client(key.publicValue, key.secretValue)
+
+    try:
+        account = user_client.reload(account)
+    except KeyError:
+        # The account type can't see the account obj
+        pass
+
+    templates = admin_user_client.list_project_template(name=project_template)
+    assert len(templates) == 1
+    project_template_id = templates[0].id
+
+    project = None
+    project_client = None
+    agent_client = None
+    agent = None
+    owner_client = None
+    if create_project:
+        project = user_client.create_project(
+            name=project_name,
+            members=[{'role': 'owner',
+                      'externalId': acc_id(user_client),
+                      'externalIdType': 'rancher_id'}],
+            projectTemplateId=project_template_id)
+        project = user_client.wait_success(project)
+        # This is not proper yet because basic auth can't be used w/ Projects
+        project_key = admin_user_client.create_api_key(accountId=project.id)
+        admin_user_client.wait_success(project_key)
+        project_client = api_client(project_key.publicValue,
+                                    project_key.secretValue)
+        project = project_client.reload(project)
+        owner_client = api_client(key.publicValue, key.secretValue,
+                                  project_id=project.id)
+    return Context(account=account, project=project, user_client=user_client,
+                   client=project_client, host=None,
+                   agent_client=agent_client, agent=agent,
+                   owner_client=owner_client)
 
 
 @pytest.fixture(scope='session')
@@ -524,38 +622,37 @@ def ha_hosts(client, admin_client):
 
 
 @pytest.fixture(scope='session')
-def kube_hosts(request, client, admin_client):
+def kube_hosts(admin_user_client, admin_client, client, request):
+    if kubectl_client_con["container"] is not None:
+        return
+    k8s_client = client
+    k8s_project_name = "Default"
+    k8s_project_id = "1a5"
+    if K8S_DEPLOY == "True":
+        if OVERRIDE_CATALOG == "True":
+            # Set the catalog for K8s system stack
+            community_catalog = {
+                "url": COMMUNITY_CATALOG_URL,
+                "branch": COMMUNITY_CATALOG_BRANCH}
+            library_catalog = {
+                "url": LIBRARY_CATALOG_URL,
+                "branch": LIBRARY_CATALOG_BRANCH}
+            catalogs = {"library": library_catalog,
+                        "community": community_catalog}
 
-    new_k8s_stack_deployed = False
+            catalog_url = {"catalogs": catalogs}
+            admin_client.create_setting(name="catalog.url",
+                                        value=json.dumps(catalog_url))
+            # Wait for sometime for the settings to take effect
+            time.sleep(30)
 
-    k8s_stack = client.list_stack(name=k8s_stackname)
-    if len(k8s_stack) > 0:
-        if K8S_RE_DEPLOY == "true":
-            delete_all(client, [k8s_stack[0]])
-            new_k8s_stack_deployed = True
-    else:
-        new_k8s_stack_deployed = True
-
-    if new_k8s_stack_deployed:
-        # Set the catalog for K8s system stack
-        community_catalog = {
-            "url": COMMUNITY_CATALOG_URL,
-            "branch": COMMUNITY_CATALOG_BRANCH}
-        infra_catalog = {
-            "url": INFRA_CATALOG_URL,
-            "branch": INFRA_CATALOG_BRANCH}
-        catalogs = {"infra": infra_catalog,
-                    "community": community_catalog}
-
-        catalog_url = {"catalogs": catalogs}
-        admin_client.create_setting(name="catalog.url",
-                                    value=json.dumps(catalog_url))
-        # Wait for sometime for the settings to take effect
-        time.sleep(30)
-        deploy_ks8_system_stack(client, K8S_TEMPLATE_FOLDER_NUMBER)
+        k8s_context = new_k8s_context(admin_user_client, "k8s")
+        k8s_client = k8s_context.client
+        k8s_project_name = k8s_context.project.name
+        k8s_project_id = k8s_context.project.id
 
         # If there are not enough hosts in the set up , deploy hosts from DO
-        hosts = client.list_host(
+        hosts = k8s_client.list_host(
             kind='docker', removed_null=True, state="active",
             include="physicalHost")
         host_count = len(hosts)
@@ -565,40 +662,30 @@ def kube_hosts(request, client, admin_client):
         if host_count < kube_host_count:
             host_list = \
                 add_digital_ocean_hosts(
-                    client, kube_host_count - host_count)
+                    k8s_client, kube_host_count - host_count)
             kube_host_list.extend(host_list)
 
-        # Wait for Kubernetes environment to get created successfully
-        start = time.time()
-        env = client.list_stack(name=k8s_stackname,
-                                state="activating")
-        while len(env) != 1:
-            time.sleep(.5)
-            env = client.list_stack(name=k8s_stackname,
-                                    state="activating")
-            if time.time() - start > 30:
-                raise Exception(
-                    'Timed out waiting for Kubernetes env to get created')
-
-    env = client.list_stack(name=k8s_stackname)
-    assert len(env) == 1
-    environment = env[0]
-    print environment.id
-    wait_for_condition(
-        admin_client, environment,
-        lambda x: x.healthState == "healthy",
-        lambda x: 'State is: ' + x.healthState,
-        timeout=600)
-
+        env = k8s_client.list_stack(name=k8s_stackname)
+        assert len(env) == 1
+        environment = env[0]
+        print environment.id
+        wait_for_condition(
+            k8s_client, environment,
+            lambda x: x.healthState == "healthy",
+            lambda x: 'State is: ' + x.healthState,
+            timeout=1200)
+    kubectl_client_con["k8s_client"] = k8s_client
     if kubectl_client_con["container"] is None:
-        test_client_con = create_kubectl_client_container(client, "9999")
+        test_client_con = create_kubectl_client_container(
+            k8s_client, "9999",
+            project_name=k8s_project_name,
+            project_id=k8s_project_id)
         kubectl_client_con["container"] = test_client_con["container"]
         kubectl_client_con["host"] = test_client_con["host"]
-
-    cleanup_k8s()
+        cleanup_k8s()
 
     def remove():
-        delete_all(client, [kubectl_client_con["container"]])
+        delete_all(k8s_client, [kubectl_client_con["container"]])
     request.addfinalizer(remove)
 
 
@@ -2533,7 +2620,9 @@ def create_client_container_for_ssh(client, port):
     return test_client_con
 
 
-def create_kubectl_client_container(client, port):
+def create_kubectl_client_container(client, port,
+                                    project_name="Default",
+                                    project_id="1a5"):
     test_kubectl_client_con = {}
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
     assert len(hosts) > 0
@@ -2549,12 +2638,14 @@ def create_kubectl_client_container(client, port):
     time.sleep(sleep_interval)
 
     kube_config = readDataFile(K8_SUBDIR, "config.txt")
-    kube_config = kube_config.replace("uuuuu", client._access_key)
-    kube_config = kube_config.replace("ppppp", client._secret_key)
+    kube_config = kube_config.replace("$username", client._access_key)
+    kube_config = kube_config.replace("$password", client._secret_key)
+    kube_config = kube_config.replace("$environment", project_name)
+    kube_config = kube_config.replace("$pid", project_id)
 
     server_ip = \
         cattle_url()[cattle_url().index("//") + 2:cattle_url().index(":8080")]
-    kube_config = kube_config.replace("sssss", server_ip)
+    kube_config = kube_config.replace("$server", server_ip)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -2758,26 +2849,21 @@ def check_for_stickiness(url, expected_responses, headers=None):
 
 def add_digital_ocean_hosts(client, count, size="1gb"):
     # Create a Digital Ocean Machine
-    machines = []
     hosts = []
     assert do_access_key is not None, \
-        "Test Set up failed for not having enough hosts in k8s environment"
+        "DigitalOcean access key not set"
     for i in range(0, count):
-        create_args = {"name": random_str(),
+        create_args = {"hostname": random_str(),
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
-                                              "image": "ubuntu-14-04-x64"},
-                       "engineInstallUrl": do_install_url}
-        machine = client.create_machine(**create_args)
-        machines.append(machine)
-
-    for machine in machines:
-        machine = client.wait_success(machine, timeout=DEFAULT_MACHINE_TIMEOUT)
-        assert machine.state == 'active'
-        machine = wait_for_host(client, machine)
-        host = machine.hosts()[0]
-        assert host.state == 'active'
+                                              "image": "ubuntu-16-04-x64"}
+                       }
+        host = client.create_host(**create_args)
         hosts.append(host)
+
+    for host in hosts:
+        host = client.wait_success(host, timeout=DEFAULT_MACHINE_TIMEOUT)
+        assert host.state == 'active'
     return hosts
 
 
@@ -3059,36 +3145,6 @@ def get_sidekick_service_name(env, service, sidekick_name):
         FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + sidekick_name
 
 
-def deploy_ks8_system_stack(client, folder_number):
-    k8s_catalog_url = \
-        rancher_server_url() + "/v1-catalog/templates/infra:infra*k8s"\
-        + ":" + str(folder_number)
-    print k8s_catalog_url
-    r = requests.get(k8s_catalog_url)
-    template = json.loads(r.content)
-    print str(template)
-    r.close()
-
-    dockerCompose = template["files"]["docker-compose.yml"]
-    rancherCompose = template["files"]["rancher-compose.yml"]
-    environment = {}
-    questions = template["questions"]
-    if questions is not None:
-        for question in questions:
-            label = question["variable"]
-            value = question["default"]
-            environment[label] = value
-
-    env = client.create_stack(name=k8s_stackname,
-                              dockerCompose=dockerCompose,
-                              rancherCompose=rancherCompose,
-                              environment=environment,
-                              startOnCreate=True,
-                              system=True)
-    env = client.wait_success(env, timeout=300)
-    assert env.state == "active"
-
-
 @pytest.fixture(scope='session')
 def rancher_cli_container(admin_client, client, request):
 
@@ -3206,3 +3262,87 @@ def set_haproxy_image(admin_client):
 
 def get_haproxy_image():
     return MICROSERVICE_IMAGES["haproxy_image_uuid"]
+
+
+def set_host_url(admin_client):
+    setting = admin_client.by_id_setting("api.host")
+    if setting.value is None or len(setting.value) == 0:
+        admin_client.create_setting(
+            name="api.host", value=rancher_server_url())
+        time.sleep(15)
+
+
+class Context(object):
+    def __init__(self, account=None, project=None, user_client=None,
+                 client=None, host=None, agent_client=None, agent=None,
+                 owner_client=None):
+        self.account = account
+        self.project = project
+        self.agent = agent
+        self.user_client = user_client
+        self.agent_client = agent_client
+        self.client = client
+        self.host = host
+        self.image_uuid = 'sim:{}'.format(random_str())
+        self.owner_client = owner_client
+
+    def _get_nsp(self):
+        if self.client is None:
+            return None
+
+        networks = filter(lambda x: x.kind == 'hostOnlyNetwork' and
+                          x.accountId == self.project.id,
+                          self.client.list_network(kind='hostOnlyNetwork'))
+        assert len(networks) == 1
+        nsps = super_client(None).reload(networks[0]).networkServiceProviders()
+        assert len(nsps) == 1
+        return nsps[0]
+
+    def _get_host_ip(self):
+        if self.host is None:
+            return None
+
+        ips = self.host.ipAddresses()
+        assert len(ips) == 1
+        return ips[0]
+
+    def create_container(self, *args, **kw):
+        c = self.create_container_no_success(*args, **kw)
+        c = self.client.wait_success(c)
+        try:
+            if not kw['startOnCreate']:
+                assert c.state == 'stopped'
+                return c
+        except KeyError:
+            pass
+        assert c.state == 'running'
+        return c
+
+    def create_container_no_success(self, *args, **kw):
+        return self._create_container(self.client, *args, **kw)
+
+    def _create_container(self, client, *args, **kw):
+        if 'imageUuid' not in kw:
+            kw['imageUuid'] = self.image_uuid
+        c = client.create_container(*args, **kw)
+        # Make sure it's waited for and reloaded w/ project client
+        return self.client.wait_transitioning(c)
+
+    def super_create_container(self, *args, **kw):
+        c = self.super_create_container_no_success(*args, **kw)
+        return self.client.wait_success(c)
+
+    def super_create_container_no_success(self, *args, **kw):
+        kw['accountId'] = self.project.id
+        return self._create_container(super_client(None), *args, **kw)
+
+    def delete(self, obj):
+        if obj is None:
+            return
+        self.client.delete(obj)
+        self.client.wait_success(obj)
+
+    def wait_for_state(self, obj, state):
+        obj = self.client.wait_success(obj)
+        assert obj.state == state
+        return obj
