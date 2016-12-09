@@ -1,8 +1,8 @@
 from common_fixtures import *  # NOQA
 
 if_test_k8s = pytest.mark.skipif(
-    not os.environ.get('TEST_K8S'),
-    reason='TEST_K8S is not set')
+    RANCHER_ORCHESTRATION != "k8s",
+    reason='RANCHER_ORCHESTRATION is not k8s')
 
 
 @if_test_k8s
