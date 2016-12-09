@@ -1223,10 +1223,12 @@ def validate_linked_service(admin_client, service, consumed_services,
                         expected_dns_list.append(
                             con_host.ipAddresses()[0].address)
                         host_name = con_host.hostname
-                        # If host name is fqdn , get only the hostname
-                        index = host_name.find(".")
-                        if index != -1:
-                            host_name = host_name[0:index]
+                        host_os = con_host.info["osInfo"]["operatingSystem"]
+                        if host_os.startswith("Ubuntu"):
+                            # If host name is fqdn , get only the hostname
+                            index = host_name.find(".")
+                            if index != -1:
+                                host_name = host_name[0:index]
                         expected_link_response.append(host_name)
                     else:
                         expected_dns_list.append(con.primaryIpAddress)
@@ -1329,10 +1331,12 @@ def validate_dns_service(admin_client, service, consumed_services,
                     con_host = admin_client.by_id('host', con.hosts[0].id)
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
                     host_name = con_host.hostname
-                    # If host name is fqdn , get only the hostname
-                    index = host_name.find(".")
-                    if index != -1:
-                        host_name = host_name[0:index]
+                    host_os = con_host.info["osInfo"]["operatingSystem"]
+                    if host_os.startswith("Ubuntu"):
+                        # If host name is fqdn , get only the hostname
+                        index = host_name.find(".")
+                        if index != -1:
+                            host_name = host_name[0:index]
                     expected_link_response.append(host_name)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)

@@ -195,7 +195,7 @@ def test_dns_discovery_consumed_services_restart_instance(
     # Restart instance
     container = client.wait_success(container.restart(), SERVICE_WAIT_TIMEOUT)
     assert container.state == 'running'
-
+    time.sleep(10)
     validate_linked_service(admin_client, service, [consumed_service], port)
     delete_all(client, [env])
 
@@ -250,7 +250,7 @@ def test_dns_discovery_consumed_services_deactivate_activate(
     consumed_service = client.wait_success(
         consumed_service, SERVICE_WAIT_TIMEOUT)
     assert consumed_service.state == "active"
-
+    time.sleep(10)
     validate_linked_service(admin_client, service, [consumed_service], port)
     delete_all(client, [env])
 
