@@ -31,7 +31,7 @@ SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
 
 do_access_key = os.environ.get('DIGITALOCEAN_KEY')
 docker_version = os.environ.get(
-    'DOCKER_VERSION', "1.12")
+    'RANCHER_DOCKER_VERSION', "1.12")
 
 COMMUNITY_CATALOG_URL = 'https://git.rancher.io/community-catalog.git'
 COMMUNITY_CATALOG_BRANCH = 'master'
@@ -47,6 +47,9 @@ K8S_DEPLOY = os.environ.get(
 
 OVERRIDE_CATALOG = os.environ.get(
     'OVERRIDE_CATALOG', "False")
+
+RANCHER_ORCHESTRATION = os.environ.get(
+    'RANCHER_ORCHESTRATION', "cattle")
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
@@ -64,8 +67,6 @@ DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
-
-
 SERVICE_WAIT_TIMEOUT = 120
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
