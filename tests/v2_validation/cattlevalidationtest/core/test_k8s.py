@@ -768,7 +768,7 @@ def test_k8s_env_restartPolicy(kube_hosts):
     # stop containers in the pod
     time.sleep(15)
     get_response = execute_kubectl_cmds(
-        "get pod "+name+" -o json --namespace="+namespace)
+        "get pod "+name+" -o json --show-all --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
@@ -1225,11 +1225,11 @@ def test_k8s_env_dashboard(kube_hosts):
 
 
 # heapster #4451
-@pytest.mark.skipif(True, reason="Heaspter is currently failing")
+# @pytest.mark.skipif(True, reason="Heaspter is currently failing")
 def test_k8s_env_heapster(kube_hosts):
-    namespace = 'heapster-namespace'
+    namespace = 'kube-system'
     name = 'heapster'
-    create_ns(namespace)
+    # create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="heapster.yml")
     waitfor_pods(selector="k8s-app=heapster", namespace=namespace, number=1)
@@ -1256,7 +1256,8 @@ def test_k8s_env_heapster(kube_hosts):
     assert response.code == 200
     response = urlopen("http://"+nodeportip+":30805")
     assert response.code == 200
-    teardown_ns(namespace)
+    execute_kubectl_cmds("delete --namespace="+namespace,
+                         file_name="heapster.yml")
 
 
 # ServiceAccounts #4548
