@@ -185,11 +185,9 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
     ipcMode = "host"
     sysctls = {"net.ipv4.ip_forward": "1"}
     dev_opts = {
-        '/dev/sda': {
-            'readIops': 2000,
-            'writeIops': 3000
-        },
         '/dev/null': {
+            'readIops': 2000,
+            'writeIops': 3000,
             'readBps': 4000,
             'writeBps': 200,
         }
@@ -279,11 +277,11 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
         dev_opts_inspect["Rate"] = 200
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteBps"] == [dev_opts_inspect]
-        dev_opts_inspect["Path"] = "/dev/sda"
+        dev_opts_inspect["Path"] = "/dev/null"
         dev_opts_inspect["Rate"] = 2000
         assert \
             inspect["HostConfig"]["BlkioDeviceReadIOps"] == [dev_opts_inspect]
-        dev_opts_inspect["Path"] = "/dev/sda"
+        dev_opts_inspect["Path"] = "/dev/null"
         dev_opts_inspect["Rate"] = 3000
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteIOps"] == [dev_opts_inspect]
