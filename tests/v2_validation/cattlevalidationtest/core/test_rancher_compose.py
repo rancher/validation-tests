@@ -130,11 +130,9 @@ def test_rancher_compose_service_option_2(admin_client, client,
     ipcMode = "host"
     sysctls = {"net.ipv4.ip_forward": "1"}
     dev_opts = {
-        '/dev/sda': {
-            'readIops': 2000,
-            'writeIops': 3000
-        },
         '/dev/null': {
+            'readIops': 2000,
+            'writeIops': 3000,
             'readBps': 4000,
             'writeBps': 200,
         }
@@ -231,11 +229,11 @@ def test_rancher_compose_service_option_2(admin_client, client,
         dev_opts_inspect["Rate"] = 200
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteBps"] == [dev_opts_inspect]
-        dev_opts_inspect["Path"] = "/dev/sda"
+        dev_opts_inspect["Path"] = "/dev/null"
         dev_opts_inspect["Rate"] = 2000
         assert \
             inspect["HostConfig"]["BlkioDeviceReadIOps"] == [dev_opts_inspect]
-        dev_opts_inspect["Path"] = "/dev/sda"
+        dev_opts_inspect["Path"] = "/dev/null"
         dev_opts_inspect["Rate"] = 3000
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteIOps"] == [dev_opts_inspect]
@@ -362,11 +360,16 @@ def test_rancher_compose_lbservice(admin_client, client,
 
     rancher_lb_service = get_rancher_compose_service(
         client, rancher_env.id, lb_service)
-
     client.wait_success(rancher_lb_service)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    client.wait_success(rancher_service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, service1)
+    client.wait_success(rancher_service1)
 
     validate_lb_service(admin_client, client, rancher_lb_service, port,
-                        [service, service1])
+                        [rancher_service, rancher_service1])
     delete_all(client, [env, rancher_env])
 
 
@@ -425,10 +428,15 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
 
     rancher_lb_service = get_rancher_compose_service(
         client, rancher_env.id, lb_service)
-
     client.wait_success(rancher_lb_service)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, service)
+    client.wait_success(rancher_service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, service1)
+    client.wait_success(rancher_service1)
     validate_internal_lb(admin_client, rancher_lb_service,
-                         [service, service1],
+                         [rancher_service, rancher_service1],
                          host, con_port, port)
     # Check that port in the host where LB Agent is running is not accessible
     lb_containers = get_service_container_list(
@@ -605,21 +613,32 @@ def test_rancher_compose_lbservice_host_routing(admin_client, client,
     rancher_lb_service = get_rancher_compose_service(client, rancher_env.id,
                                                      lb_service)
     client.wait_success(rancher_lb_service)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, services[0])
+    client.wait_success(rancher_service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, services[1])
+    client.wait_success(rancher_service1)
+    rancher_service2 = get_rancher_compose_service(
+        client, rancher_env.id, services[2])
+    client.wait_success(rancher_service2)
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [services[0], services[1]],
+                        rancher_lb_service, port1,
+                        [rancher_service, rancher_service1],
                         "www.abc1.com", "/service1.html")
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [services[0], services[1]],
+                        rancher_lb_service, port1,
+                        [rancher_service, rancher_service1],
                         "www.abc2.com", "/service2.html")
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [services[2]],
+                        rancher_lb_service, port1, [rancher_service2],
                         "www.abc1.com", "/name.html")
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [services[2]],
+                        rancher_lb_service, port1, [rancher_service2],
                         "www.abc2.com", "/name.html")
 
     validate_lb_service_for_no_access(admin_client, rancher_lb_service, port1,
@@ -671,13 +690,19 @@ def test_rancher_compose_lbservice_multiple_port(admin_client, client,
     rancher_lb_service = get_rancher_compose_service(client, rancher_env.id,
                                                      lb_service)
     client.wait_success(rancher_lb_service)
+    rancher_service = get_rancher_compose_service(
+        client, rancher_env.id, services[0])
+    client.wait_success(rancher_service)
+    rancher_service1 = get_rancher_compose_service(
+        client, rancher_env.id, services[1])
+    client.wait_success(rancher_service1)
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port1, [services[0]],
+                        rancher_lb_service, port1, [rancher_service],
                         "www.abc1.com", "/service1.html")
 
     validate_lb_service(admin_client, client,
-                        rancher_lb_service, port2, [services[1]],
+                        rancher_lb_service, port2, [rancher_service1],
                         "www.abc2.com", "/service3.html")
     delete_all(client, [env, rancher_env])
 

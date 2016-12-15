@@ -1601,3 +1601,83 @@ def test_lbservice_host_routing_priority_override_1(
                         "abc.domain.com", "/service1.html")
 
     delete_all(client, [env])
+
+
+def test_lb_with_selector_link_target_portrules(admin_client, client,
+                                                socat_containers):
+
+    port = "20001"
+    # Create Environment
+    env = create_env(client)
+
+    launch_config_svc = {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID,
+                         "labels": {"test1": "value1"}}
+    port_rule1 = {
+        "targetPort": "80",
+        "hostname": "www.abc.com",
+        "path": "/name.html"}
+
+    port_rule2 = {
+        "targetPort": "80",
+        "hostname": "www.abc1.com",
+        "path": "/service1.html"}
+
+    # Create Service
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service1 = client.create_service(name=service_name,
+                                     stackId=env.id,
+                                     launchConfig=launch_config_svc,
+                                     scale=1,
+                                     lbConfig=create_lb_config([port_rule1]))
+
+    service1 = client.wait_success(service1)
+    assert service1.state == "inactive"
+
+    random_name = random_str()
+    service2_name = random_name.replace("-", "")
+
+    service2 = client.create_service(name=service2_name,
+                                     stackId=env.id,
+                                     launchConfig=launch_config_svc,
+                                     scale=1,
+                                     lbConfig=create_lb_config([port_rule2]))
+
+    service2 = client.wait_success(service2)
+    assert service2.state == "inactive"
+
+    launch_config_lb = {"ports": [port],
+                        "imageUuid": get_haproxy_image()}
+
+    port_rule1 = {
+        "sourcePort": port,
+        "selector": "test1=value1"}
+
+    lb_env = create_env(client)
+    lb_service = client.create_loadBalancerService(
+        name="lb-withselectorlinks",
+        stackId=lb_env.id,
+        launchConfig=launch_config_lb,
+        scale=1,
+        lbConfig=create_lb_config([port_rule1]))
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    service1 = activate_svc(client, service1)
+    service2 = activate_svc(client, service2)
+    lb_service = activate_svc(client, lb_service)
+
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         [service1, service2], lb_service)
+
+    validate_lb_service(admin_client, client,
+                        lb_service, port,
+                        [service1],
+                        "www.abc.com", "/name.html")
+
+    validate_lb_service(admin_client, client,
+                        lb_service, port,
+                        [service2],
+                        "www.abc1.com", "/service1.html")
+
+    delete_all(client, [env])
