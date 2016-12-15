@@ -768,7 +768,7 @@ def test_k8s_env_restartPolicy(kube_hosts):
     # stop containers in the pod
     time.sleep(15)
     get_response = execute_kubectl_cmds(
-        "get pod "+name+" -o json --namespace="+namespace)
+        "get pod "+name+" -o json --show-all --namespace="+namespace)
     pod = json.loads(get_response)
     assert pod['metadata']['name'] == name
     assert pod['kind'] == "Pod"
