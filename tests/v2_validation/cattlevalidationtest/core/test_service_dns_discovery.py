@@ -275,6 +275,7 @@ def test_dns_discovery_service_deactivate_activate(admin_client, client):
     service = service.activate()
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port)
     delete_all(client, [env])
@@ -310,6 +311,7 @@ def test_dns_discovery_deactivate_activate_environment(admin_client, client):
     consumed_service = client.wait_success(
         consumed_service, SERVICE_WAIT_TIMEOUT)
     assert consumed_service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port)
     delete_all(client, [env])
@@ -338,6 +340,7 @@ def test_dns_discovery_services_stop_start_instance(admin_client, client):
         service_instance.stop(), SERVICE_WAIT_TIMEOUT)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port)
 

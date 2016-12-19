@@ -398,6 +398,7 @@ def test_link_service_deactivate_activate(admin_client, client):
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port,
                             linkName="mylink")
@@ -432,6 +433,7 @@ def test_link_deactivate_activate_environment(admin_client, client):
 
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port,
                             linkName="mylink")
@@ -607,6 +609,7 @@ def test_link_services_stop_start_instance(admin_client, client):
     service_instance = client.wait_success(service_instance.stop(), 120)
     service = wait_state(client, service, "active")
     wait_for_scale_to_adjust(admin_client, service)
+    time.sleep(restart_sleep_interval)
 
     validate_linked_service(admin_client, service, [consumed_service], port,
                             linkName="mylink")

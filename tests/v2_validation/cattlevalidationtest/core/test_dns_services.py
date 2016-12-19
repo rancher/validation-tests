@@ -457,6 +457,7 @@ def test_dns_service_deactivate_activate(admin_client, client):
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_dns_service(
         admin_client, service, [consumed_service, consumed_service1], port,
@@ -495,6 +496,7 @@ def test_dns_deactivate_activate_environment(admin_client, client):
 
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_dns_service(
         admin_client, service, [consumed_service, consumed_service1], port,

@@ -587,6 +587,7 @@ def test_volume_mount_deactivate_activate_environment(client, admin_client,
     env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
@@ -609,6 +610,7 @@ def test_volume_mount_services_stop_start_instance(
     # Stop instance
     container = client.wait_success(container.stop(), 120)
     wait_state(client, service, "active")
+    time.sleep(restart_sleep_interval)
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
@@ -691,6 +693,7 @@ def test_volume_mount_services_deactivate_activate(
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
