@@ -12,7 +12,7 @@ def test_host_api_token(client):
     conn = ws.create_connection(stats.url+'?token='+stats.token)
     result = conn.recv()
     assert result is not None
-    assert result.startswith('{')
+    assert result.startswith('[')
 
 
 def test_host_api_no_token(client):

@@ -243,6 +243,7 @@ def test_extservice_service_deactivate_activate(admin_client, client):
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_external_service(admin_client, service, [ext_service],
                               port, con_list)
@@ -278,6 +279,7 @@ def test_extservice_deactivate_activate_environment(admin_client, client):
 
     ext_service = client.wait_success(ext_service, 120)
     assert ext_service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     validate_external_service(admin_client, service, [ext_service],
                               port, con_list)
@@ -406,6 +408,7 @@ def test_extservice_services_stop_start_instance(admin_client, client):
     service_instance = client.wait_success(service_instance.stop(), 120)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
+    time.sleep(restart_sleep_interval)
 
     validate_external_service(admin_client, service, [ext_service],
                               port, con_list)

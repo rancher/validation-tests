@@ -530,6 +530,7 @@ def test_sidekick_deactivate_activate_environment(client, admin_client):
     env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
@@ -553,7 +554,8 @@ def test_sidekick_services_stop_start_instance(client,  admin_client):
     # Stop instance
     container = client.wait_success(container.stop(), 120)
     wait_state(client, service, "active")
-    time.sleep(10)
+    time.sleep(restart_sleep_interval)
+
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
                       consumed_service_name, exposed_port, dnsname)
@@ -634,6 +636,7 @@ def test_sidekick_services_deactivate_activate(client,  admin_client):
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
+    time.sleep(restart_sleep_interval)
 
     dnsname = service.secondaryLaunchConfigs[0].name
     validate_sidekick(admin_client, service, service_name,
