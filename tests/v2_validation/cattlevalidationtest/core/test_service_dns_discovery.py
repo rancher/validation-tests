@@ -368,7 +368,7 @@ def test_dns_discovery_services_restart_instance(admin_client, client):
     service_instance = client.wait_success(
         service_instance.restart(), SERVICE_WAIT_TIMEOUT)
     assert service_instance.state == 'running'
-
+    time.sleep(restart_sleep_interval)
     validate_linked_service(admin_client, service, [consumed_service], port,
                             )
 
