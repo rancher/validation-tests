@@ -315,7 +315,7 @@ def test_link_consumed_services_restart_instance(admin_client, client):
     # Restart instance
     container = client.wait_success(container.restart(), 120)
     assert container.state == 'running'
-
+    time.sleep(restart_sleep_interval)
     validate_linked_service(admin_client, service, [consumed_service], port,
                             linkName="mylink")
     delete_all(client, [env])
@@ -638,7 +638,7 @@ def test_link_services_restart_instance(admin_client, client):
     # Restart consumed instance
     service_instance = client.wait_success(service_instance.restart(), 120)
     assert service_instance.state == 'running'
-
+    time.sleep(restart_sleep_interval)
     validate_linked_service(admin_client, service, [consumed_service], port,
                             linkName="mylink")
 

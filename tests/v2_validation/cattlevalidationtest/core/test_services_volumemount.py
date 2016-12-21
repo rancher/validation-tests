@@ -633,7 +633,7 @@ def test_volume_mount_services_restart_instance(client, admin_client,
     # restart instance
     container = client.wait_success(container.restart(), 120)
     assert container.state == 'running'
-
+    time.sleep(restart_sleep_interval)
     validate_volume_mount(admin_client, service, service_name,
                           [consumed_service_name])
 

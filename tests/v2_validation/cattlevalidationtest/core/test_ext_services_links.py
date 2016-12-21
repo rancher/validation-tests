@@ -437,7 +437,7 @@ def test_extservice_services_restart_instance(admin_client, client):
     # Restart external instance
     service_instance = client.wait_success(service_instance.restart(), 120)
     assert service_instance.state == 'running'
-
+    time.sleep(restart_sleep_interval)
     validate_external_service(admin_client, service,
                               [ext_service], port, con_list)
     con_list.append(env)
