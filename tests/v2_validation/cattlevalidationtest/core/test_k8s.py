@@ -211,7 +211,7 @@ def test_k8s_env_delete(kube_hosts):
         "delete service --namespace="+namespace+" "+name, expected_result)
 
     # Verify service is deleted
-    expected_error = 'Error from server: services "'+name+'" not found'
+    expected_error = 'services "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get service "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
@@ -223,13 +223,13 @@ def test_k8s_env_delete(kube_hosts):
 
     # Verify RC is deleted
     expected_error = \
-        'Error from server: replicationcontrollers "'+name+'" not found'
+        'replicationcontrollers "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get rc "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
 
     # Verify pods are deleted
-    expected_result = ['Error from server: rc "'+name+'" not found']
+    expected_result = ['rc "'+name+'" not found']
     get_response = execute_kubectl_cmds(
         "get pod --selector=name="+name+" -o json --namespace="+namespace)
 
@@ -262,7 +262,7 @@ def test_k8s_env_secret(kube_hosts):
         expected_result, file_name="secret.yml")
     # Verify Secret is deleted
     expected_error = \
-        'Error from server: secrets "'+name+'" not found'
+        'secrets "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get secret "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
@@ -343,7 +343,7 @@ def test_k8s_env_configmaps(kube_hosts):
         "create --namespace="+namespace,
         expected_result, file_name="configmap.yml")
 
-    # Verify namespace is created
+    # Verify configmap is created
     get_response = execute_kubectl_cmds(
         "get configmaps testconfigmap -o json --namespace="+namespace)
     secret = json.loads(get_response)
@@ -351,15 +351,15 @@ def test_k8s_env_configmaps(kube_hosts):
     assert secret["data"]["test.name"] == "configmap"
     assert secret["data"]["test.type"] == "resources"
 
-    # Delete namespace
+    # Delete configmap
     expected_result = ['configmap "'+name+'" deleted']
     execute_kubectl_cmds(
         "delete configmap testconfigmap --namespace="+namespace,
         expected_result)
 
-    # Verify namespace is deleted
+    # Verify configmap is deleted
     expected_error = \
-        'Error from server: configmaps "'+name+'" not found'
+        'configmaps "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get configmap "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
@@ -663,7 +663,7 @@ def test_k8s_env_delete_pod(kube_hosts):
     waitfor_delete(name=name, namespace=namespace)
     # Verify Pod is deleted
     expected_error = \
-        'Error from server: pods "'+name+'" not found'
+        'pods "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get pods "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
@@ -988,7 +988,7 @@ def test_k8s_env_rc_delete(kube_hosts):
         "delete rc "+name+" --namespace="+namespace, expected_result)
     # Verify rc is deleted
     expected_error = \
-        'Error from server: replicationcontrollers "'+name+'" not found'
+        'replicationcontrollers "'+name+'" not found'
     get_response = execute_kubectl_cmds(
         "get rc "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
