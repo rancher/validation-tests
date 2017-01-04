@@ -224,8 +224,7 @@ def test_cli_create_restart_service_batch_interval(admin_client, client,
     delete_all(client, [stack])
 
 
-def test_cli_restart_container(admin_client, client,
-                               rancher_cli_container):
+def test_cli_restart_container(client, rancher_cli_container):
 
     # This method deletes a standalone container
     stack_name = random_str().replace("-", "")
@@ -293,8 +292,7 @@ def test_cli_delete_service(admin_client, client,
     delete_all(client, [stack])
 
 
-def test_cli_delete_container(admin_client, client,
-                              rancher_cli_container):
+def test_cli_delete_container(client, rancher_cli_container):
 
     # This method deletes a standalone container
 
@@ -354,8 +352,7 @@ def test_cli_delete_stack(admin_client, client,
     delete_all(client, [stack])
 
 
-def test_cli_show_services(admin_client, client,
-                           rancher_cli_container):
+def test_cli_show_services(client, rancher_cli_container):
 
     # This method tests displaying the services through "ps -a"
 
@@ -395,8 +392,7 @@ def test_cli_show_services(admin_client, client,
     delete_all(client, [stack])
 
 
-def test_cli_show_containers(admin_client, client,
-                             rancher_cli_container):
+def test_cli_show_containers(client, rancher_cli_container):
 
     # This method tests displaying the containers through "ps -c"
 
@@ -425,7 +421,7 @@ def test_cli_show_containers(admin_client, client,
     delete_all(client, [stack])
 
 
-def test_cli_env_list(admin_client, client, rancher_cli_container):
+def test_cli_env_list(client, rancher_cli_container):
 
     # This method tests listing the environments
 
@@ -433,14 +429,14 @@ def test_cli_env_list(admin_client, client, rancher_cli_container):
 
     command = "env ls"
     expected_response = ["cattle", "Default"]
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    cli_response = execute_rancher_cli(client, stack_name, command)
     print "The cli response is \n"
     print cli_response
     for response in expected_response:
         if response in expected_response:
             assert True
 
-    envlist = admin_client.list_project()
+    envlist = client.list_project()
     found = False
     for env in envlist:
         for resp in cli_response:
@@ -569,8 +565,7 @@ def test_cli_inspect_service(admin_client, client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_inspect_container(admin_client, client,
-                               rancher_cli_container):
+def test_cli_inspect_container(client, rancher_cli_container):
 
     # This method tests inspecting a container
 
@@ -636,3 +631,639 @@ def test_cli_create_restart_containers_of_service(admin_client, client,
         assert container.startCount == 2
 
     delete_all(client, [stack])
+
+
+def test_cli_inspect_stack(client, rancher_cli_container):
+
+    # This method tests inspecting a stack
+
+    stack_name = random_str().replace("-", "")
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc15.yml")
+
+    stack, service = get_env_service_by_name(client, stack_name, "rtest15")
+
+    assert service.state == "active"
+    assert service.scale == 1
+    assert service.name == "rtest15"
+
+    # List stack by stack name
+    stacklist = client.list_stack(name=stack_name)
+    for line in stacklist.data:
+        stackdata = line
+    print stackdata.serviceIds
+    # Confirm service is active and the containers are running
+    command = "inspect --type stack " + stack_name
+    cli_response = execute_rancher_cli(client, stack_name, command)
+    print "The CLI response is: "
+    print cli_response
+
+    for line in cli_response:
+        cli_response_item = line
+    print cli_response_item
+    output = json.loads(cli_response_item)
+    serviceidarray = output['serviceIds']
+    print serviceidarray
+
+    # Ensure all Service ids are in the list obtained from the api call
+    for serviceid in stackdata.serviceIds:
+        if serviceid in serviceidarray:
+            assert True
+    assert output['name'] == stack_name
+    assert output['kind'] == 'stack'
+    assert output['state'] == 'active'
+    assert output['healthState'] == 'healthy'
+
+    delete_all(client, [stack])
+
+
+def test_cli_inspect_env(client, rancher_cli_container):
+
+    # This method tests inspecting an environment
+
+    stack_name = random_str().replace("-", "")
+
+    envlist = client.list_project()
+    print envlist
+    for env in envlist:
+        command = "inspect --type project " + env.name
+        cli_response = execute_rancher_cli(client, stack_name, command)
+        print "The CLI response is: "
+        print cli_response
+        for line in cli_response:
+            cli_response_item = line
+            print cli_response_item
+            output = json.loads(cli_response_item)
+            assert output['name'] == env.name
+            assert output['kind'] == 'project'
+            assert output['state'] == 'active'
+            assert output['healthState'] == 'healthy'
+
+
+def test_cli_inspect_host(client, rancher_cli_container):
+
+    # This method tests inspecting a host
+
+    stack_name = random_str().replace("-", "")
+
+    hostlist = client.list_host()
+    print hostlist
+    for host in hostlist:
+        command = "inspect --type host " + host.id
+        cli_response = execute_rancher_cli(client, stack_name, command)
+        print "The CLI response is: "
+        print cli_response
+        for line in cli_response:
+            cli_response_item = line
+            print cli_response_item
+            output = json.loads(cli_response_item)
+            instanceidarray = output['instanceIds']
+            print instanceidarray
+            print host.instanceIds
+            # Ensure all container ids are in the list obtained from api call
+            for id in host.instanceIds:
+                if id in instanceidarray:
+                    assert True
+            assert output['id'] == host.id
+            assert output['type'] == 'host'
+            assert output['state'] == 'active'
+
+
+def test_cli_host_list(client, rancher_cli_container):
+
+    # This method tests listing hosts in an environment
+    stack_name = random_str().replace("-", "")
+
+    hostlist = client.list_host()
+    state = "active"
+    print hostlist
+
+    command = "host ls"
+    cli_response = execute_rancher_cli(client, stack_name, command)
+    print "The CLI response is:"
+    print cli_response
+    found = False
+    for host in hostlist:
+        for resp in cli_response:
+            if host.id in resp and state in resp and \
+                            host.agentIpAddress in resp:
+                found = True
+    assert found
+
+
+def test_cli_volume_list(client, rancher_cli_container):
+
+    # This method tests listing the volumes
+
+    stack_name = random_str().replace("-", "")
+
+    vol_list = client.list_volume()
+    print "The List of volumes:"
+    print vol_list
+
+    command = "volume ls"
+    cli_response = execute_rancher_cli(client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+
+    found = False
+    for vol in vol_list:
+        for resp in cli_response:
+            # If Volume name is None assign it to empty string to
+            # allow for comparison with CLI response
+            if vol['name'] is None:
+                vol['name'] = " "
+            if vol['name'] in resp:
+                found = True
+    assert found
+
+
+def test_cli_volume_create_remove(client, rancher_cli_container):
+
+    # This method tests creating and deleting a volume
+
+    stack_name = random_str().replace("-", "")
+
+    vol_name = "test_vol"
+    driver_name = "local"
+    # Create a volume test_vol
+    create_command = "volume create " + vol_name + " --driver " + driver_name
+    print create_command
+    cli_create_response = execute_rancher_cli(client, stack_name,
+                                              create_command)
+    print "The CLI response is \n"
+    print cli_create_response
+
+    # Create a service which uses the created volume test_vol
+    stack_name = random_str().replace("-", "")
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc16.yml")
+
+    stack, service = get_env_service_by_name(client, stack_name, "rtest16")
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+    assert service.scale == 1
+    assert service.name == "rtest16"
+
+    # List the volumes using API and ensure that the volume
+    # created through CLI exists in the list
+    vol_list = client.list_volume()
+    print "The List of Volumes: "
+    print vol_list
+
+    vol_names_list = []
+    for vol in vol_list:
+        vol_names_list.append(vol['name'])
+    if vol_name in vol_names_list:
+        print "Success"
+
+    # Delete the stack
+    delete_all(client, [stack])
+
+    # Remove the volume test_vol
+    remove_command = "volume rm " + vol_name
+    cli_remove_response = execute_rancher_cli(client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+    # Delay to allow for deletion of volume
+    time.sleep(15)
+
+    # List the volumes after deletion
+    vol_list = client.list_volume()
+    print "The List of Volumes: "
+    print vol_list
+
+    vol_names_list = []
+    for vol in vol_list:
+        vol_names_list.append(vol['name'])
+    print vol_names_list
+    # Verify the volume is deleted
+    if vol_name in vol_names_list:
+        print "Volume not deleted"
+        assert False
+
+
+def test_cli_inspect_volume(client, rancher_cli_container):
+
+    # This method tests inspecting volumes
+
+    stack_name = random_str().replace("-", "")
+
+    vol_name = "test_insp_vol"
+    driver_name = "local"
+    # Create a volume test_insp_vol
+    create_command = "volume create " + vol_name + " --driver " + driver_name
+    print create_command
+    cli_create_response = execute_rancher_cli(client, stack_name,
+                                              create_command)
+    print "The volume create CLI response is \n"
+    print cli_create_response
+
+    # Create a service which uses test_insp_vol volume
+    stack_name = random_str().replace("-", "")
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc17.yml")
+
+    stack, service = get_env_service_by_name(client, stack_name, "rtest17")
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+    assert service.scale == 1
+    assert service.name == "rtest17"
+
+    # Inspect the created volume
+    inspect_volume_command = "inspect " + vol_name
+    cli_inspect_response = execute_rancher_cli(client, stack_name,
+                                               inspect_volume_command)
+    print "Inspect volume response"
+    print cli_inspect_response
+    time.sleep(5)
+    for line in cli_inspect_response:
+        cli_response_item = line
+    print cli_response_item
+    output = json.loads(cli_response_item)
+    assert output['name'] == vol_name
+    assert output['kind'] == 'volume'
+    assert output['state'] == 'active'
+    assert output['driver'] == 'local'
+
+    delete_all(client, [stack])
+    time.sleep(5)
+    # Remove the volume test_insp_vol
+    remove_command = "volume rm " + vol_name
+    cli_remove_response = execute_rancher_cli(client, stack_name,
+                                              remove_command)
+    print "CLI remove response:"
+    print cli_remove_response
+    # Delay to allow for the deletion of volume
+    time.sleep(5)
+
+    # List the volumes after deletion
+    vol_list = client.list_volume()
+    vol_names_list = []
+    for vol in vol_list:
+        vol_names_list.append(vol['name'])
+    print vol_names_list
+    # Verify the volume is deleted
+    if vol_name in vol_names_list:
+        print "Volume not deleted"
+        assert False
+
+
+def test_cli_catalog_list(client, rancher_cli_container):
+
+    # This method tests listing the environments
+
+    stack_name = random_str().replace("-", "")
+    catalogs = []
+    url = os.environ.get('CATTLE_TEST_URL')
+    community_catalog_url = url + "/v1-catalog/catalogs/community/templates"
+    library_catalog_url = url + "v1-catalog/catalogs/library/templates"
+
+    print "Community Catalog URL is" + community_catalog_url
+    print "Library Catalog URL is" + library_catalog_url
+
+    # Community Catalog Processing
+    response = requests.get(community_catalog_url)
+    template = json.loads(response.content)
+    print template
+    catalogdata = template["data"]
+    for item in catalogdata:
+        catalogs.append(item["name"])
+
+    # Library Catalog Processing
+    response = requests.get(library_catalog_url)
+    template = json.loads(response.content)
+    print template
+    libcatalogdata = template["data"]
+    for item in libcatalogdata:
+        catalogs.append(item["name"])
+
+    for catalog in catalogs:
+        print "Catalog is :" + catalog
+
+    # Execute 'catalog ls' command
+    command = "catalog ls"
+    cli_response = execute_rancher_cli(client, stack_name, command)
+    print "The catalog list cli response is \n"
+    print cli_response
+
+    # Verify all the catalog items are listed
+    found = False
+    for catalog in catalogs:
+        for line in cli_response:
+            if catalog in line:
+                found = True
+    assert found
+
+
+def test_cli_env_create_rm_cattle(admin_client, client, rancher_cli_container):
+
+    # This method tests creating and removing a Cattle environment
+
+    stack_name = random_str().replace("-", "")
+    env_name = random_str().replace("-", "")
+    orchestration = "cattle"
+    command = "env create " + env_name
+    print "Command is"
+    print command
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+    envlist = admin_client.list_project()
+    print "The list is :"
+    print envlist
+    found = False
+    for env in envlist:
+        print env
+        for resp in cli_response:
+            if env.id in resp:
+                envid = env.id
+                found = True
+    assert found
+
+    # Check if the newly created environment is of orchestration "Cattle"
+    command = "env ls"
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The env list CLI response is \n"
+    print cli_response
+    for resp in cli_response:
+        if env_name in resp:
+            envarray = resp
+    print envarray
+    if envarray[2] == orchestration:
+        assert True
+
+    print "The env id is :" + repr(envid)
+    remove_command = "env rm " + env_name
+
+    # Remove the Environment created and ensure it is deleted
+    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+
+    if envid in cli_remove_response:
+        assert True
+
+    # Verify that the env is removed from the envlist
+    envlist = admin_client.list_project()
+    for env in envlist:
+        if envid == env.id:
+            assert False
+
+
+def test_cli_env_create_rm_kubernetes(admin_client, client,
+                                      rancher_cli_container):
+
+    # This method tests creating and removing a Kubernetes environment
+
+    stack_name = random_str().replace("-", "")
+    env_name = random_str().replace("-", "")
+    orchestration = "kubernetes"
+    command = "env create " + "-t" + " kubernetes " + env_name
+    print "Command is"
+    print command
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+    envlist = admin_client.list_project()
+    found = False
+    for env in envlist:
+        for resp in cli_response:
+            if env.id in resp:
+                envid = env.id
+                found = True
+    assert found
+
+    # Check if the newly created environment is of orchestration "Kubernetes"
+    command = "env ls"
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The env list CLI response is \n"
+    print cli_response
+    for resp in cli_response:
+        if env_name in resp:
+            envarray = resp
+    print envarray
+    if envarray[2] == orchestration:
+        assert True
+
+    print "The env id is :" + repr(envid)
+    remove_command = "env rm " + env_name
+
+    # Remove the Environment created and ensure it is deleted
+    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+
+    if envid in cli_remove_response:
+        assert True
+
+    # Verify that the env is removed from the envlist
+    envlist = admin_client.list_project()
+    for env in envlist:
+        if envid == env.id:
+            assert False
+
+
+def test_cli_env_create_rm_swarm(admin_client, client, rancher_cli_container):
+
+    # This method tests creating and removing a Swarm environment
+
+    stack_name = random_str().replace("-", "")
+    env_name = random_str().replace("-", "")
+    orchestration = "swarm"
+    command = "env create " + "-t" + " swarm " + env_name
+    print "Command is"
+    print command
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+    envlist = admin_client.list_project()
+    found = False
+    for env in envlist:
+        for resp in cli_response:
+            if env.id in resp:
+                envid = env.id
+                found = True
+    assert found
+
+    # Check if the newly created environment is of orchestration "Swarm"
+    command = "env ls"
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The env list CLI response is \n"
+    print cli_response
+    for resp in cli_response:
+        if env_name in resp:
+            envarray = resp
+    print envarray
+    if envarray[2] == orchestration:
+        assert True
+
+    print "The env id is :" + repr(envid)
+    remove_command = "env rm " + env_name
+
+    # Remove the Environment created and ensure it is deleted
+    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+
+    if envid in cli_remove_response:
+        assert True
+
+    # Verify that the env is removed from the envlist
+    envlist = admin_client.list_project()
+    for env in envlist:
+        if envid == env.id:
+            assert False
+
+
+def test_cli_env_create_rm_mesos(admin_client, client, rancher_cli_container):
+
+    # This method tests creating and removing a Mesos environment
+
+    stack_name = random_str().replace("-", "")
+    env_name = random_str().replace("-", "")
+    orchestration = "mesos"
+    command = "env create " + "-t" + " mesos " + env_name
+    print "Command is"
+    print command
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+    envlist = admin_client.list_project()
+    found = False
+    for env in envlist:
+        for resp in cli_response:
+            if env.id in resp:
+                envid = env.id
+                found = True
+    assert found
+
+    # Check if the newly created environment is of orchestration "Mesos"
+    command = "env ls"
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The env list CLI response is \n"
+    print cli_response
+
+    for resp in cli_response:
+        if env_name in resp:
+            envarray = resp
+    print envarray
+    if envarray[2] == orchestration:
+        assert True
+
+    print "The env id :" + repr(envid)
+    remove_command = "env rm " + env_name
+
+    # Remove the Environment created and ensure it is deleted
+    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+
+    if envid in cli_remove_response:
+        assert True
+
+    # Verify that the env is removed from the envlist
+    envlist = admin_client.list_project()
+    for env in envlist:
+        if envid == env.id:
+            assert False
+
+
+def test_cli_list_system_services(client, rancher_cli_container):
+
+    # This method tests displaying the services through "ps -s"
+
+    stack_name = random_str().replace("-", "")
+    services_list = client.list_service(system=True)
+    print "The services are"
+    print services_list
+
+    command = "ps -s"
+    cli_response = execute_rancher_cli(client, stack_name, command)
+    print cli_response
+    found = False
+    # Verify the services listed
+    for service in services_list:
+        for resp in cli_response:
+            if service['name'] in resp:
+                found = True
+    assert found
+
+
+def test_cli_env_deactivate_activate(admin_client, client,
+                                     rancher_cli_container):
+
+    # This method tests deactivating and activating an environment
+
+    stack_name = random_str().replace("-", "")
+    env_name = random_str().replace("-", "")
+    active_state = "active"
+    inactive_state = "inactive"
+
+    # Create an environment
+    command = "env create " + env_name
+    cli_response = execute_rancher_cli(admin_client, stack_name, command)
+    print "The CLI response is \n"
+    print cli_response
+
+    # Deactivate the environment
+
+    deactivate_command = "env deactivate " + env_name
+    cli_deactivate_response = execute_rancher_cli(admin_client, stack_name,
+                                                  deactivate_command)
+    print "The CLI response is :"
+    print cli_deactivate_response
+
+    envlist = admin_client.list_project()
+
+    envdata = envlist.data
+    for env in envdata:
+        if env.name == env_name and env.state == inactive_state:
+            print "Environemt is INACTIVE"
+            envid = env.id
+            assert True
+
+    if envid in cli_deactivate_response:
+        assert True
+
+    # Activate the environment
+
+    activate_command = "env activate " + env_name
+    cli_activate_response = execute_rancher_cli(admin_client, stack_name,
+                                                activate_command)
+    print "The CLI response is \n"
+    print cli_activate_response
+
+    envlist = admin_client.list_project()
+
+    envdata = envlist.data
+    for env in envdata:
+        if env.name == env_name and env.state == active_state:
+            print "Environment is ACTIVE"
+            envid = env.id
+            assert True
+
+    if envid in cli_activate_response:
+        assert True
+
+    print "The env id is :" + repr(envid)
+    remove_command = "env rm " + env_name
+
+    # Remove the Environment created and ensure it is deleted
+    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
+                                              remove_command)
+    print cli_remove_response
+
+    if envid in cli_remove_response:
+        assert True
+
+    # Verify that the env is removed from the envlist
+    envlist = admin_client.list_project()
+    for env in envlist:
+        if envid == env.id:
+            assert False
