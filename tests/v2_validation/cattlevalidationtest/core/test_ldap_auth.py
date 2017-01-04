@@ -6,6 +6,9 @@ from cattle import ApiError, ClientApiError
 if_test_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
                                   reason='API_AUTH_LDAP_SERVER is not set')
 
+if_do_key = pytest.mark.skipif(
+    not os.environ.get('DIGITALOCEAN_KEY'),
+    reason="Digital Ocean key is not set")
 
 ADMIN_LDAP_CLIENT = None
 
@@ -36,7 +39,8 @@ def ldap_client(admin_client):
 
 
 def create_ldap_client(username=None,
-                       password=None):
+                       password=None,
+                       project_id=None):
 
     client = from_env(url=cattle_url(),
                       access_key=ADMIN_LDAP_CLIENT._access_key,
@@ -47,7 +51,7 @@ def create_ldap_client(username=None,
     client._access_key = None
     client._secret_key = None
 
-    client._auth = LdapAuth(jwt)
+    client._auth = LdapAuth(jwt, prj_id=project_id)
     client.reload_schema()
     assert client.valid()
 
@@ -1128,3 +1132,282 @@ def test_ldap_change_user_to_admin(admin_client):
     u2_account = main_client.by_id("account", u2_account.id)
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='user')
+
+
+# 29
+@if_test_ldap
+def test_ldap_admin_list_all_env(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+
+    # Purge user2 account first
+    u2_token = get_authed_token(username=ldap_user2,
+                                password=ldap_pass2)
+    u2_name = u2_token['userIdentity']['name']
+    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.by_id("account", u2_account.id)
+    u2_account.deactivate()
+    main_client.wait_success(u2_account)
+    main_client.delete(u2_account)
+
+    u2_account = main_client.wait_success(u2_account)
+    u2_account.purge()
+    main_client.wait_success(u2_account)
+    assert u2_account.removed is not None
+
+    u2_token = get_authed_token(username=ldap_user2,
+                                password=ldap_pass2)
+    u2_name = u2_token['userIdentity']['name']
+
+    # change account from user to admin
+    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.by_id("account", u2_account.id)
+    main_client.wait_success(u2_account)
+    main_client.update_by_id_account(u2_account.id, kind='admin')
+
+    # List all projects
+    projects = main_client.list_project()
+
+    # Create new project
+    main_client.create_project()
+
+    for project in projects:
+        project_url = cattle_url() \
+                      + "/projects/" + project.id + "/projectmembers"
+        cookies = dict(token=u2_token['jwt'])
+        access = requests.get(project_url, cookies=cookies)
+        assert access.ok
+
+    # change account from admin to user
+    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.by_id("account", u2_account.id)
+    main_client.wait_success(u2_account)
+    main_client.update_by_id_account(u2_account.id, kind='user')
+
+
+# 30
+@if_test_ldap
+@if_do_key
+def test_ldap_member_add_host(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = None
+    for obj in main_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            main_identity = obj
+            break
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+    u2_identity = None
+    for obj in u2_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            u2_identity = obj
+            break
+
+    # test creation of new env
+    project = main_client.create_project(members=[
+        idToMember(main_identity, 'owner'),
+        idToMember(u2_identity, 'member')
+    ])
+
+    main_client.wait_success(project)
+    assert main_client.by_id('project', project.id) is not None
+    assert u2_client.by_id('project', project.id) is not None
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=project.id)
+    # Add new host
+    host_list = \
+        add_digital_ocean_hosts(
+            u2_client, 1)
+    assert len(host_list) == 1
+
+    # Remove host
+    host = host_list[0]
+    deactivated_host = host.deactivate()
+    u2_client.wait_success(deactivated_host)
+
+    deactivated_host.remove()
+
+    all_hosts = u2_client.list_host()
+    for h in all_hosts:
+        if h.hostname == host.hostname:
+            assert False
+
+
+# 31
+@if_test_ldap
+@if_do_key
+def test_ldap_create_new_env_with_restricted_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = None
+    for obj in main_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            main_identity = obj
+            break
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+    u2_identity = None
+    for obj in u2_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            u2_identity = obj
+            break
+
+    # test creation of new env
+    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_project = main_client.by_id('project', default_prj_id)
+    default_project.setmembers(members=[
+        idToMember(main_identity, 'owner'),
+        idToMember(u2_identity, 'restricted')
+    ])
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=default_prj_id)
+    # Add new host
+    with pytest.raises(AttributeError) as excinfo:
+        host_list = \
+            add_digital_ocean_hosts(
+                u2_client, 1)
+        assert len(host_list) == 1
+
+    assert "object has no attribute" in str(excinfo.value)
+
+
+# 32
+@if_test_ldap
+def test_ldap_create_service_with_restricted_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = None
+    for obj in main_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            main_identity = obj
+            break
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+    u2_identity = None
+    for obj in u2_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            u2_identity = obj
+            break
+
+    # test creation of new env
+    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_project = main_client.by_id('project', default_prj_id)
+    default_project.setmembers(members=[
+        idToMember(main_identity, 'owner'),
+        idToMember(u2_identity, 'restricted')
+    ])
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass,
+                                     project_id=default_prj_id)
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=default_prj_id)
+    # Add new host
+    hosts = u2_client.list_host(
+                kind='docker', removed_null=True, state="active")
+    if len(hosts) == 0:
+        host_list = \
+            add_digital_ocean_hosts(
+                main_client, 1)
+        assert len(host_list) == 1
+
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    scale = 1
+    create_env_and_svc(u2_client, launch_config, scale)
+
+
+# 33,34
+@if_test_ldap
+def test_ldap_create_new_env_with_readonly_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = None
+    for obj in main_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            main_identity = obj
+            break
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+    u2_identity = None
+    for obj in u2_client.list_identity():
+        if obj.externalIdType == 'openldap_user':
+            u2_identity = obj
+            break
+
+    # test creation of new env
+    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_project = main_client.by_id('project', default_prj_id)
+    default_project.setmembers(members=[
+        idToMember(main_identity, 'owner'),
+        idToMember(u2_identity, 'readonly')
+    ])
+
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=default_prj_id)
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass,
+                                     project_id=default_prj_id)
+    # Add new host
+    with pytest.raises(AttributeError) as excinfo:
+        host_list = \
+            add_digital_ocean_hosts(
+                u2_client, 1)
+        assert len(host_list) == 1
+
+    assert "object has no attribute" in str(excinfo.value)
+
+    with pytest.raises(AttributeError) as excinfo:
+        launch_config = {"imageUuid": TEST_IMAGE_UUID}
+        scale = 1
+        create_env_and_svc(u2_client, launch_config, scale)
+
+    assert "object has no attribute" in str(excinfo.value)
+
+    # Create service using main client
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    scale = 1
+    service, env = create_env_and_svc(main_client, launch_config, scale)
+
+    # List service using user1 client
+    service = u2_client.list_service(name=service.name,
+                                     stackId=env.id,
+                                     removed_null=True)
+    assert len(service) == 1
