@@ -3276,6 +3276,60 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
     assert found
 
 
+def create_webhook(projectid, data):
+
+    # This method creates the webhook
+
+    url = base_url().split("v2-beta")[0] + "v1-webhooks/receivers?projectId=" \
+                           + projectid
+    headers = {"Content-Type": "application/json",
+               "Accept": "application/json"}
+    print "Url is \n"
+    print url
+    response = requests.post(url, data=json.dumps(data), headers=headers)
+    return response
+
+
+def delete_webhook_verify(projectid, webhook_id):
+
+    # This method deletes a webhook and verifies that
+    # it has been deleted in the webhook list
+
+    url = base_url().split("v2-beta")[0] + "v1-webhooks/receivers/"\
+                           + webhook_id+"?projectId=" + projectid
+    print "Delete URL is " + url
+    headers = {"Content-Type": "application/json",
+               "Accept": "application/json"}
+    r = requests.delete(url, headers=headers)
+    assert r.status_code == 204
+
+    # List the webhooks and ensure deletion is successful
+    webhook_list = list_webhook(projectid)
+
+    print webhook_list
+    for dictitem in webhook_list:
+        if dictitem["id"] == webhook_id:
+            print "Webhook Deletion Unsuccessful"
+            assert False
+
+
+def list_webhook(projectid):
+
+    # This method returns the list of webhooks
+
+    url = base_url().split("v2-beta")[0] + \
+                           "v1-webhooks/receivers?projectId=" \
+                           + projectid
+    print "List URL is " + url
+    headers = {"Content-Type": "application/json",
+               "Accept": "application/json"}
+    r = requests.get(url, headers=headers)
+    assert r.status_code == 200
+    resp = json.loads(r.content)
+    webhook_list = resp["data"]
+    return webhook_list
+
+
 @pytest.fixture(scope='session')
 def set_haproxy_image(admin_client):
     if MICROSERVICE_IMAGES["haproxy_image_uuid"] is None:
