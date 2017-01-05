@@ -3217,6 +3217,7 @@ def execute_rancher_cli(client, stack_name, command,
                         timeout=SERVICE_WAIT_TIMEOUT):
     access_key = client._access_key
     secret_key = client._secret_key
+
     docker_filename = stack_name + "-docker-compose.yml"
     rancher_filename = stack_name + "-rancher-compose.yml"
 
@@ -3224,26 +3225,27 @@ def execute_rancher_cli(client, stack_name, command,
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-v*"
+    cmd5 = "export RANCHER_ENVIRONMENT=" + "Default"
     clicmd = "./rancher " + command
     if docker_compose is not None and rancher_compose is None:
-        cmd5 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
-        cmd6 = clicmd + " -s " + stack_name + \
+        cmd6 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
+        cmd7 = clicmd + " -s " + stack_name + \
             " -f " + docker_filename
     elif docker_compose is not None and rancher_compose is not None:
-        cmd5 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
+        cmd6 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
         rcmd = "echo '" + rancher_compose + "' > " + rancher_filename + ";"
-        cmd6 = rcmd + clicmd + " -s " + stack_name + " -f " \
+        cmd7 = rcmd + clicmd + " -s " + stack_name + " -f " \
             + docker_filename + " --rancher-file " + rancher_filename
     else:
-        cmd5 = ""
-        cmd6 = clicmd
+        cmd6 = ""
+        cmd7 = clicmd
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
         rancher_cli_con["host"].ipAddresses()[0].address, username="root",
         password="root", port=int(rancher_cli_con["port"]))
-    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+cmd6
+    cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6+cmd7
     print "Final Command \n" + cmd
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
