@@ -922,7 +922,7 @@ def test_cli_catalog_list(client, rancher_cli_container):
     catalogs = []
     url = os.environ.get('CATTLE_TEST_URL')
     community_catalog_url = url + "/v1-catalog/catalogs/community/templates"
-    library_catalog_url = url + "v1-catalog/catalogs/library/templates"
+    library_catalog_url = url + "/v1-catalog/catalogs/library/templates"
 
     print "Community Catalog URL is" + community_catalog_url
     print "Library Catalog URL is" + library_catalog_url
