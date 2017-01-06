@@ -87,6 +87,7 @@ ha_host_list = []
 ha_host_count = 4
 kube_host_count = 3
 kube_host_list = []
+catalog_host_count = 3
 
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
@@ -3362,3 +3363,62 @@ class Context(object):
         obj = self.client.wait_success(obj)
         assert obj.state == state
         return obj
+
+
+@pytest.fixture(scope='session')
+def deploy_catalog_template(client, super_client, request,
+                            t_name, t_version, t_env):
+    catalog_url = rancher_server_url() + "/v1-catalog/templates/community:"
+    # Deploy Catalog template from catalog
+    r = requests.get(catalog_url + t_name + ":" + str(t_version))
+    template = json.loads(r.content)
+    r.close()
+
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+
+    environment = t_env
+    env = client.create_stack(name=t_name,
+                              dockerCompose=dockerCompose,
+                              rancherCompose=rancherCompose,
+                              environment=environment,
+                              startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    wait_for_condition(
+        super_client, env,
+        lambda x: x.healthState == "healthy",
+        lambda x: 'State is: ' + x.state,
+        timeout=600)
+    for service in env.services():
+        wait_for_condition(
+            super_client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=600)
+        container_list = get_service_container_list(client, service,
+                                                    managed=1)
+        for container in container_list:
+            if 'io.rancher.container.start_once' not in container.labels:
+                assert container.state == "running"
+            else:
+                assert container.state == "stopped" or \
+                       container.state == "running"
+
+
+@pytest.fixture(scope='session')
+def remove_catalog_template(client, request, t_name):
+    def remove():
+        env = client.list_stack(name=t_name)
+        for i in range(len(env)):
+            delete_all(client, [env[i]])
+    request.addfinalizer(remove)
+
+
+@pytest.fixture(scope='session')
+def catalog_hosts(request, client, super_client, admin_client):
+    hosts = client.list_host(
+        kind='docker', removed_null=True, state="active",
+        include="physicalHost")
+    if len(hosts) < catalog_host_count:
+        add_digital_ocean_hosts(
+            client, catalog_host_count - len(hosts), "4gb")
