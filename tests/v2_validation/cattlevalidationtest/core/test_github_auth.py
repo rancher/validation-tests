@@ -1702,6 +1702,7 @@ def test_github_create_new_env_with_restricted_member(admin_client):
 
 
 # 32
+@if_test_github
 def test_github_create_service_with_restricted_member(admin_client):
     main_user = os.getenv('GITHUB_MAIN_USER')
     main_pass = os.getenv('GITHUB_MAIN_PASS')
