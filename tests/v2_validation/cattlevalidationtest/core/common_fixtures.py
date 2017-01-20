@@ -2645,14 +2645,20 @@ def create_kubectl_client_container(client, port,
     assert c.state == "running"
     time.sleep(sleep_interval)
 
-    kube_config = readDataFile(K8_SUBDIR, "config.txt")
+    if cattle_url().startswith("https"):
+        server_ip = rancher_server_url()
+        config_file = "config-ssl.txt"
+    else:
+        server_ip = cattle_url()[cattle_url().index("//") +
+                                 2:cattle_url().index(":8080")]
+        config_file = "config.txt"
+
+    kube_config = readDataFile(K8_SUBDIR, config_file)
     kube_config = kube_config.replace("$username", client._access_key)
     kube_config = kube_config.replace("$password", client._secret_key)
     kube_config = kube_config.replace("$environment", project_name)
     kube_config = kube_config.replace("$pid", project_id)
 
-    server_ip = \
-        cattle_url()[cattle_url().index("//") + 2:cattle_url().index(":8080")]
     kube_config = kube_config.replace("$server", server_ip)
 
     ssh = paramiko.SSHClient()
