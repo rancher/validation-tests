@@ -1225,7 +1225,7 @@ def test_k8s_env_dashboard(kube_hosts):
 
 
 # heapster #4451
-# @pytest.mark.skipif(True, reason="Heaspter is currently failing")
+@pytest.mark.skipif(True, reason="Grafana is not supported")
 @if_test_k8s
 def test_k8s_env_heapster(kube_hosts):
     namespace = 'kube-system'
