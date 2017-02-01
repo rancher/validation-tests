@@ -1826,6 +1826,170 @@ def test_rancher_compose_inservice_upgrade_add_sk_rollback(
     delete_all(client, [env])
 
 
+@if_compose_data_files
+def test_rancher_compose_upgrade_with_ports_confirm(
+        admin_client, client, rancher_compose_container):
+
+    env_name = random_str().replace("-", "")
+
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport.yml", env_name,
+        "up -d", "Creating stack", "rc_inserviceport.yml")
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_upg.yml",
+        env_name, "up --upgrade -d", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
+
+    # Confirm upgrade
+
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_upg.yml", env_name,
+        "up --confirm-upgrade -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
+    containers = get_service_container_list(admin_client, service, 0)
+    assert len(containers) == 0
+    delete_all(client, [env])
+
+
+@if_compose_data_files
+def test_rancher_compose_upgrade_with_ports_rollback(
+        admin_client, client, rancher_compose_container):
+    env_name = random_str().replace("-", "")
+
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback.yml", env_name,
+        "up -d ",
+        "Creating stack", "rc_inserviceport_forrollback.yml")
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_upg.yml",
+        env_name,
+        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
+
+    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
+    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
+    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+
+    # Rollback upgrade
+
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_upg.yml",
+        env_name,
+        "up --rollback -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    containers = get_service_container_list(admin_client, service, 0)
+    assert len(containers) == 0
+    delete_all(client, [env])
+
+
+@if_compose_data_files
+def test_rancher_compose_upgrade_global_with_ports_confirm(
+        admin_client, client, rancher_compose_container):
+
+    env_name = random_str().replace("-", "")
+
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_g.yml", env_name,
+        "up -d", "Creating stack")
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
+                             is_global=True)
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_g_upg.yml",
+        env_name, "up --upgrade -d", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 0,
+                             is_global=True)
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
+                             is_global=True)
+
+    # Confirm upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_g_upg.yml", env_name,
+        "up --confirm-upgrade -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
+                             is_global=True)
+    containers = get_service_container_list(admin_client, service, 0)
+    assert len(containers) == 0
+    delete_all(client, [env])
+
+
+@if_compose_data_files
+def test_rancher_compose_upgrade_global_with_ports_rollback(
+        admin_client, client, rancher_compose_container):
+    env_name = random_str().replace("-", "")
+
+    # Create an environment using up
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g.yml",
+        env_name,
+        "up -d ",
+        "Creating stack")
+
+    env, service = get_env_service_by_name(client, env_name, "test1")
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
+                             is_global=True)
+
+    # Upgrade environment using up --upgrade
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g_upg.yml",
+        env_name,
+        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 0,
+                             is_global=True)
+    check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
+                             is_global=True)
+
+    # Rollback upgrade
+
+    launch_rancher_compose_from_file(
+        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g_upg.yml",
+        env_name,
+        "up --rollback -d", "Started")
+    service = client.reload(service)
+    assert service.state == "active"
+    check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
+                             is_global=True)
+    containers = get_service_container_list(admin_client, service, 0)
+    assert len(containers) == 0
+    delete_all(client, [env])
+
+
 def check_config_for_service_sidekick(admin_client, service, service_name,
                                       labels, managed, primary=True):
     containers = get_service_containers_with_name(

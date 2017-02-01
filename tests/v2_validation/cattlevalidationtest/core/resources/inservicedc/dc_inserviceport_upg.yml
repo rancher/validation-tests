@@ -1,0 +1,10 @@
+version: '2'
+services:
+  test1:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    ports:
+    - 40:80/tcp
+    labels:
+      test1: value2

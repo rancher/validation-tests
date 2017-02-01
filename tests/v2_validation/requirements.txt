@@ -3,9 +3,10 @@ paramiko
 pytest==2.7.1
 pytest-xdist
 requests==2.6.0
-cattle==0.5.1
+cattle==0.5.3
 selenium==2.33.0
 websocket-client==0.23.0
 docker-py==1.2.3
 githubpy==1.1.0
 boto
+git+https://github.com/rancher/gdapi-python.git@31d74507d96c8f053a08bda129cc63f96ca60161

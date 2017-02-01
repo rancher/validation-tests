@@ -689,7 +689,14 @@ def kube_hosts(admin_user_client, admin_client, client, request):
         cleanup_k8s()
 
     def remove():
-        delete_all(k8s_client, [kubectl_client_con["container"]])
+        if K8S_DEPLOY == "True":
+            for host in kube_host_list:
+                host = k8s_client.wait_success(host.deactivate())
+                assert host.state == "inactive"
+                host = k8s_client.wait_success(k8s_client.delete(host))
+                assert host.state == 'removed'
+        else:
+            delete_all(k8s_client, [kubectl_client_con["container"]])
     request.addfinalizer(remove)
 
 
@@ -2789,6 +2796,14 @@ def get_env_service_by_name(client, env_name, service_name):
     return env[0], service[0]
 
 
+def get_service_by_name(client, env,  service_name):
+    service = client.list_service(name=service_name,
+                                  stackId=env.id,
+                                  removed_null=True)
+    assert len(service) == 1
+    return service[0]
+
+
 def check_for_appcookie_policy(admin_client, client, lb_service, port,
                                target_services, cookie_name):
     container_names = get_container_names_list(admin_client,
@@ -2861,7 +2876,7 @@ def check_for_stickiness(url, expected_responses, headers=None):
             assert response == sticky_response
 
 
-def add_digital_ocean_hosts(client, count, size="1gb",
+def add_digital_ocean_hosts(client, count, size="2gb",
                             docker_version="1.12"):
     assert do_access_key is not None, \
         "DigitalOcean access key not set"
@@ -2931,9 +2946,15 @@ def get_service_instance_count(client, service):
     return scale
 
 
-def check_config_for_service(admin_client, service, labels, managed):
+def check_config_for_service(admin_client, service, labels, managed,
+                             is_global=False):
     containers = get_service_container_list(admin_client, service, managed)
-    assert len(containers) == service.scale
+    if is_global:
+        hosts = admin_client.list_host(
+            kind='docker', removed_null=True, state="active")
+        assert len(containers) == len(hosts)
+    else:
+        assert len(containers) == service.scale
     for con in containers:
         for key in labels.keys():
             assert con.labels[key] == labels[key]
@@ -3482,3 +3503,116 @@ def catalog_hosts(request, client, super_client, admin_client):
     if len(hosts) < catalog_host_count:
         add_digital_ocean_hosts(
             client, catalog_host_count - len(hosts), "4gb")
+
+
+def validate_connectivity_between_services(admin_client, service1,
+                                           service_list,
+                                           connection="allow"):
+    assert len(service1.launchConfig["ports"]) >= 1
+    port_str = service1.launchConfig["ports"][0]
+    exposed_port = port_str[:port_str.index(":")]
+
+    containers = get_service_container_list(admin_client, service1)
+    assert len(containers) == service1.scale
+
+    for container in containers:
+        host = admin_client.by_id('host', container.hosts[0].id)
+        for service in service_list:
+            consumed_containers = get_service_container_list(admin_client,
+                                                             service)
+            assert len(consumed_containers) == service.scale
+
+            # Exec into the container using the exposed port
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host.ipAddresses()[0].address, username="root",
+                        password="root", port=int(exposed_port))
+
+            for con in consumed_containers:
+                linkName = con.name
+
+                # Validate DNS resolution using dig
+                cmd = "dig " + linkName + " +short"
+                logger.info(cmd)
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+
+                response = stdout.readlines()
+                resp = response[0].strip("\n")
+                logger.info("Actual dig Response" + str(resp))
+                assert resp in con.primaryIpAddress
+
+                # Validate that we are able to reach the container
+                cmd = "wget -O result.txt --timeout=2 --tries=1 http://" + \
+                      linkName + ":80/name.html;cat result.txt"
+                logger.info(cmd)
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+
+                if connection == "allow":
+                    # No errors
+                    err_response = stderr.readlines()
+                    logger.info("Wget Error Response" + str(err_response))
+                    found_connection_string = False
+                    for resp in err_response:
+                        if "200 OK" in resp:
+                            found_connection_string = True
+                    assert found_connection_string
+
+                    # Response has containers uuid
+                    std_response = stdout.readlines()
+                    assert len(std_response) == 1
+                    resp = std_response[0].strip("\n")
+                    logger.info("Actual wget Response" + str(resp))
+                    assert resp in con.externalId[:12]
+
+                else:
+                    # Connection timed out error
+                    err_response = stderr.readlines()
+                    logger.info("Wget Error Response" + str(err_response))
+                    found_connection_error_string = False
+                    for resp in err_response:
+                        if "Connection timed out" in resp:
+                            found_connection_error_string = True
+                    assert found_connection_error_string
+
+                    # No response
+                    std_response = stdout.readlines()
+                    assert len(std_response) == 0
+
+
+def stop_service_instances(client, env, service, stop_instance_index):
+    # Stop instance
+    for i in stop_instance_index:
+        container_name = get_container_name(env, service, str(i))
+        containers = client.list_container(name=container_name)
+        assert len(containers) == 1
+        container = containers[0]
+        container = client.wait_success(container.stop(), 120)
+        logger.info("Stopped container - " + container_name)
+    service = wait_state(client, service, "active")
+    check_container_in_service(client, service)
+
+
+def delete_service_instances(client, env, service, remove_instance_index):
+    # Delete instance
+    for i in remove_instance_index:
+        container_name = get_container_name(env, service, str(i))
+        containers = client.list_container(name=container_name)
+        assert len(containers) == 1
+        container = containers[0]
+        container = client.wait_success(client.delete(container))
+        logger.info("Removed container - " + container_name)
+    service = wait_state(client, service, "active")
+    check_container_in_service(client, service)
+
+
+def restart_service_instances(client, env, service, restart_instance_index):
+    # Restart instance
+    for i in restart_instance_index:
+        container_name = get_container_name(env, service, str(i))
+        containers = client.list_container(name=container_name)
+        assert len(containers) == 1
+        container = containers[0]
+        container = client.wait_success(container.restart(), 120)
+        logger.info("Restart container - " + container_name)
+    service = wait_state(client, service, "active")
+    check_container_in_service(client, service)
