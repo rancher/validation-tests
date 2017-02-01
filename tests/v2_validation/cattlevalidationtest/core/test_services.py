@@ -1530,6 +1530,45 @@ def test_services_rolling_strategy(admin_client, client,
     delete_all(client, [env])
 
 
+def test_service_reconcile_on_stop_exposed_port(admin_client, client,
+                                                socat_containers):
+    port = "45"
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "ports": [port+":22/tcp"]}
+    service, env = create_env_and_svc(client, launch_config, scale=3)
+    env = env.activateservices()
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
+    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
+    check_for_service_reconciliation_on_stop(admin_client, client, service)
+    delete_all(client, [env])
+
+
+def test_service_reconcile_on_restart_exposed_port(admin_client, client,
+                                                   socat_containers):
+    port = "46"
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "ports": [port+":22/tcp"]}
+    service, env = create_env_and_svc(client, launch_config, scale=3)
+    env = env.activateservices()
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
+    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
+    check_for_service_reconciliation_on_restart(admin_client, client, service)
+    delete_all(client, [env])
+
+
+def test_service_reconcile_on_delete_exposed_port(admin_client, client,
+                                                  socat_containers):
+    port = "47"
+    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+                     "ports": [port+":22/tcp"]}
+    service, env = create_env_and_svc(client, launch_config, scale=3)
+    env = env.activateservices()
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
+    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
+    check_for_service_reconciliation_on_delete(admin_client, client, service)
+    delete_all(client, [env])
+
+
 def check_service_scale(admin_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
@@ -1737,6 +1776,28 @@ def check_for_service_reconciliation_on_stop(admin_client, client, service):
     container1 = client.wait_success(container1.stop())
     container2 = containers[1]
     container2 = client.wait_success(container2.stop())
+
+    service = wait_state(client, service, "active")
+
+    wait_for_scale_to_adjust(admin_client, service)
+
+    check_container_in_service(admin_client, service)
+    container1 = client.reload(container1)
+    container2 = client.reload(container2)
+    assert container1.state == 'running'
+    assert container2.state == 'running'
+
+
+def check_for_service_reconciliation_on_restart(admin_client, client, service):
+    # Stop 2 containers of the service
+    assert service.scale > 1
+    containers = get_service_container_list(admin_client, service)
+    assert len(containers) == service.scale
+    assert service.scale > 1
+    container1 = containers[0]
+    container1 = client.wait_success(container1.restart())
+    container2 = containers[1]
+    container2 = client.wait_success(container2.restart())
 
     service = wait_state(client, service, "active")
 
