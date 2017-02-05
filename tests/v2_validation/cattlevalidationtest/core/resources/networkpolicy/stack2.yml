@@ -1,0 +1,38 @@
+version: '2'
+services:
+  test2allow:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 94:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+      com.rancher.stack.location: east
+  test1allow:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 95:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+      com.rancher.stack.location: east
+  test3deny:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 96:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+      com.rancher.stack.location: west
+  test4deny:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 97:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+      hello2: east

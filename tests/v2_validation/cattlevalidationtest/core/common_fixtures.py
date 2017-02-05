@@ -3542,7 +3542,7 @@ def validate_connectivity_between_services(admin_client, service1,
                 assert resp in con.primaryIpAddress
 
                 # Validate that we are able to reach the container
-                cmd = "wget -O result.txt --timeout=2 --tries=1 http://" + \
+                cmd = "wget -O result.txt --timeout=1 --tries=1 http://" + \
                       linkName + ":80/name.html;cat result.txt"
                 logger.info(cmd)
                 stdin, stdout, stderr = ssh.exec_command(cmd)

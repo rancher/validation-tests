@@ -1,0 +1,10 @@
+version: '2'
+services:
+  test2allow:
+    scale: 2
+  test1allow:
+    scale: 2
+  test3deny:
+    scale: 2
+  test4deny:
+    scale: 2
