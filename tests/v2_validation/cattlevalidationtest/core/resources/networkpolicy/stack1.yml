@@ -1,0 +1,72 @@
+version: '2'
+services:
+  test1allow:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 90:22/tcp
+    labels:
+      com.rancher.stack.location: east
+      io.rancher.container.pull_image: always
+  test2allow:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 91:22/tcp
+    labels:
+      com.rancher.stack.location: east
+      io.rancher.container.pull_image: always
+  lbwithininstack:
+    image: rancher/lb-service-haproxy:v0.5.9
+    ports:
+    - 9091:9091/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  test3deny:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 92:22/tcp
+    labels:
+      com.rancher.stack.location: west
+      io.rancher.container.pull_image: always
+  servicecrosslinks:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    external_links:
+    - test2/test1allow:mylink
+    tty: true
+    ports:
+    - 98:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+  lbcrossstack:
+    image: rancher/lb-service-haproxy:v0.5.9
+    ports:
+    - 9090:9090/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  test4deny:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 93:22/tcp
+    labels:
+      area: east
+      io.rancher.container.pull_image: always
+  servicewithlinks:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    links:
+    - test1allow:mylink
+    ports:
+    - 99:22/tcp
+    labels:
+      io.rancher.container.pull_image: always

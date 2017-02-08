@@ -1189,7 +1189,8 @@ def check_for_no_access_ip(lb_ip, port, is_ssl=False):
 def validate_linked_service(admin_client, service, consumed_services,
                             exposed_port, exclude_instance=None,
                             exclude_instance_purged=False,
-                            unmanaged_cons=None, linkName=None):
+                            unmanaged_cons=None, linkName=None,
+                            not_reachable=False):
     time.sleep(sleep_interval)
 
     containers = get_service_container_list(admin_client, service)
@@ -1264,10 +1265,13 @@ def validate_linked_service(admin_client, service, consumed_services,
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
             response = stdout.readlines()
-            assert len(response) == 1
-            resp = response[0].strip("\n")
-            logger.info("Actual wget Response" + str(resp))
-            assert resp in (expected_link_response)
+            if not_reachable:
+                assert len(response) == 0
+            else:
+                assert len(response) == 1
+                resp = response[0].strip("\n")
+                logger.info("Actual wget Response" + str(resp))
+                assert resp in (expected_link_response)
 
             # Validate DNS resolution using dig
             cmd = "dig " + linkName + " +short"
@@ -1956,7 +1960,7 @@ def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
 
 
 def validate_lb_service_for_no_access(admin_client, lb_service, port,
-                                      hostheader, path):
+                                      hostheader=None, path="/name.html"):
 
     lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
@@ -1971,7 +1975,9 @@ def check_for_service_unavailable(host, port, hostheader, path):
           ":" + port + path
     logger.info(url)
 
-    headers = {"host": hostheader}
+    headers = {}
+    if hostheader is not None:
+        headers["host"] = hostheader
 
     logger.info(headers)
     r = requests.get(url, headers=headers)
@@ -3482,8 +3488,9 @@ def deploy_catalog_template(client, super_client, request,
             if 'io.rancher.container.start_once' not in container.labels:
                 assert container.state == "running"
             else:
-                assert container.state == "stopped" or \
-                       container.state == "running"
+                assert \
+                    container.state == "stopped" or \
+                    container.state == "running"
 
 
 @pytest.fixture(scope='session')
@@ -3542,7 +3549,7 @@ def validate_connectivity_between_services(admin_client, service1,
                 assert resp in con.primaryIpAddress
 
                 # Validate that we are able to reach the container
-                cmd = "wget -O result.txt --timeout=2 --tries=1 http://" + \
+                cmd = "wget -O result.txt --timeout=1 --tries=1 http://" + \
                       linkName + ":80/name.html;cat result.txt"
                 logger.info(cmd)
                 stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -3616,3 +3623,23 @@ def restart_service_instances(client, env, service, restart_instance_index):
         logger.info("Restart container - " + container_name)
     service = wait_state(client, service, "active")
     check_container_in_service(client, service)
+
+
+def create_stack_with_service(
+        client, env_name, resource_dir, dc_file, rc_file):
+    dockerCompose = readDataFile(resource_dir, dc_file)
+    rancherCompose = readDataFile(resource_dir, rc_file)
+    env = client.create_stack(name=env_name,
+                              dockerCompose=dockerCompose,
+                              rancherCompose=rancherCompose,
+                              startOnCreate=True)
+    env = client.wait_success(env, timeout=300)
+    assert env.state == "active"
+
+    for service in env.services():
+        wait_for_condition(
+            client, service,
+            lambda x: x.state == "active",
+            lambda x: 'State is: ' + x.state,
+            timeout=60)
+    return env
