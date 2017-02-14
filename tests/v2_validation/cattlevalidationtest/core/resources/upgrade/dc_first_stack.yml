@@ -1,0 +1,85 @@
+version: '2'
+services:
+  servicewithexposedports:
+    image: sangeetha/testclient
+    stdin_open: true
+    tty: true
+    ports:
+    - 400$portsuffixnum:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+  service2:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+  ssllb:
+    image: $lbimage
+    ports:
+    - 401:401/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  service1:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+  globalhealthservice:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: 'true'
+  healthservice:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+  servicewithlink:
+    image: sangeetha/testclient
+    stdin_open: true
+    tty: true
+    links:
+    - service2:mylink
+    ports:
+    - 500$portsuffixnum:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+  myalias:
+    image: rancher/dns-service
+    links:
+    - service1:service1
+    - service2:service2
+  healthlb:
+    image: $lbimage
+    ports:
+    - 200$portsuffixnum:200$portsuffixnum/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  mylb:
+    image: $lbimage
+    ports:
+    - 300$portsuffixnum:300$portsuffixnum/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  globalhealthlb:
+    image: $lbimage
+    ports:
+    - 100$portsuffixnum:100$portsuffixnum/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+      io.rancher.scheduler.global: 'true'
+  myextservice:
+    image: rancher/external-service
+  extservicetohostname:
+    image: rancher/external-service
+
+
