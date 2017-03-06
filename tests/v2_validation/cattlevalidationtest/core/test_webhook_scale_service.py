@@ -806,15 +806,145 @@ def test_webhook_service_no_image(admin_client, client):
     json_resp = json.loads(resp.content)
     print json_resp
     expected_message = "Cannot create webhook for service " \
-                       "with no image" + service.id
+                       "with no image " + service.id
     assert json_resp['message'] == expected_message
+
+    delete_all(client, [env])
+
+
+def test_webhook_missing_projectid(admin_client, client):
+
+    # This method tests that executing a webhook with missing
+    # project id gives an error message
+
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+
+    service, env = create_env_and_svc(client, launch_config)
+    assert service.state == "inactive"
+    service = client.wait_success(service.activate(), 90)
+    assert service.state == "active"
+    assert service.scale == 1
+
+    data = {
+        "name": "missingprojectidtest",
+        "driver": "scaleService",
+        "scaleServiceConfig": {
+            "action": "up",
+            "amount": 1,
+            "serviceId": service.id,
+            "min": 1,
+            "max": 4,
+        }
+    }
+
+    # Create Webhook
+    resp = create_webhook(env.accountId, data)
+    assert resp.status_code == 200
+    assert resp.url is not None
+    json_resp = json.loads(resp.content)
+    webhook_url = json_resp["url"]
+    webhook_id = json_resp["id"]
+
+    print "Webhook is " + repr(webhook_url)
+    print "Id is " + repr(webhook_id)
+
+    # Remove the project id (last three characters) from the URL
+    webhook_url = webhook_url[:-3]
+    print webhook_url
+
+    # Execute webhook with missing project Id and verify that it gives
+    # an "Invalid" error message
+    wh_resp = requests.post(webhook_url)
+    assert wh_resp.status_code == 400
+
+    json_resp = json.loads(wh_resp.content)
+    print "JSON Response is"
+    print json_resp
+    expected_keyword = "Invalid"
+    jsonstrresponse = str(json_resp['message'])
+    if jsonstrresponse.find(expected_keyword) == -1:
+        assert False
+
+    # Delete the Webhook
+    delete_webhook_verify(env.accountId, webhook_id)
+
+    delete_all(client, [env])
+
+
+def test_webhook_invalid_projectid(admin_client, client):
+
+    # This method tests that executing a webhook with an invalid
+    # project id gives an error message
+
+    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+
+    service, env = create_env_and_svc(client, launch_config)
+    assert service.state == "inactive"
+    service = client.wait_success(service.activate(), 90)
+    assert service.state == "active"
+    assert service.scale == 1
+
+    data = {
+        "name": "invalidprojectidtest",
+        "driver": "scaleService",
+        "scaleServiceConfig": {
+            "action": "up",
+            "amount": 1,
+            "serviceId": service.id,
+            "min": 1,
+            "max": 4,
+        }
+    }
+
+    # Create Webhook
+    resp = create_webhook(env.accountId, data)
+    assert resp.status_code == 200
+    assert resp.url is not None
+    json_resp = json.loads(resp.content)
+    webhook_url = json_resp["url"]
+    webhook_id = json_resp["id"]
+
+    print "Webhook is " + repr(webhook_url)
+    print "Id is " + repr(webhook_id)
+
+    webhook_url_split = webhook_url.split("projectId=")
+    print webhook_url_split
+    projectId = webhook_url_split[1]
+    print projectId
+    invalid_projectId = "1e1000"
+    print webhook_url
+
+    # Use the invalid project id "1e1000" in the URL
+    webhook_url_with_invalid_projectId = webhook_url_split[0] + \
+        "projectId=" + invalid_projectId
+    print "Webhook URL with invalid project id:"
+    print webhook_url_with_invalid_projectId
+
+    # Execute webhook with invalid project Id and
+    # verify that it gives an error message
+    wh_resp = requests.post(webhook_url_with_invalid_projectId)
+    print "Response is : "
+    print wh_resp
+    assert wh_resp.status_code == 500
+
+    json_resp = json.loads(wh_resp.content)
+    print "JSON Response is"
+    print json_resp
+    expected_keyword = "Error"
+    jsonstrresponse = str(json_resp['message'])
+    if jsonstrresponse.find(expected_keyword) == -1:
+        assert False
+
+    # Delete the Webhook
+    delete_webhook_verify(env.accountId, webhook_id)
 
     delete_all(client, [env])
 
 
 def test_webhook_invalid_token(admin_client, client):
 
-    # This method tests an invalid token gives an error message
+    # This method tests that executing a webhook with an
+    # invalid token gives an error message
 
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
 
@@ -847,19 +977,32 @@ def test_webhook_invalid_token(admin_client, client):
     print "Webhook is " + repr(webhook_url)
     print "Id is " + repr(webhook_id)
 
-    webhook_url = webhook_url[:-3]
+    webhook_url_split = webhook_url.split("key=")
+    key = webhook_url_split[1]
+    # Create invalid key by removing first 3 characters of the key
+    modified_key = key[3:]
+    print "Modified key"
+    print modified_key
     print webhook_url
 
-    # Execute Webhook with invalid token and verify that gives an error message
-    wh_resp = requests.post(webhook_url)
-    assert wh_resp.status_code == 400
+    # Use the invalid key in the URL
+    webhook_url_with_invalid_token = webhook_url_split[0] + "key=" \
+        + modified_key
+    print "Webhook URL with Invalid token:"
+    print webhook_url_with_invalid_token
+
+    # Execute webhook with invalid key/token and verify that it gives
+    # an error message
+    wh_resp = requests.post(webhook_url_with_invalid_token)
+    print wh_resp
+    assert wh_resp.status_code == 403
 
     json_resp = json.loads(wh_resp.content)
     print "JSON Response is"
     print json_resp
-    expected_message = "Invalid token error"
+    expected_keyword = "revoked"
     jsonstrresponse = str(json_resp['message'])
-    if jsonstrresponse.find(expected_message) == -1:
+    if jsonstrresponse.find(expected_keyword) == -1:
         assert False
 
     # Delete the Webhook
