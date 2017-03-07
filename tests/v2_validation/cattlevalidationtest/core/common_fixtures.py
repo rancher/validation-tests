@@ -3112,23 +3112,25 @@ def get_pod_names_for_selector(selector_name, namespace, scale=2):
 
 # Collect names of the pods in the service1
 def create_ingress(file_name, ingress_name, namespace, ing_scale=1,
-                   wait_for_ingress=True):
+                   wait_for_ingress=True, global_ing = None):
 
     expected_result = ['ingress "'+ingress_name+'" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace, expected_result,
         file_name=file_name)
     lb_ips = []
+    ingressobjs = []
     if wait_for_ingress:
         lb_ips = wait_for_ingress_to_become_active(ingress_name, namespace,
                                                    ing_scale)
     return lb_ips
 
 
-def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
+def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale, global_ing = None):
     # Returns a list of lb_ips [Supports ingress scaling]
 
     lb_ip = []
+    ingressobjs = []
     startTime = time.time()
     while len(lb_ip) < ing_scale:
         if time.time() - startTime > 60:
@@ -3141,10 +3143,23 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
         print ingress
         if "ingress" in ingress["status"]["loadBalancer"]:
             for item in ingress["status"]["loadBalancer"]["ingress"]:
+                print item
                 print item["ip"]
                 lb_ip.append(item["ip"])
+            print "Hello Ingress"
+            print ingress
+            ingressobjs.append(ingress)
         time.sleep(.5)
     return lb_ip
+
+
+def get_ingress_lbs(file_name, ingress_name, namespace, ing_scale=1,
+                              wait_for_ingress = True):
+
+    #lb_ip = create_ingress(file_name, ingress_name, namespace,
+    #                       wait_for_ingress=True, global_ing = True)
+
+    print "Hello"
 
 
 # Delete an ingress
@@ -3181,11 +3196,13 @@ def create_service_ingress(ingresses, services, port, namespace, ing_scale=1,
         podnames.append(podnameslist)
 
     lbips = []
+    ingressobjs = []
     for i in range(0, len(ingresses)):
         lb_ip = create_ingress(ingresses[i]["filename"],
                                ingresses[i]["name"], namespace, ing_scale,
                                wait_for_ingress=True)
         lbips.extend(lb_ip)
+        #ingressobjs.extend(ingressobj)
         for i in range(0, len(lbips)):
             wait_until_lb_ip_is_active(lbips[i], port)
 

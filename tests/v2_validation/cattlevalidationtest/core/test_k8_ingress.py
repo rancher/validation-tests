@@ -1148,8 +1148,9 @@ def test_k8s_ingress_20(kube_hosts):
 @if_test_k8s
 def test_k8s_ingress_21(kube_hosts):
 
-    # This method tests updating an ingress with just backend,
-    # to an ingress pointing to only a different service
+    # This method tests updating an ingress to
+    # point to a different service
+    # No change in port number [#8010]
 
     # Create namespace
     namespace = "testingress21"
@@ -1190,31 +1191,19 @@ def test_k8s_ingress_21(kube_hosts):
                       selector2, scale=2, wait_for_service=True)
 
     # Replace the ingress to point to a different service
-
     ingress_file_name_new = "ingress_21_new.yml"
     expected_result = ['ingress "' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
-    lb_ip_updated = lbips
-    print "Lb IP"
-    print lb_ip_updated
-    try:
-        wait_until_lb_ip_is_active(lb_ip_updated[0], port, timeout=90)
-        print "Same IP"
-    except:
-        lb_ip_updated = wait_for_ingress_to_become_active(ingress_name,
-                                                          namespace,
-                                                          ing_scale=1)
-        print "New IP"
-        print lb_ip_updated[0]
-        wait_until_lb_ip_is_active(lb_ip_updated[0], port, timeout=90)
+
+    wait_until_lb_ip_is_active(lbips[0], port, timeout=120)
 
     # Validate Ingress rules
     pod2_names = get_pod_names_for_selector(selector2, namespace, scale=2)
 
     print pod2_names
-    check_round_robin_access_lb_ip(pod2_names, lb_ip_updated[0], port,
+    check_round_robin_access_lb_ip(pod2_names, lbips[0], port,
                                    path="/service3.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
@@ -1222,26 +1211,25 @@ def test_k8s_ingress_21(kube_hosts):
 
 
 @if_test_k8s
-def test_k8s_ingress_22(kube_hosts):
+def test_k8s_ingress_22(kube_hosts, client, admin_client):
 
-    # This method tests updating an ingress with just backend,
-    # to an ingress pointing to only a different service
+    # This method tests creating a global ingress
 
     # Create namespace
     namespace = "testingress22"
     create_ns(namespace)
 
     # Initial set up
-    port = "105"
+    port = "106"
     ingress_file_name = "ingress_22.yml"
     ingress_name = "ingress22"
 
     services = []
     service1 = {}
-    service1["name"] = "k8test22-one"
-    service1["selector"] = "k8s-app=k8test22-one-service"
-    service1["rc_name"] = "k8testrc21-one"
-    service1["filename"] = "service21_one_ingress.yml"
+    service1["name"] = "k8test22"
+    service1["selector"] = "k8s-app=k8test22-service"
+    service1["rc_name"] = "k8testrc22"
+    service1["filename"] = "service22_ingress.yml"
     services.append(service1)
 
     ingresses = []
@@ -1255,8 +1243,255 @@ def test_k8s_ingress_22(kube_hosts):
                                              port, namespace)
 
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
-                                   path="/service3.html")
+                                   path="/name.html")
 
+    ingresslbservicename = namespace + "-" + "rancherlb-" + ingress_name
+    print "ingresslbservicename"
+    print ingresslbservicename
+    stackname = "kubernetes-ingress-lbs"
+    stack, ingresslbservice = get_env_service_by_name(client, stackname,
+                                                      ingresslbservicename)
+    print ingresslbservice
+    ingressservicetest = client.list_service(name=ingresslbservice.name,
+                                             include="instances",
+                                             uuid=ingresslbservice.uuid,
+                                             state="active")
+
+    print "The length of ingressservicetest is:"
+    print len(ingressservicetest)
+    assert len(ingressservicetest) == 1
+    instanceslist = ingressservicetest[0].instances
+    print "Instances list"
+    print instanceslist
+    hostlist = client.list_host(state="active")
+    print hostlist
+    hostidlist = []
+    for host in hostlist:
+        hostidlist.append(host.id)
+
+    # Verify that the number of containers of the global service
+    # is equal to the number of hosts
+    assert len(instanceslist) == len(hostlist)
+    print "Host id list"
+    print hostidlist
+    # Verify that there is one instance per host
+    for instance in instanceslist:
+        assert instance['hostId'] in hostidlist
+        hostidlist.remove(instance['hostId'])
+
+    # Delete ingress
+    delete_ingress(ingress_name, namespace)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_ingress_23(kube_hosts, client, admin_client):
+
+    # This method tests creating ingress on a particular host
+
+    # Create namespace
+    namespace = "testingress23"
+    create_ns(namespace)
+
+    # Initial set up
+    port = "107"
+    ingress_file_name = "ingress_23.yml"
+    ingress_name = "ingress23"
+
+    services = []
+    service1 = {}
+    service1["name"] = "k8test23"
+    service1["selector"] = "k8s-app=k8test23-service"
+    service1["rc_name"] = "k8testrc23"
+    service1["filename"] = "service23_ingress.yml"
+    services.append(service1)
+
+    ingresses = []
+    ingress = {}
+    ingress["name"] = ingress_name
+    ingress["filename"] = ingress_file_name
+    ingresses.append(ingress)
+
+    # Add labels to the hosts as host=host1, host=host2, host=host3
+    hostlist = client.list_host(state="active")
+    i = 0
+    for host in hostlist:
+        i = i + 1
+        labelkey = "host" + str(i)
+        print labelkey
+        host.labels.update({"host": labelkey})
+        print "The labels after update are: "
+        print host.labels
+        host = client.update(host, labels=host.labels, hostname=host.hostname)
+        client.wait_success(host, 300)
+
+    # Create services, ingress and validate
+    podnames, lbips = create_service_ingress(ingresses, services,
+                                             port, namespace)
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
+                                   path="/name.html")
+
+    ingresslbservicename = namespace + "-" + "rancherlb-" + ingress_name
+
+    stackname = "kubernetes-ingress-lbs"
+    stack, ingresslbservice = get_env_service_by_name(client, stackname,
+                                                      ingresslbservicename)
+    print ingresslbservice
+    ingressservicetest = client.list_service(name=ingresslbservice.name,
+                                             include="instances",
+                                             uuid=ingresslbservice.uuid,
+                                             state="active")
+    # Verfify that the ingress service has the label set correctly
+    servicedata = ingressservicetest.data
+    servicedatadict = servicedata[0]
+    print "Service data dictionary"
+    print servicedatadict
+    labels = servicedatadict.launchConfig["labels"]
+    assert labels["io.rancher.scheduler.affinity:host_label"] == "host=host1"
+
+    print "The length of ingressservicetest is:"
+    print len(ingressservicetest)
+    assert len(ingressservicetest) == 1
+    instanceslist = ingressservicetest[0].instances
+
+    # Verify that the host where the ingress instance lands
+    # has label "host=host1"
+    ingress_hostid = instanceslist[0]['hostId']
+    for host in hostlist:
+        if host.id == ingress_hostid:
+            hostlabelsdict = host.labels
+            if 'host' in hostlabelsdict:
+                print hostlabelsdict['host']
+                assert hostlabelsdict['host'] == 'host1'
+
+    # Remove the labels on the hosts
+    for host in hostlist:
+        print host.labels
+        if 'host' in host.labels:
+            del host.labels['host']
+        print "The labels after delete are: "
+        print host.labels
+        host = client.update(host, labels=host.labels, hostname=host.hostname)
+        client.wait_success(host, 300)
+
+    # Delete ingress
+    delete_ingress(ingress_name, namespace)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_ingress_24(kube_hosts, client, admin_client):
+
+    # This method tests updating an ingress by incrementing the scale
+    # No change in port number [#8450]
+
+    # Create namespace
+    namespace = "testingress24"
+    create_ns(namespace)
+
+    # Initial set up
+    port = "108"
+    ingress_file_name = "ingress_24.yml"
+    ingress_name = "ingress24"
+
+    services = []
+    service1 = {}
+    service1["name"] = "k8test24"
+    service1["selector"] = "k8s-app=k8test24-service"
+    service1["rc_name"] = "k8testrc24"
+    service1["filename"] = "service24_ingress.yml"
+    services.append(service1)
+
+    ingresses = []
+    ingress = {}
+    ingress["name"] = ingress_name
+    ingress["filename"] = ingress_file_name
+    ingresses.append(ingress)
+
+    # Create services, ingress and validate
+    podnames, lbips = create_service_ingress(ingresses, services,
+                                             port, namespace)
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+    # Replace the ingress by increasing the scale to two
+    ingress_file_name_new = "ingress_24_new.yml"
+    expected_result = ['ingress "' + ingress_name + '" replaced']
+    execute_kubectl_cmds(
+        "replace ing --namespace="+namespace,
+        expected_result, file_name=ingress_file_name_new)
+    wait_until_lb_ip_is_active(lbips[0], port, timeout=120)
+    wait_until_lb_ip_is_active(lbips[1], port, timeout=120)
+
+    # Verify the ingress scale is 2
+    assert len(lbips) == 2
+    print lbips[0]
+    print lbips[1]
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[1], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+    # Delete ingress
+    delete_ingress(ingress_name, namespace)
+    teardown_ns(namespace)
+
+
+@if_test_k8s
+def test_k8s_ingress_25(kube_hosts, client, admin_client):
+
+    # This method tests updating an ingress by changing the host header
+    # No change in the port number
+
+    # Create namespace
+    namespace = "testingress25"
+    create_ns(namespace)
+
+    # Initial set up
+    port = "109"
+    ingress_file_name = "ingress_25.yml"
+    ingress_name = "ingress25"
+
+    services = []
+    service1 = {}
+    service1["name"] = "k8test25"
+    service1["selector"] = "k8s-app=k8test25-service"
+    service1["rc_name"] = "k8testrc25"
+    service1["filename"] = "service25_ingress.yml"
+    services.append(service1)
+
+    ingresses = []
+    ingress = {}
+    ingress["name"] = ingress_name
+    ingress["filename"] = ingress_file_name
+    ingresses.append(ingress)
+
+    # Create services, ingress and validate
+    podnames, lbips = create_service_ingress(ingresses, services,
+                                             port, namespace)
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+    # Replace the ingress by updating the hostheader to "bar.foo.com"
+    ingress_file_name_new = "ingress_25_new.yml"
+    expected_result = ['ingress "' + ingress_name + '" replaced']
+    execute_kubectl_cmds(
+        "replace ing --namespace="+namespace,
+        expected_result, file_name=ingress_file_name_new)
+    wait_until_lb_ip_is_active(lbips[0], port, timeout=120)
+
+    check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
+                                   hostheader="bar.foo.com",
+                                   path="/name.html")
     # Delete ingress
     delete_ingress(ingress_name, namespace)
     teardown_ns(namespace)

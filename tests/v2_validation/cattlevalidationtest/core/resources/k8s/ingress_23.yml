@@ -1,0 +1,11 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress23
+  annotations:
+    http.port: "107"
+    io.rancher.scheduler.affinity.host_label: "host=host1"
+spec:
+  backend:
+    serviceName: k8test23
+    servicePort: 80

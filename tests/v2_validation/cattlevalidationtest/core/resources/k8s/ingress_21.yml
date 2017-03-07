@@ -1,0 +1,10 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress21
+ annotations:
+   http.port: "105"
+spec:
+  backend:
+    serviceName: k8test21-one
+    servicePort: 81
