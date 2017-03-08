@@ -3893,3 +3893,28 @@ def read_data(con, port, dir, file):
     resp = response[0].strip("\n")
     ssh.close()
     return resp
+
+
+def check_round_robin_access_k8s_service(container_names, lb_ip, port,
+                                         path="/name.html"):
+    con_hostname = container_names[:]
+    con_done = []
+
+    url = "http://" + lb_ip +\
+          ":" + port + path
+
+    logger.info(url)
+
+    for n in range(0, 10):
+        r = requests.get(url)
+        response = r.text.strip("\n")
+        logger.info(response)
+        r.close()
+        if response in con_hostname:
+            con_hostname.remove(response)
+            con_done.append(response)
+        else:
+            assert response in con_done
+        if con_hostname == []:
+            return
+    assert False
