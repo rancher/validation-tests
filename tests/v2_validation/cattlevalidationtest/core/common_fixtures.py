@@ -1544,9 +1544,16 @@ def launch_rancher_compose(client, env):
     compose_configs = env.exportconfig()
     docker_compose = compose_configs["dockerComposeConfig"]
     rancher_compose = compose_configs["rancherComposeConfig"]
-    execute_rancher_compose(client, env.name + "rancher",
-                            docker_compose, rancher_compose,
-                            "up -d", "Creating stack")
+    response = execute_rancher_cli(client, env.name + "rancher", "up -d",
+                                   docker_compose, rancher_compose)
+    expected_resp = "Creating stack"
+    print "Obtained Response: " + str(response)
+    print "Expected Response: " + expected_resp
+    found = False
+    for resp in response:
+        if expected_resp in resp:
+            found = True
+    assert found
 
 
 def execute_rancher_compose(client, env_name, docker_compose,
@@ -3242,7 +3249,6 @@ def rancher_cli_container(admin_client, client, request):
 
     def remove_rancher_cli_container():
         delete_all(client, [rancher_cli_con["container"]])
-
     request.addfinalizer(remove_rancher_cli_container)
 
 
@@ -3255,19 +3261,19 @@ def execute_rancher_cli(client, stack_name, command,
     docker_filename = stack_name + "-docker-compose.yml"
     rancher_filename = stack_name + "-rancher-compose.yml"
 
-    cmd1 = "export RANCHER_URL=" + cattle_url()
+    cmd1 = "export RANCHER_URL=" + rancher_server_url()
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-v*"
     cmd5 = "export RANCHER_ENVIRONMENT=" + "Default"
     clicmd = "./rancher " + command
     if docker_compose is not None and rancher_compose is None:
-        cmd6 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
+        cmd6 = 'echo "' + docker_compose + '" > ' + docker_filename + ";"
         cmd7 = clicmd + " -s " + stack_name + \
             " -f " + docker_filename
     elif docker_compose is not None and rancher_compose is not None:
-        cmd6 = "echo '" + str(docker_compose) + "' > " + docker_filename + ";"
-        rcmd = "echo '" + rancher_compose + "' > " + rancher_filename + ";"
+        cmd6 = 'echo "' + docker_compose + '" > ' + docker_filename + ";"
+        rcmd = 'echo "' + rancher_compose + '" > ' + rancher_filename + ";"
         cmd7 = rcmd + clicmd + " -s " + stack_name + " -f " \
             + docker_filename + " --rancher-file " + rancher_filename
     else:
@@ -3289,7 +3295,8 @@ def execute_rancher_cli(client, stack_name, command,
 def launch_rancher_cli_from_file(client, subdir, env_name, command,
                                  expected_response, docker_compose=None,
                                  rancher_compose=None):
-    docker_compose = readDataFile(subdir, docker_compose)
+    if docker_compose is not None:
+        docker_compose = readDataFile(subdir, docker_compose)
     if rancher_compose is not None:
         rancher_compose = readDataFile(subdir, rancher_compose)
     cli_response = execute_rancher_cli(client, env_name, command,
@@ -3643,3 +3650,17 @@ def create_stack_with_service(
             lambda x: 'State is: ' + x.state,
             timeout=60)
     return env
+
+
+def create_stack_using_rancher_cli(client, stack_name, service_name,
+                                   compose_dir,
+                                   docker_compose, rancher_compose=None):
+    # Create an stack using up
+    launch_rancher_cli_from_file(
+        client, compose_dir, stack_name,
+        "up -d ", "Creating stack",
+        docker_compose, rancher_compose)
+
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
+    assert service.state == "active"
+    return stack, service

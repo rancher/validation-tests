@@ -38,7 +38,8 @@ def cleanup():
                         i.name.startswith("native-test") or \
                         i.name.startswith("target-native-test-") or \
                         i.name.startswith("lb-test-client") or \
-                        i.name.startswith("rancher-compose"):
+                        i.name.startswith("rancher-compose") or \
+                        i.name.startswith("rancher-cli"):
                     to_delete.append(i)
         except AttributeError:
             pass

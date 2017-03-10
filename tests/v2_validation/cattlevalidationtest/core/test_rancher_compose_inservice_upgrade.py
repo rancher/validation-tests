@@ -18,25 +18,22 @@ if_compose_data_files = pytest.mark.skipif(
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_confirm(admin_client, client,
-                                                   rancher_compose_container):
+                                                   rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_1.yml"
+    rc_file = "rc_inservice1_1.yml"
+    dc_file_upgrade = "dc_inservice1_2.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice1_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
+
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     # Check for default settings
@@ -45,39 +42,33 @@ def test_rancher_compose_inservice_upgrade_confirm(admin_client, client,
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Confirm upgrade
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_rollback(admin_client, client,
-                                                    rancher_compose_container):
-    env_name = random_str().replace("-", "")
+                                                    rancher_cli_container):
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_1.yml"
+    rc_file = "rc_inservice1_1.yml"
+    dc_file_upgrade = "dc_inservice1_2.yml"
+    upgrade_option = "--batch-size 3 --interval 500"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_1.yml", env_name,
-        "up -d ",
-        "Creating stack", "rc_inservice1_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade,
+                            upgrade_option=upgrade_option)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
 
@@ -87,49 +78,42 @@ def test_rancher_compose_inservice_upgrade_rollback(admin_client, client,
 
     # Rollback upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_delete(admin_client, client,
-                                                  rancher_compose_container):
-    env_name = random_str().replace("-", "")
+                                                  rancher_cli_container):
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_1.yml"
+    rc_file = "rc_inservice1_1.yml"
+    dc_file_upgrade = "dc_inservice1_2.yml"
+    upgrade_option = "--batch-size 1 --interval 750"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice1_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "up --upgrade -d --batch-size 1 --interval 750", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade,
+                            upgrade_option=upgrade_option)
+
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     assert service.upgrade["inServiceStrategy"]["batchSize"] == 1
     assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 750
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
-    # Delete environment
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_2.yml", env_name,
-        "rm -f", "Deleted")
+    # Delete stack
+    launch_rancher_cli_from_file(
+        client, INSERVICE_SUBDIR, stack_name,
+        "rm --type service " + stack.name + "/" + service.name, service.id)
     wait_for_condition(
         client, service,
         lambda x: x.state == "removed",
@@ -138,45 +122,41 @@ def test_rancher_compose_inservice_upgrade_delete(admin_client, client,
     assert service.state == "removed"
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_only_primary(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_2.yml"
+    upgrade_option = "--batch-size 10 --interval 2000"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_2.yml", env_name,
-        "up --upgrade -d --batch-size 10 --interval 2000", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade,
+                            upgrade_option=upgrade_option)
+
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -186,14 +166,10 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_2.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -202,44 +178,42 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary(
                                                 managed=0)
     assert len(container_list) == 0
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_2.yml"
+    upgrade_option = "--batch-size 0 --interval 2000"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_2.yml", env_name,
-        "up --upgrade -d --batch-size 0 --interval 2000", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(
+        client, stack_name, service, dc_file_upgrade,
+        upgrade_option=upgrade_option)
+
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -248,14 +222,11 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Rollback
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_2.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
@@ -264,623 +235,543 @@ def test_rancher_compose_inservice_upgrade_sk_only_primary_rollback(
                                                 managed=0)
     assert len(container_list) == 0
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_only_sidekick(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_3.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_3.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_3.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_only_sidekick_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_3.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client,
-        service, env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        service, stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_3.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_3.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_container_state(client, primary_containers, "running")
     check_container_state(client, sk2_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_both_sidekicks(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_4.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_4.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_4.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_both_sidekicks_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_4.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1", 1)
+        stack_name+FIELD_SEPARATOR+"test1", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_4.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
 
     # Rollback upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_4.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "running")
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_all(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_5.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_5.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
-
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0, primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0, primary=False)
 
     # Confirm upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_5.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
-
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_sk_all_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_5.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice2_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_5.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0, primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0, primary=False)
 
     # Rollback upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_5.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_only_primary(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_2.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_2.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_2.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_only_primary_rollback(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_2.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_2.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_2.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_container_state(client, sk1_containers, "running")
     check_container_state(client, sk2_containers, "running")
 
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_3.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_3.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
@@ -888,14 +779,11 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
 
     # Confirm upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_3.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, sk2_containers, "running")
@@ -903,80 +791,70 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1(
                                                 managed=0)
     assert len(container_list) == 0
     validate_volume_mount(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1_rollback(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_3.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_3.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
     check_container_state(client, sk2_containers, "running")
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_3.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
 
     check_container_state(client, sk2_containers, "running")
@@ -985,178 +863,159 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick1_rollback(
     assert len(container_list) == 0
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_4.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_4.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
-
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     check_container_state(client, primary_containers, "stopped")
 
     # Confirm upgrade
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_4.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
     validate_volume_mount(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice3_1.yml"
+    rc_file = "rc_inservice3_1.yml"
+    dc_file_upgrade = "dc_inservice3_4.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice3_1.yml")
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
     primary_containers = get_service_containers_with_name(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1", 1)
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_4.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
-
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1, primary=False)
     check_container_state(client, primary_containers, "stopped")
 
     # Rollback upgrade
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice3_4.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1, primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1, primary=False)
 
     container_list = get_service_container_list(admin_client, service,
@@ -1165,33 +1024,33 @@ def test_rancher_compose_inservice_upgrade_volume_mount_sidekick2_rollback(
 
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
+        stack_name+FIELD_SEPARATOR+"test1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1"])
     validate_volume_mount(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
-        [env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
-    delete_all(client, [env])
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        [stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2"])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_confirm_retainip(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    # Create an environment using up
-    env_name = random_str().replace("-", "")
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice1_retainip_1.yml")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_retainip_1.yml"
+    rc_file = "rc_inservice1_retainip_1.yml"
+    dc_file_upgrade = "dc_inservice1_retainip_2.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1202,12 +1061,8 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
 
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
@@ -1217,12 +1072,8 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
@@ -1230,7 +1081,7 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
 
     # Confirm Ips of the new containers were retained after upgrade
     for i in range(1, 6):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1239,28 +1090,29 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
         assert containerips_before_upgrade[container_name+"id"] \
             != containers[0].externalId
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_rollback_retainip(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    # Create an environment using up
-    env_name = random_str().replace("-", "")
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice1_retainip_1.yml")
+    # Create an stack using up
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_retainip_1.yml"
+    rc_file = "rc_inservice1_retainip_1.yml"
+    dc_file_upgrade = "dc_inservice1_retainip_2.yml"
+    upgrade_option = "--batch-size 3 --interval 500"
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert service.retainIp
 
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1273,7 +1125,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
 
     containerips_before_upgrade = {}
     for i in range(1, 6):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1282,16 +1134,11 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
         containerips_before_upgrade[container_name+"id"] = \
             containers[0].externalId
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade,
+                            upgrade_option=upgrade_option)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
@@ -1301,12 +1148,8 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
@@ -1314,7 +1157,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
 
     # Confirm Ips of the containers after rollback were retained after upgrade
     for i in range(1, 6):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1323,28 +1166,27 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
         assert containerips_before_upgrade[container_name+"id"] \
             == containers[0].externalId
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
-# known issue 5476
 def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
-        admin_client, client, rancher_compose_container):
-    # Create an environment using up
-    env_name = random_str().replace("-", "")
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice1_1.yml")
+        admin_client, client, rancher_cli_container):
+    # Create an stack using up
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_1.yml"
+    rc_file = "rc_inservice1_1.yml"
+    dc_file_upgrade = "dc_inservice2_retainip_2.yml"
+    rc_file_upgrade = "rc_inservice2_retainip_2.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    print service
-    assert service.state == "active"
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert service.retainIp is None
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1355,12 +1197,9 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
 
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_retainip_2.yml", env_name,
-        "up --upgrade -d", "Upgrading", "rc_inservice2_retainip_2.yml")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service,
+                            dc_file_upgrade, rc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
@@ -1370,12 +1209,8 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
@@ -1383,7 +1218,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
 
     # Confirm Ips of the new containers were retained after upgrade
     for i in range(1, 3):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1392,27 +1227,29 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
         assert containerips_before_upgrade[container_name+"id"] \
             != containers[0].externalId
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
+# known issue 5476
 def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    # Create an environment using up
-    env_name = random_str().replace("-", "")
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_1.yml", env_name,
-        "up -d", "Creating stack", "rc_inservice1_1.yml")
+    # Create an stack using up
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice1_1.yml"
+    rc_file = "rc_inservice1_1.yml"
+    dc_file_upgrade = "dc_inservice2_retainip_2.yml"
+    rc_file_upgrade = "rc_inservice2_retainip_2.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert service.retainIp is None
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1425,7 +1262,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
 
     containerips_before_upgrade = {}
     for i in range(1, 3):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1434,32 +1271,19 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
         containerips_before_upgrade[container_name+"id"] = \
             containers[0].externalId
 
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading",
-        "dc_inservice1_retainip_2.yml")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service,
+                            dc_file_upgrade, rc_file_upgrade)
     assert service.retainIp
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
 
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
-
     # Rollback upgrade
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice1_retainip_2.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert service.retainIp is None
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
@@ -1467,7 +1291,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
 
     # Confirm Ips of the containers after rollback were retained after upgrade
     for i in range(1, 3):
-        container_name = get_container_name(env, service, str(i))
+        container_name = get_container_name(stack, service, str(i))
         containers = admin_client.list_container(name=container_name,
                                                  removed_null=True)
         assert len(containers) == 1
@@ -1476,144 +1300,121 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
         assert containerips_before_upgrade[container_name+"id"] \
             == containers[0].externalId
 
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_remove_sk(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_rmsk.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_rmsk.yml", env_name,
-        "up --upgrade -d ", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 1
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert not check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_rmsk.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
-
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 1
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert not check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
+# Known issue #6380
 def test_rancher_compose_inservice_upgrade_remove_sk_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_rmsk.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_rmsk.yml", env_name,
-        "up --upgrade -d ", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 1
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert not check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0,  primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1,  primary=False)
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_rmsk.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
-
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1,  primary=False)
 
     check_container_state(client, sk1_containers, "running")
@@ -1622,200 +1423,179 @@ def test_rancher_compose_inservice_upgrade_remove_sk_rollback(
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_add_sk(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_addsk.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_addsk.yml", env_name,
-        "up --upgrade -d ", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 3
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
     assert check_for_sidekick_name_in_service(service, "sk3")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0,  primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0,  primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
         {"testsk3": "value1"}, 1,  primary=False)
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_addsk.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 3
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
     assert check_for_sidekick_name_in_service(service, "sk3")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
         {"testsk3": "value1"}, 1,  primary=False)
 
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_inservice_upgrade_add_sk_rollback(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inservice2_1.yml"
+    rc_file = "rc_inservice2_1.yml"
+    dc_file_upgrade = "dc_inservice2_addsk.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_1.yml", env_name,
-        "up -d",
-        "Creating stack", "rc_inservice2_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     sk1_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1", 1)
     sk2_containers = get_service_containers_with_name(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2", 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_addsk.yml", env_name,
-        "up --upgrade -d ", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     assert len(service.secondaryLaunchConfigs) == 3
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
     assert check_for_sidekick_name_in_service(service, "sk3")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 0)
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value2"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 0,  primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 0,  primary=False)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value2"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk3",
         {"testsk3": "value1"}, 1,  primary=False)
 
     # Rollback upgrade
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
 
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inservice2_rmsk.yml", env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
     assert len(service.secondaryLaunchConfigs) == 2
     assert check_for_sidekick_name_in_service(service, "sk1")
     assert check_for_sidekick_name_in_service(service, "sk2")
     assert not check_for_sidekick_name_in_service(service, "sk3")
 
     check_config_for_service_sidekick(
-        admin_client, service, env_name+FIELD_SEPARATOR+"test1",
+        admin_client, service, stack_name+FIELD_SEPARATOR+"test1",
         {"test1": "value1"}, 1)
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk1",
         {"testsk1": "value1"}, 1,  primary=False)
 
     check_config_for_service_sidekick(
         admin_client, service,
-        env_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
+        stack_name+FIELD_SEPARATOR+"test1"+FIELD_SEPARATOR+"sk2",
         {"testsk2": "value1"}, 1,  primary=False)
 
     check_container_state(client, sk1_containers, "running")
@@ -1823,68 +1603,54 @@ def test_rancher_compose_inservice_upgrade_add_sk_rollback(
     container_list = get_service_container_list(admin_client, service,
                                                 managed=0)
     assert len(container_list) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_upgrade_with_ports_confirm(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inserviceport.yml"
+    rc_file = "rc_inserviceport.yml"
+    dc_file_upgrade = "dc_inserviceport_upg.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport.yml", env_name,
-        "up -d", "Creating stack", "rc_inserviceport.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_upg.yml",
-        env_name, "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
 
     # Confirm upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_upg.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_upgrade_with_ports_rollback(
-        admin_client, client, rancher_compose_container):
-    env_name = random_str().replace("-", "")
+        admin_client, client, rancher_cli_container):
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inserviceport.yml"
+    rc_file = "rc_inserviceport.yml"
+    dc_file_upgrade = "dc_inserviceport_forrollback_upg.yml"
+    upgrade_option = "--batch-size 3 --interval 500"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback.yml", env_name,
-        "up -d ",
-        "Creating stack", "rc_inserviceport_forrollback.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_upg.yml",
-        env_name,
-        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service,
+                            dc_file_upgrade, upgrade_option=upgrade_option)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1)
 
@@ -1893,101 +1659,75 @@ def test_rancher_compose_upgrade_with_ports_rollback(
     assert service.upgrade["inServiceStrategy"]["startFirst"] is False
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_upg.yml",
-        env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_upgrade_global_with_ports_confirm(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
-    env_name = random_str().replace("-", "")
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inserviceport_g.yml"
+    dc_file_upgrade = "dc_inserviceport_g_upg.yml"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_g.yml", env_name,
-        "up -d", "Creating stack")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
                              is_global=True)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_g_upg.yml",
-        env_name, "up --upgrade -d", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0,
                              is_global=True)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
                              is_global=True)
 
     # Confirm upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_g_upg.yml", env_name,
-        "up --confirm-upgrade -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = confirm_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
                              is_global=True)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 @if_compose_data_files
 def test_rancher_compose_upgrade_global_with_ports_rollback(
-        admin_client, client, rancher_compose_container):
-    env_name = random_str().replace("-", "")
+        admin_client, client, rancher_cli_container):
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc_inserviceport_g.yml"
+    dc_file_upgrade = "dc_inserviceport_g_upg.yml"
+    upgrade_option = "--batch-size 3 --interval 500"
 
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g.yml",
-        env_name,
-        "up -d ",
-        "Creating stack")
-
-    env, service = get_env_service_by_name(client, env_name, "test1")
-    assert service.state == "active"
+    # Create an stack using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
                              is_global=True)
 
-    # Upgrade environment using up --upgrade
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g_upg.yml",
-        env_name,
-        "up --upgrade -d --batch-size 3 --interval 500", "Upgrading")
-    service = client.reload(service)
-    assert service.state == "upgraded"
+    # Upgrade stack using up --upgrade
+    service = upgrade_stack(client, stack_name, service,
+                            dc_file_upgrade, upgrade_option=upgrade_option)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 0,
                              is_global=True)
     check_config_for_service(admin_client, service, {"test1": "value2"}, 1,
                              is_global=True)
 
     # Rollback upgrade
-
-    launch_rancher_compose_from_file(
-        client, INSERVICE_SUBDIR, "dc_inserviceport_forrollback_g_upg.yml",
-        env_name,
-        "up --rollback -d", "Started")
-    service = client.reload(service)
-    assert service.state == "active"
+    service = rollback_upgrade_stack(
+        client, stack_name, service, dc_file_upgrade)
     check_config_for_service(admin_client, service, {"test1": "value1"}, 1,
                              is_global=True)
     containers = get_service_container_list(admin_client, service, 0)
     assert len(containers) == 0
-    delete_all(client, [env])
+    delete_all(client, [stack])
 
 
 def check_config_for_service_sidekick(admin_client, service, service_name,
@@ -2030,3 +1770,37 @@ def check_for_sidekick_name_in_service(service, sidekick_name):
             found = True
             break
     return found
+
+
+def upgrade_stack(client, stack_name, service, docker_compose,
+                  rancher_compose=None, upgrade_option=None):
+    upgrade_cmd = "up --upgrade -d "
+    if upgrade_option is not None:
+        upgrade_cmd += upgrade_option
+    launch_rancher_cli_from_file(
+        client, INSERVICE_SUBDIR, stack_name,
+        upgrade_cmd, "Upgrading",
+        docker_compose, rancher_compose)
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    return service
+
+
+def confirm_upgrade_stack(client, stack_name, service, docker_compose):
+    launch_rancher_cli_from_file(
+        client, INSERVICE_SUBDIR, stack_name,
+        "up --confirm-upgrade -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service
+
+
+def rollback_upgrade_stack(client, stack_name, service, docker_compose):
+    launch_rancher_cli_from_file(
+        client, INSERVICE_SUBDIR, stack_name,
+        "up --rollback -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service

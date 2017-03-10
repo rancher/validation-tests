@@ -13,7 +13,7 @@ if_compose_data_files = pytest.mark.skipif(
 
 
 def test_rancher_compose_service(admin_client, client,
-                                 rancher_compose_container,
+                                 rancher_cli_container,
                                  socat_containers):
 
     vol_container = client.create_container(imageUuid=TEST_IMAGE_UUID,
@@ -121,7 +121,7 @@ def test_rancher_compose_service(admin_client, client,
 
 
 def test_rancher_compose_service_option_2(admin_client, client,
-                                          rancher_compose_container,
+                                          rancher_cli_container,
                                           socat_containers):
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
     cpu_shares = 400
@@ -267,7 +267,7 @@ def test_rancher_compose_service_option_2(admin_client, client,
 
 @pytest.mark.skipif(True, reason='not implemented yet')
 def test_rancher_compose_services_port_and_link_options(
-        admin_client, client, rancher_compose_container, socat_containers):
+        admin_client, client, rancher_cli_container, socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
 
@@ -318,7 +318,7 @@ def test_rancher_compose_services_port_and_link_options(
 
 
 def test_rancher_compose_lbservice(admin_client, client,
-                                   rancher_compose_container):
+                                   rancher_cli_container):
 
     port = "7900"
 
@@ -374,7 +374,7 @@ def test_rancher_compose_lbservice(admin_client, client,
 
 
 def test_rancher_compose_lbservice_internal(admin_client, client,
-                                            rancher_compose_container):
+                                            rancher_cli_container):
 
     port = "7911"
     con_port = "7912"
@@ -450,7 +450,7 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
 
 
 def test_rancher_compose_service_links(admin_client, client,
-                                       rancher_compose_container):
+                                       rancher_cli_container):
 
     port = "7901"
 
@@ -489,21 +489,21 @@ def test_rancher_compose_service_links(admin_client, client,
 
 
 def test_rancher_compose_dns_services(admin_client, client,
-                                      rancher_compose_container):
+                                      rancher_cli_container):
     port = "7902"
     rancher_compose_dns_services(admin_client, client, port,
-                                 rancher_compose_container)
+                                 rancher_cli_container)
 
 
 def test_rancher_compose_dns_services_cross_stack(admin_client, client,
-                                                  rancher_compose_container):
+                                                  rancher_cli_container):
     port = "7903"
     rancher_compose_dns_services(admin_client, client, port,
-                                 rancher_compose_container, True)
+                                 rancher_cli_container, True)
 
 
 def test_rancher_compose_external_services(admin_client, client,
-                                           rancher_compose_container):
+                                           rancher_cli_container):
 
     port = "7904"
 
@@ -542,7 +542,7 @@ def test_rancher_compose_external_services(admin_client, client,
 
 
 def test_rancher_compose_lbservice_host_routing(admin_client, client,
-                                                rancher_compose_container):
+                                                rancher_cli_container):
 
     port1 = "7906"
     service_scale = 2
@@ -651,7 +651,7 @@ def test_rancher_compose_lbservice_host_routing(admin_client, client,
 
 
 def test_rancher_compose_lbservice_multiple_port(admin_client, client,
-                                                 rancher_compose_container):
+                                                 rancher_cli_container):
 
     port1 = "7907"
     port2 = "7908"
@@ -708,7 +708,7 @@ def test_rancher_compose_lbservice_multiple_port(admin_client, client,
 
 
 def test_rancher_compose_external_services_hostname(admin_client, client,
-                                                    rancher_compose_container):
+                                                    rancher_cli_container):
 
     port = "7904"
 
@@ -744,7 +744,7 @@ def test_rancher_compose_external_services_hostname(admin_client, client,
 
 
 def rancher_compose_dns_services(admin_client, client, port,
-                                 rancher_compose_container,
+                                 rancher_cli_container,
                                  cross_linking=False):
 
     service_scale = 1
