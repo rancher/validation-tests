@@ -41,17 +41,16 @@ def create_metadata_client_service(request, client, admin_client):
 
 @if_compose_data_files
 def test_metadata_self_2016_07_29(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_1_2016_07_29.yml"
+    rc_file = "rc_metadata_1_2016_07_29.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_1_2016_07_29.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_1_2016_07_29.yml")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test120160729", METADATA_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "test120160729")
-    assert service.state == "active"
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -139,17 +138,15 @@ def test_metadata_self_2016_07_29(
 
 @if_compose_data_files
 def test_metadata_byname_2016_07_29(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_2_2016_07_29.yml"
+    rc_file = "rc_metadata_2_2016_07_29.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_2_2016_07_29.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_2_2016_07_29.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test2120160729")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test2120160729", METADATA_SUBDIR, dc_file, rc_file)
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -223,17 +220,15 @@ def test_metadata_byname_2016_07_29(
 
 @if_compose_data_files
 def test_metadata_self_2015_12_19(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_1n.yml"
+    rc_file = "rc_metadata_1n.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_1n.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_1n.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test1n")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test1n", METADATA_SUBDIR, dc_file, rc_file)
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -319,17 +314,15 @@ def test_metadata_self_2015_12_19(
 
 @if_compose_data_files
 def test_metadata_byname_2015_12_19(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_2n.yml"
+    rc_file = "rc_metadata_2n.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_2n.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_2n.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test2n")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test2n", METADATA_SUBDIR, dc_file, rc_file)
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -403,17 +396,15 @@ def test_metadata_byname_2015_12_19(
 
 @if_compose_data_files
 def test_metadata_self_2015_07_25(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_1.yml"
+    rc_file = "rc_metadata_1.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_1.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_1.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test", METADATA_SUBDIR, dc_file, rc_file)
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -484,17 +475,15 @@ def test_metadata_self_2015_07_25(
 
 @if_compose_data_files
 def test_metadata_byname_2015_07_25(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_2.yml"
+    rc_file = "rc_metadata_2.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_2.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_2.yml")
-
-    env, service = get_env_service_by_name(client, env_name, "test2")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test2", METADATA_SUBDIR, dc_file, rc_file)
     print service.metadata
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
@@ -558,16 +547,15 @@ def test_metadata_byname_2015_07_25(
 
 
 @if_compose_data_files
-def test_metadata_update(admin_client, client, rancher_compose_container):
+def test_metadata_update(admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_3.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_3.yml")
+    dc_file = "dc_metadata_3.yml"
+    rc_file = "rc_metadata_3.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test3")
-    assert service.state == "active"
+    # Create an environment using up
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test3", METADATA_SUBDIR, dc_file, rc_file)
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
     assert isinstance(service.metadata["test2"]["name"], list)
@@ -586,9 +574,10 @@ def test_metadata_update(admin_client, client, rancher_compose_container):
 
     # Update user metadata
 
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_3.yml", env_name,
-        "up --upgrade -d", "Updating", "rc_metadata_31.yml")
+    launch_rancher_cli_from_file(
+        client, METADATA_SUBDIR, env_name,
+        "up --upgrade -d", "Updating",
+        "dc_metadata_3.yml", "rc_metadata_31.yml")
 
     service = client.reload(service)
     assert service.state == "active"
@@ -610,16 +599,15 @@ def test_metadata_update(admin_client, client, rancher_compose_container):
 
 @if_compose_data_files
 def test_metadata_scaleup(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_4.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_4.yml")
+    dc_file = "dc_metadata_4.yml"
+    rc_file = "rc_metadata_4.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test4")
-    assert service.state == "active"
+    # Create an environment using up
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test4", METADATA_SUBDIR, dc_file, rc_file)
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == 2
     wait_for_metadata_propagation(admin_client)
@@ -639,11 +627,10 @@ def test_metadata_scaleup(
 
     # Scale up service
 
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_4.yml", env_name,
-        "scale test4=3", "Setting scale", "rc_metadata_4.yml")
-
-    service = client.reload(service)
+    launch_rancher_cli_from_file(
+        client, METADATA_SUBDIR, env_name,
+        "scale test4=3", "test4")
+    service = client.wait_success(service, 60)
     assert service.state == "active"
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == 3
@@ -663,16 +650,16 @@ def test_metadata_scaleup(
 
 @if_compose_data_files
 def test_metadata_scaledown(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
-    # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_5.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_5.yml")
+    dc_file = "dc_metadata_5.yml"
+    rc_file = "rc_metadata_5.yml"
 
-    env, service = get_env_service_by_name(client, env_name, "test5")
-    assert service.state == "active"
+    # Create an environment using up
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "test5", METADATA_SUBDIR, dc_file, rc_file)
+
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == 2
     wait_for_metadata_propagation(admin_client)
@@ -692,11 +679,11 @@ def test_metadata_scaledown(
 
     # Scale down service
 
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_5.yml", env_name,
-        "scale test5=1", "Setting scale", "rc_metadata_5.yml")
+    launch_rancher_cli_from_file(
+        client, METADATA_SUBDIR, env_name,
+        "scale test5=1", "test5")
 
-    service = client.reload(service)
+    service = client.wait_success(service, 60)
     assert service.state == "active"
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == 1
@@ -715,17 +702,16 @@ def test_metadata_scaledown(
 
 
 @if_compose_data_files
-def test_metadata_sidekick(admin_client, client, rancher_compose_container):
+def test_metadata_sidekick(admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_sk.yml"
+    rc_file = "rc_metadata_sk.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_sk.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_sk.yml")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "testsk", METADATA_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "testsk")
-    assert service.state == "active"
     service_containers = get_service_container_list(admin_client, service)
     con_names = []
     for con in service_containers:
@@ -748,31 +734,26 @@ def test_metadata_sidekick(admin_client, client, rancher_compose_container):
 
 
 @if_compose_data_files
-def test_metadata_links(admin_client, client, rancher_compose_container):
+def test_metadata_links(admin_client, client, rancher_cli_container):
 
     env_name1 = "testlink"
+    dc_file = "dc_metadata_links_1.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_links_1.yml", env_name1,
-        "up -d", "Creating stack")
+    linked_env, linked_service = create_stack_using_rancher_cli(
+        client, env_name1, "testl1", METADATA_SUBDIR, dc_file)
 
     env_name2 = random_str().replace("-", "")
+    dc_file = "dc_metadata_links_2.yml"
 
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_links_2.yml", env_name2,
-        "up -d", "Creating stack")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name2, "testl2", METADATA_SUBDIR, dc_file)
 
     linked_services = {env_name1 + "/" + "testl1": "linkexttest",
                        env_name2 + "/" + "testl2": "linktest"}
 
     linked_env, linked_service = \
         get_env_service_by_name(client, env_name1, "testl1")
-
-    env, service = get_env_service_by_name(client, env_name2, "testl2")
-    assert service.state == "active"
-    env, service = get_env_service_by_name(client, env_name2, "testl3")
-    assert service.state == "active"
 
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
@@ -790,17 +771,15 @@ def test_metadata_links(admin_client, client, rancher_compose_container):
 
 
 @if_compose_data_files
-def test_metadata_hostnet(admin_client, client, rancher_compose_container):
+def test_metadata_hostnet(admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_hostnet.yml"
+    rc_file = "rc_metadata_sk.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_hostnet.yml", env_name,
-        "up -d", "Creating stack")
-
-    env, service = get_env_service_by_name(client, env_name, "testhostdns")
-    assert service.state == "active"
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "testhostdns", METADATA_SUBDIR, dc_file, rc_file)
 
     service_containers = get_service_container_list(admin_client, service)
     assert len(service_containers) == service.scale
@@ -823,17 +802,16 @@ def test_metadata_hostnet(admin_client, client, rancher_compose_container):
 
 @if_compose_data_files
 def test_metadata_externalservice_ip(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_extservice_ip.yml"
+    rc_file = "rc_metadata_extservice_ip.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_extservice_ip.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_extservice_ip.yml")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "testextip", METADATA_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "testextip")
-    assert service.state == "active"
     wait_for_metadata_propagation(admin_client)
     for con in metadata_client_service:
         # Service related metadata
@@ -849,17 +827,16 @@ def test_metadata_externalservice_ip(
 
 @if_compose_data_files
 def test_metadata_externalservice_cname(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_extservice_cname.yml"
+    rc_file = "rc_metadata_extservice_cname.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_extservice_cname.yml", env_name,
-        "up -d", "Creating stack", "rc_metadata_extservice_cname.yml")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "testextcname", METADATA_SUBDIR, dc_file, rc_file)
 
-    env, service = get_env_service_by_name(client, env_name, "testextcname")
-    assert service.state == "active"
     wait_for_metadata_propagation(admin_client)
     for con in metadata_client_service:
         # Service related metadata
@@ -874,20 +851,17 @@ def test_metadata_externalservice_cname(
 
 
 @if_compose_data_files
-def test_metadata_lb(admin_client, client, rancher_compose_container):
+def test_metadata_lb(admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_lb.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_lb.yml", env_name,
-        "up -d", "Creating stack")
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "lb-1", METADATA_SUBDIR, dc_file)
 
     linked_services = {env_name + "/" + "web1": "web1",
                        env_name + "/" + "web2": "web2"}
-
-    env, service = get_env_service_by_name(client, env_name, "lb-1")
-    assert service.state == "active"
 
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
@@ -907,20 +881,16 @@ def test_metadata_lb(admin_client, client, rancher_compose_container):
 
 @if_compose_data_files
 def test_metadata_lb_updatetarget(
-        admin_client, client, rancher_compose_container):
+        admin_client, client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
+    dc_file = "dc_metadata_lb_1.yml"
 
     # Create an environment using up
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_lb_1.yml", env_name,
-        "up -d", start_project_str)
-
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "lb-2", METADATA_SUBDIR, dc_file)
     linked_services = {env_name + "/" + "web1": "web1",
                        env_name + "/" + "web2": "web2"}
-
-    env, service = get_env_service_by_name(client, env_name, "lb-2")
-    assert service.state == "active"
 
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
@@ -936,16 +906,21 @@ def test_metadata_lb_updatetarget(
         assert metadata["kind"] == "loadBalancerService"
 
     # Add another target to existing LB service
-    launch_rancher_compose_from_file(
-        client, METADATA_SUBDIR, "dc_metadata_lb_11.yml", env_name,
-        "up -d", start_project_str)
+    dc_file = "dc_metadata_lb_11.yml"
+
+    """
+    # Create an environment using up
+    env, service = create_stack_using_rancher_cli(
+        client, env_name, "lb-2", METADATA_SUBDIR, dc_file)
+    """
+    launch_rancher_cli_from_file(
+        client, METADATA_SUBDIR, env_name,
+        "up --upgrade -d", "Updating",
+        "dc_metadata_lb_11.yml")
 
     linked_services = {env_name + "/" + "web1": "web1",
                        env_name + "/" + "web2": "web2",
                        env_name + "/" + "web3": "web3"}
-
-    service = client.reload(service)
-    assert service.state == "active"
 
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))

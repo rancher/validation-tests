@@ -6,6 +6,11 @@ TEST_SERVICE_OPT_IMAGE_UUID = 'docker:' + TEST_SERVICE_OPT_IMAGE_LATEST
 LB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 RCLICOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                    'resources/ranchercli')
+RCCOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'resources/rccmds')
+RCV2COMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                   'resources/rccmds/v2')
+
 logger = logging.getLogger(__name__)
 
 if_compose_data_files = pytest.mark.skipif(
@@ -916,13 +921,13 @@ def test_cli_inspect_volume(client, rancher_cli_container):
 
 def test_cli_catalog_list(client, rancher_cli_container):
 
-    # This method tests listing the environments
+    # This method tests listing catalogs
 
     stack_name = random_str().replace("-", "")
     catalogs = []
     url = os.environ.get('CATTLE_TEST_URL')
-    community_catalog_url = url + "/v1-catalog/catalogs/community/templates"
-    library_catalog_url = url + "/v1-catalog/catalogs/library/templates"
+    community_catalog_url = url + "/v1-catalog/templates?catalog=community"
+    library_catalog_url = url + "/v1-catalog/templates?catalog=library"
 
     print "Community Catalog URL is" + community_catalog_url
     print "Library Catalog URL is" + library_catalog_url
@@ -1267,3 +1272,208 @@ def test_cli_env_deactivate_activate(admin_client, client,
     for env in envlist:
         if envid == env.id:
             assert False
+
+
+def test_rancher_compose_services_log_driver(admin_client, client,
+                                             rancher_cli_container,
+                                             socat_containers):
+    compose_directory = RCCOMMANDS_SUBDIR
+    check_rancher_compose_services_log_driver(admin_client, client,
+                                              compose_directory)
+
+
+def test_rancher_compose_v2_services_log_driver(admin_client, client,
+                                                rancher_cli_container,
+                                                socat_containers):
+    compose_directory = RCV2COMMANDS_SUBDIR
+    check_rancher_compose_services_log_driver(admin_client, client,
+                                              compose_directory)
+
+
+def test_rancher_compose_services_network(admin_client, client,
+                                          rancher_cli_container,
+                                          socat_containers):
+    compose_directory = RCCOMMANDS_SUBDIR
+    check_rancher_compose_services_network(admin_client, client,
+                                           compose_directory)
+
+
+def test_rancher_compose_v2_services_network(admin_client, client,
+                                             rancher_cli_container,
+                                             socat_containers):
+    compose_directory = RCV2COMMANDS_SUBDIR
+    check_rancher_compose_services_network(admin_client, client,
+                                           compose_directory)
+
+
+def test_rancher_compose_services_security(admin_client, client,
+                                           rancher_cli_container,
+                                           socat_containers):
+    compose_directory = RCCOMMANDS_SUBDIR
+    check_rancher_compose_services_security(admin_client, client,
+                                            compose_directory)
+
+
+def test_rancher_compose_v2_services_security(admin_client, client,
+                                              rancher_cli_container,
+                                              socat_containers):
+    compose_directory = RCV2COMMANDS_SUBDIR
+    check_rancher_compose_services_security(admin_client, client,
+                                            compose_directory)
+
+
+def test_rancher_compose_services_volume(admin_client, client,
+                                         rancher_cli_container,
+                                         socat_containers):
+    compose_directory = RCCOMMANDS_SUBDIR
+    check_rancher_compose_services_volume(admin_client, client,
+                                          compose_directory)
+
+
+def test_rancher_compose_v2_services_volume(admin_client, client,
+                                            rancher_cli_container,
+                                            socat_containers):
+    compose_directory = RCV2COMMANDS_SUBDIR
+    check_rancher_compose_services_network(admin_client, client,
+                                           compose_directory)
+
+
+def check_rancher_compose_services_security(admin_client, client,
+                                            compose_directory):
+    # This method tests the options in security tab in the UI
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc3.yml"
+    rc_file = "rc3.yml"
+    # Create an environment using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test3", compose_directory, dc_file, rc_file)
+    container_list = get_service_container_list(admin_client, service)
+    assert len(container_list) == 3
+    for con in container_list:
+        assert con.state == "running"
+        containers = admin_client.list_container(
+            externalId=con.externalId,
+            include="hosts",
+            removed_null=True)
+        docker_client = get_docker_client(containers[0].hosts[0])
+        inspect = docker_client.inspect_container(con.externalId)
+        logger.info("Checked for containers running " + con.name)
+        assert inspect["State"]["Running"]
+        assert inspect["HostConfig"]["Privileged"]
+        assert inspect["HostConfig"]["Memory"] == 104857600
+        assert inspect["HostConfig"]["CpuShares"] == 256
+        assert inspect["HostConfig"]["CapAdd"] == ["AUDIT_CONTROL",
+                                                   "AUDIT_WRITE"]
+        assert inspect["HostConfig"]["CapDrop"] == ["BLOCK_SUSPEND",
+                                                    "CHOWN"]
+        assert inspect["Config"]["Hostname"] == "rancherhost"
+        assert inspect["HostConfig"]["PidMode"] == "host"
+    delete_all(client, [stack])
+
+
+def check_rancher_compose_services_network(admin_client,
+                                           client,
+                                           compose_directory):
+    # This method tests the options in Network tab in the UI
+    hostname_override = "io.rancher.container.hostname_override"
+    requested_ip = "io.rancher.container.requested_ip"
+    stack_name = random_str().replace("-", "")
+
+    dc_file = "dc4.yml"
+    rc_file = "rc4.yml"
+    # Create an environment using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test4", compose_directory, dc_file, rc_file)
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+    check_config_for_service(admin_client, service,
+                             {"testrc": "RANCHER_COMPOSE"}, 1)
+    check_config_for_service(admin_client, service,
+                             {"io.rancher.container.requested_ip":
+                              "209.243.140.21"}, 1)
+    check_config_for_service(admin_client, service,
+                             {"io.rancher.container.hostname_override":
+                                 "container_name"}, 1)
+
+    container_list = get_service_container_list(admin_client, service)
+    assert len(container_list) == 2
+    for con in container_list:
+        assert con.state == "running"
+        containers = admin_client.list_container(
+            externalId=con.externalId,
+            include="hosts",
+            removed_null=True)
+        docker_client = get_docker_client(containers[0].hosts[0])
+        inspect = docker_client.inspect_container(con.externalId)
+        logger.info("Checked for containers running " + con.name)
+        assert inspect["State"]["Running"]
+        assert inspect["Config"]["Domainname"] == "xyz.com"
+        assert \
+            inspect["Config"]["Labels"][hostname_override] \
+            == "container_name"
+        assert inspect["Config"]["Labels"][requested_ip] == "209.243.140.21"
+        dns_list = inspect["HostConfig"]["Dns"]
+        dnssearch_list = inspect["HostConfig"]["DnsSearch"]
+        assert "209.243.150.21" in dns_list
+        assert "www.google.com" in dnssearch_list
+    delete_all(client, [stack])
+
+
+def check_rancher_compose_services_log_driver(admin_client, client,
+                                              compose_directory):
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc3.yml"
+    rc_file = "rc3.yml"
+    compose_directory = RCCOMMANDS_SUBDIR
+    # Create an environment using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test3", compose_directory, dc_file, rc_file)
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+
+    container_list = get_service_container_list(admin_client, service)
+    assert len(container_list) == 3
+    for con in container_list:
+        assert con.state == "running"
+        containers = admin_client.list_container(
+            externalId=con.externalId,
+            include="hosts",
+            removed_null=True)
+        docker_client = get_docker_client(containers[0].hosts[0])
+        inspect = docker_client.inspect_container(con.externalId)
+        logger.info("Checked for containers running" + con.name)
+        assert inspect["State"]["Running"]
+        assert inspect["HostConfig"]["LogConfig"]["Type"] == "syslog"
+
+    delete_all(client, [stack])
+
+
+def check_rancher_compose_services_volume(admin_client, client,
+                                          compose_directory):
+
+    stack_name = random_str().replace("-", "")
+    dc_file = "dc5.yml"
+    rc_file = "rc5.yml"
+    # Create an environment using up
+    stack, service = create_stack_using_rancher_cli(
+        client, stack_name, "test5", compose_directory, dc_file, rc_file)
+
+    # Confirm service is active and the containers are running
+    assert service.state == "active"
+
+    container_list = get_service_container_list(admin_client, service)
+    assert len(container_list) == 2
+    for con in container_list:
+        assert con.state == "running"
+        containers = admin_client.list_container(
+            externalId=con.externalId,
+            include="hosts",
+            removed_null=True)
+        docker_client = get_docker_client(containers[0].hosts[0])
+        inspect = docker_client.inspect_container(con.externalId)
+        logger.info("Checked for containers running " + con.name)
+        assert inspect["State"]["Running"]
+        assert "testvol:/home:rw" in inspect["HostConfig"]["Binds"]
+    delete_all(client, [stack])
