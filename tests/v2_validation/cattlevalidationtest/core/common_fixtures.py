@@ -10,7 +10,6 @@ import paramiko
 import inspect
 import re
 import json
-
 from docker import Client
 
 logging.basicConfig()
@@ -94,7 +93,7 @@ kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
 kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
-
+check_connectivity_by_wget = True
 cert_list = {}
 
 MANAGED_NETWORK = "managed"
@@ -420,7 +419,7 @@ def one_per_host(client, test_name):
     assert len(hosts) > 2
 
     for host in hosts:
-        c = client.create_container(name=test_name,
+        c = client.create_container(name=test_name + random_str(),
                                     ports=['3000:3000'],
                                     networkMode=MANAGED_NETWORK,
                                     imageUuid=TEST_IMAGE_UUID,
@@ -3522,75 +3521,135 @@ def catalog_hosts(request, client, super_client, admin_client):
 def validate_connectivity_between_services(admin_client, service1,
                                            service_list,
                                            connection="allow"):
-    assert len(service1.launchConfig["ports"]) >= 1
-    port_str = service1.launchConfig["ports"][0]
-    exposed_port = port_str[:port_str.index(":")]
-
     containers = get_service_container_list(admin_client, service1)
     assert len(containers) == service1.scale
 
     for container in containers:
-        host = admin_client.by_id('host', container.hosts[0].id)
-        for service in service_list:
-            consumed_containers = get_service_container_list(admin_client,
-                                                             service)
-            assert len(consumed_containers) == service.scale
+        validate_connectivity_between_con_to_services(admin_client, container,
+                                                      service_list,
+                                                      connection)
 
-            # Exec into the container using the exposed port
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host.ipAddresses()[0].address, username="root",
-                        password="root", port=int(exposed_port))
 
-            for con in consumed_containers:
-                linkName = con.name
+def validate_connectivity_between_con_to_services(admin_client, container,
+                                                  service_list,
+                                                  connection="allow"):
+    containers = admin_client.list_container(externalId=container.externalId,
+                                             include="hosts")
+    assert len(containers) == 1
+    container = containers[0]
+    for service in service_list:
+        consumed_containers = get_service_container_list(admin_client,
+                                                         service)
+        assert len(consumed_containers) == service.scale
+        for con in consumed_containers:
+            validate_connectivity_between_containers(admin_client, container,
+                                                     con, connection)
 
-                # Validate DNS resolution using dig
-                cmd = "dig " + linkName + " +short"
-                logger.info(cmd)
-                stdin, stdout, stderr = ssh.exec_command(cmd)
 
-                response = stdout.readlines()
-                resp = response[0].strip("\n")
-                logger.info("Actual dig Response" + str(resp))
-                assert resp in con.primaryIpAddress
+def validate_connectivity_between_container_list(admin_client, con1,
+                                                 container_list,
+                                                 connection="allow"):
+    for con2 in container_list:
+        validate_connectivity_between_containers(admin_client, con1, con2,
+                                                 connection)
 
-                # Validate that we are able to reach the container
-                cmd = "wget -O result.txt --timeout=1 --tries=1 http://" + \
-                      linkName + ":80/name.html;cat result.txt"
-                logger.info(cmd)
-                stdin, stdout, stderr = ssh.exec_command(cmd)
 
-                if connection == "allow":
-                    # No errors
-                    err_response = stderr.readlines()
-                    logger.info("Wget Error Response" + str(err_response))
-                    found_connection_string = False
-                    for resp in err_response:
-                        if "200 OK" in resp:
-                            found_connection_string = True
-                    assert found_connection_string
+def validate_connectivity_between_containers(admin_client, con1, con2,
+                                             connection="allow"):
+    print time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    if con1.id == con2.id:
+        print "Skip testing connectivity between same containers"
+        return
+    print "Checking connectivity between " + con1.name + " and " + con2.name
+    # Exec into the con1 using the exposed port
+    host = admin_client.by_id('host', con1.hosts[0].id)
+    assert len(con1.userPorts) >= 1
+    port_str = con1.userPorts[0]
+    exposed_port = port_str[:port_str.index(":22")]
+    if ":" in exposed_port:
+        exposed_port = exposed_port[port_str.index(":")+1:]
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host.ipAddresses()[0].address, username="root",
+                password="root", port=int(exposed_port))
 
-                    # Response has containers uuid
-                    std_response = stdout.readlines()
-                    assert len(std_response) == 1
-                    resp = std_response[0].strip("\n")
-                    logger.info("Actual wget Response" + str(resp))
-                    assert resp in con.externalId[:12]
+    linkName = con2.name
+    # Validate DNS resolution using dig
+    cmd = "dig " + linkName + " +short"
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
 
-                else:
-                    # Connection timed out error
-                    err_response = stderr.readlines()
-                    logger.info("Wget Error Response" + str(err_response))
-                    found_connection_error_string = False
-                    for resp in err_response:
-                        if "Connection timed out" in resp:
-                            found_connection_error_string = True
-                    assert found_connection_error_string
+    response = stdout.readlines()
+    assert len(response) == 1
+    resp = response[0].strip("\n")
+    logger.info("Actual dig Response" + str(resp))
+    assert resp in con2.primaryIpAddress
 
-                    # No response
-                    std_response = stdout.readlines()
-                    assert len(std_response) == 0
+    if check_connectivity_by_wget:
+        # Validate that we are able to reach the container
+        cmd = "wget -O result.txt --timeout=1 --tries=1 http://" + \
+              linkName + ":80/name.html;cat result.txt"
+        logger.info(cmd)
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+
+        if connection == "allow":
+            # No errors
+            err_response = stderr.readlines()
+            logger.info("Wget Error Response" + str(err_response))
+            found_connection_string = False
+            for resp in err_response:
+                if "200 OK" in resp:
+                    found_connection_string = True
+            assert found_connection_string
+
+            # Response has containers uuid
+            std_response = stdout.readlines()
+            assert len(std_response) == 1
+            resp = std_response[0].strip("\n")
+            logger.info("Actual wget Response" + str(resp))
+            assert resp in con2.externalId[:12]
+
+        else:
+            # Connection timed out error
+            err_response = stderr.readlines()
+            logger.info("Wget Error Response" + str(err_response))
+            found_connection_error_string = False
+            for resp in err_response:
+                if "Connection timed out" in resp:
+                    found_connection_error_string = True
+            assert found_connection_error_string
+
+            # No response
+            std_response = stdout.readlines()
+            assert len(std_response) == 0
+    else:
+        cmd = "ping -c 1 -W 1 " + linkName + \
+              "> result.txt;cat result.txt"
+        cmd = "ping -c 1 -W 1 " + linkName
+        print cmd
+        print time
+        start_time = time.time()
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        time_taken = time.time() - start_time
+        print "time taken - " + str(time_taken)
+        response = stdout.readlines()
+        print "Actual ping Response" + str(response)
+        if connection == "allow":
+            assert con2.primaryIpAddress in str(response) and \
+                " 0% packet loss" in str(response)
+        else:
+            assert con2.primaryIpAddress in str(response) and \
+                "100% packet loss" in str(response)
+    print time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    print "Done Checking connectivity between " + \
+          con1.name + " and " + con2.name
+
+
+def get_container_by_name(admin_client, con_name):
+    containers = admin_client.list_container(name=con_name,
+                                             include="hosts")
+    assert len(containers) == 1
+    return containers[0]
 
 
 def stop_service_instances(client, env, service, stop_instance_index):

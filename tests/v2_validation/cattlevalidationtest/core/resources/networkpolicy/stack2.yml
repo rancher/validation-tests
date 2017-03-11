@@ -1,14 +1,13 @@
 version: '2'
 services:
-  test2allow:
+  linktoservicewithsidekick:
     image: sangeetha/testhealthcheck:v2
     stdin_open: true
     tty: true
-    ports:
-    - 94:22/tcp
+    links:
+    - testp1:testsklink
     labels:
       io.rancher.container.pull_image: always
-      com.rancher.stack.location: east
   test1allow:
     image: sangeetha/testhealthcheck:v2
     stdin_open: true
@@ -16,8 +15,41 @@ services:
     ports:
     - 95:22/tcp
     labels:
-      io.rancher.container.pull_image: always
       com.rancher.stack.location: east
+      io.rancher.container.pull_image: always
+  test2allow:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 94:22/tcp
+    labels:
+      com.rancher.stack.location: east
+      io.rancher.container.pull_image: always
+  testp1:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 100:22/tcp
+    labels:
+      io.rancher.sidekicks: tests1,tests2
+  tests2:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 102:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+  tests1:
+    image: sangeetha/testhealthcheck:v2
+    stdin_open: true
+    tty: true
+    ports:
+    - 101:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
   test3deny:
     image: sangeetha/testhealthcheck:v2
     stdin_open: true
@@ -25,8 +57,8 @@ services:
     ports:
     - 96:22/tcp
     labels:
-      io.rancher.container.pull_image: always
       com.rancher.stack.location: west
+      io.rancher.container.pull_image: always
   test4deny:
     image: sangeetha/testhealthcheck:v2
     stdin_open: true
