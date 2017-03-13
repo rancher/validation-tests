@@ -4,13 +4,15 @@ if_test_k8s = pytest.mark.skipif(
     RANCHER_ORCHESTRATION != "k8s",
     reason='RANCHER_ORCHESTRATION is not k8s')
 
+random_ns = random_str()
+
 
 @if_test_k8s
 def test_k8s_ingress_1(kube_hosts):
     # This method tests an ingress with host, paths specified and two services
 
     # Create namespace
-    namespace = "testingress1"
+    namespace = random_ns + '-testingress1'
     create_ns(namespace)
 
     ingress_file_name = "ingress_1.yml"
@@ -66,7 +68,7 @@ def test_k8s_ingress_2(kube_hosts):
     # specified and one service
 
     # Create namespace
-    namespace = "testingress2"
+    namespace = random_ns + '-testingress2'
     create_ns(namespace)
 
     # Initial set up
@@ -108,7 +110,7 @@ def test_k8s_ingress_3(kube_hosts):
     # one service and http.port specified
 
     # Create namespace
-    namespace = "testingress3"
+    namespace = random_ns + '-testingress3'
     create_ns(namespace)
 
     # Initial set up
@@ -147,7 +149,7 @@ def test_k8s_ingress_4(kube_hosts):
     # This method tests multiple ingresses
 
     # Create namespace
-    namespace = "testingress4"
+    namespace = random_ns + '-testingress4'
     create_ns(namespace)
 
     # Initial set up
@@ -218,7 +220,7 @@ def test_k8s_ingress_5(kube_hosts):
     # one service and http.port specified
 
     # Create namespace
-    namespace = "testingress5"
+    namespace = random_ns + '-testingress5'
     create_ns(namespace)
 
     # Initial set up
@@ -257,7 +259,7 @@ def test_k8s_ingress_6(kube_hosts):
     # creation of its associated service
 
     # Create namespace
-    namespace = "testingress6"
+    namespace = random_ns + '-testingress6'
     create_ns(namespace)
 
     port = "81"
@@ -297,7 +299,7 @@ def test_k8s_ingress_7(kube_hosts):
     # specified[no host] and two services
 
     # Create namespace
-    namespace = "testingress7"
+    namespace = random_ns + '-testingress7'
     create_ns(namespace)
 
     # Initial set up
@@ -349,7 +351,7 @@ def test_k8s_ingress_8(kube_hosts):
     # specified and two services
 
     # Create namespace
-    namespace = "testingress8"
+    namespace = random_ns + '-testingress8'
     create_ns(namespace)
 
     ingress_file_name = "ingress_8.yml"
@@ -399,7 +401,7 @@ def test_k8s_ingress_9(kube_hosts):
     # for one service and just path specified for another service
 
     # Create namespace
-    namespace = "testingress9"
+    namespace = random_ns + '-testingress9'
     create_ns(namespace)
 
     ingress_file_name = "ingress_9.yml"
@@ -446,7 +448,7 @@ def test_k8s_ingress_10(kube_hosts):
     # This method tests ingress scaling
 
     # Create namespace
-    namespace = "testingress10"
+    namespace = random_ns + '-testingress10'
     create_ns(namespace)
 
     # Initial set up
@@ -492,7 +494,7 @@ def test_k8s_ingress_11(kube_hosts):
     # one service and http.port specified
 
     # Create namespace
-    namespace = "testingress11"
+    namespace = random_ns + '-testingress11'
     create_ns(namespace)
 
     # Initial set up
@@ -569,7 +571,7 @@ def test_k8s_ingress_12(kube_hosts):
     # one service and http.port specified
 
     # Create namespace
-    namespace = "testingress12"
+    namespace = random_ns + '-testingress12'
     create_ns(namespace)
 
     # Initial set up
@@ -628,7 +630,7 @@ def test_k8s_ingress_13(kube_hosts):
     # testing an ingress with just backend,
 
     # Create namespace
-    namespace = "testingress13"
+    namespace = random_ns + '-testingress13'
     create_ns(namespace)
 
     # Initial set up
@@ -687,7 +689,7 @@ def test_k8s_ingress_14(kube_hosts):
     # testing an ingress with just backend
 
     # Create namespace
-    namespace = "testingress14"
+    namespace = random_ns + '-testingress14'
     create_ns(namespace)
 
     # Initial set up
@@ -748,7 +750,7 @@ def test_k8s_ingress_15(kube_hosts):
     # specified to an ingress pointing to a different service
 
     # Create namespace
-    namespace = "testingress15"
+    namespace = random_ns + '-testingress15'
     create_ns(namespace)
 
     # Initial set up
@@ -816,7 +818,7 @@ def test_k8s_ingress_16(kube_hosts):
     # path and different service
 
     # Create namespace
-    namespace = "testingress16"
+    namespace = random_ns + '-testingress16'
     create_ns(namespace)
 
     # Initial set up
@@ -894,7 +896,7 @@ def test_k8s_ingress_17(kube_hosts):
     # with different hostheaders and same serviceport
 
     # Create namespace
-    namespace = "testingress17"
+    namespace = random_ns + '-testingress17'
     create_ns(namespace)
 
     ingress_file_name = "ingress_17.yml"
@@ -945,7 +947,7 @@ def test_k8s_ingress_18(kube_hosts):
     # Bug #5213
 
     # Create namespace with "-"
-    namespace = "testingress-18"
+    namespace = random_ns + '-testingress-18'
     create_ns(namespace)
 
     ingress_file_name = "ingress_18.yml"
@@ -1078,7 +1080,7 @@ def test_k8s_ingress_20(kube_hosts):
     # different domains/same paths
 
     # Create namespace
-    namespace = "testingress20"
+    namespace = random_ns + '-testingress20'
     create_ns(namespace)
 
     ingress_file_name = "ingress_20.yml"

@@ -685,7 +685,6 @@ def kube_hosts(admin_user_client, admin_client, client, request):
             project_id=k8s_project_id)
         kubectl_client_con["container"] = test_client_con["container"]
         kubectl_client_con["host"] = test_client_con["host"]
-        cleanup_k8s()
 
     def remove():
         if K8S_DEPLOY == "True":

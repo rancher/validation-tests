@@ -10,6 +10,7 @@ quay_creds["image"] = os.environ.get('QUAY_IMAGE')
 quay_creds["serverAddress"] = "quay.io"
 quay_creds["name"] = "quay"
 
+random_ns = random_str()
 
 registry_list = {}
 
@@ -72,7 +73,7 @@ def execute_cmd(pod, cmd, namespace):
 
 @if_test_k8s
 def test_k8s_env_create(kube_hosts):
-    namespace = "create-namespace"
+    namespace = random_ns + '-create-namespace'
     create_ns(namespace)
     name = "testnginx"
     expected_result = ['replicationcontroller "'+name+'" created',
@@ -128,7 +129,7 @@ def test_k8s_env_create(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_edit(kube_hosts):
-    namespace = "edit-namespace"
+    namespace = random_ns + '-edit-namespace'
     create_ns(namespace)
     name = "testeditnginx"
     expected_result = ['replicationcontroller "'+name+'" created',
@@ -174,7 +175,7 @@ def test_k8s_env_edit(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_delete(kube_hosts):
-    namespace = "delete-namespace"
+    namespace = random_ns + '-delete-namespace'
     create_ns(namespace)
     name = "testdeletenginx"
     expected_result = ['replicationcontroller "'+name+'" created',
@@ -240,7 +241,7 @@ def test_k8s_env_delete(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_secret(kube_hosts):
-    namespace = "secret-namespace"
+    namespace = random_ns + '-secret-namespace'
     create_ns(namespace)
     name = "testsecret"
     expected_result = ['secret "'+name+'" created']
@@ -271,14 +272,14 @@ def test_k8s_env_secret(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_namespace(kube_hosts):
-    namespace = "testnamespace"
+    namespace = random_ns + '-testnamespace'
     create_ns(namespace)
     teardown_ns(namespace)
 
 
 @if_test_k8s
 def test_k8s_env_rollingupdates(kube_hosts):
-    namespace = "rollingupdates-namespace"
+    namespace = random_ns + '-rollingupdates-namespace'
     create_ns(namespace)
     name = "testru"
     expected_result = ['replicationcontroller "'+name+'" created']
@@ -335,7 +336,7 @@ def test_k8s_env_rollingupdates(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_configmaps(kube_hosts):
-    namespace = "configmaps-namespace"
+    namespace = random_ns + '-configmaps-namespace'
     create_ns(namespace)
     name = "testconfigmap"
     expected_result = ['configmap "'+name+'" created']
@@ -369,7 +370,7 @@ def test_k8s_env_configmaps(kube_hosts):
 @if_test_k8s
 def test_k8s_env_resourceQuota(kube_hosts):
     name = "quota"
-    namespace = "quota-example"
+    namespace = random_ns + '-quota-example'
     create_ns(namespace)
     # Create resource quota object
     expected_result = ['resourcequota "'+name+'" created']
@@ -390,7 +391,7 @@ def test_k8s_env_resourceQuota(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_deployments(kube_hosts):
-    namespace = 'deployments-namespace'
+    namespace = random_ns + '-deployments-namespace'
     create_ns(namespace)
     name = "nginx-deployment"
     # Create deployment
@@ -415,7 +416,7 @@ def test_k8s_env_deployments(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_deployments_rollback(kube_hosts):
-    namespace = 'deploymentsrollback-namespace'
+    namespace = random_ns + '-deploymentsrollback-namespace'
     create_ns(namespace)
     name = "nginx-deployment"
     # Create deployment
@@ -474,7 +475,7 @@ def test_k8s_env_deployments_rollback(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_jobs(kube_hosts):
-    namespace = 'jobs-namespace'
+    namespace = random_ns + '-jobs-namespace'
     create_ns(namespace)
     name = "pitest"
     # Create deployment
@@ -497,7 +498,7 @@ def test_k8s_env_jobs(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_scale(kube_hosts):
-    namespace = 'scale-namespace'
+    namespace = random_ns + '-scale-namespace'
     create_ns(namespace)
     name = "scale-nginx"
     # Create rc
@@ -538,7 +539,7 @@ def test_k8s_env_scale(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_daemonsets(kube_hosts):
-    namespace = 'daemonset-namespace'
+    namespace = random_ns + '-daemonset-namespace'
     create_ns(namespace)
     name = "daemonset"
     # Create daemonset
@@ -568,7 +569,7 @@ def test_k8s_env_daemonsets(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_replicasets(kube_hosts):
-    namespace = 'replicaset-namespace'
+    namespace = random_ns + '-replicaset-namespace'
     create_ns(namespace)
     name = "rs"
     # Create daemonset
@@ -588,7 +589,7 @@ def test_k8s_env_replicasets(kube_hosts):
 # Pod Attributes
 @if_test_k8s
 def test_k8s_env_create_pod(kube_hosts):
-    namespace = 'pod-create-namespace'
+    namespace = random_ns + '-pod-create-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create daemonset
@@ -612,7 +613,7 @@ def test_k8s_env_create_pod(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_create_priv_pod(kube_hosts):
-    namespace = 'pod-priv-namespace'
+    namespace = random_ns + '-pod-priv-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create daemonset
@@ -637,7 +638,7 @@ def test_k8s_env_create_priv_pod(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_delete_pod(kube_hosts):
-    namespace = 'pod-delete-namespace'
+    namespace = random_ns + '-pod-delete-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create daemonset
@@ -672,7 +673,7 @@ def test_k8s_env_delete_pod(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_edit_pod(kube_hosts):
-    namespace = 'pod-edit-namespace'
+    namespace = random_ns + '-pod-edit-namespace'
     create_ns(namespace)
     oldname = "nginx"
     name = "nginxv2"
@@ -715,7 +716,7 @@ def test_k8s_env_edit_pod(kube_hosts):
 # Podspecs
 @if_test_k8s
 def test_k8s_env_podspec_volume(kube_hosts):
-    namespace = 'volume-namespace'
+    namespace = random_ns + '-volume-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create pod with service
@@ -747,7 +748,7 @@ def test_k8s_env_podspec_volume(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_restartPolicy(kube_hosts):
-    namespace = 'restartpolicy-namespace'
+    namespace = random_ns + '-restartpolicy-namespace'
     create_ns(namespace)
     name = "alpine"
     # Create pod with service
@@ -783,7 +784,7 @@ def test_k8s_env_restartPolicy(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_activeDeadlineSeconds(kube_hosts):
-    namespace = 'ads-namespace'
+    namespace = random_ns + '-ads-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create pod with active deadline seconds
@@ -803,7 +804,7 @@ def test_k8s_env_podspec_activeDeadlineSeconds(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_terminationGracePeriodSeconds(kube_hosts):
-    namespace = 'tgps-namespace'
+    namespace = random_ns + '-tgps-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create pod with termination grace period
@@ -823,7 +824,7 @@ def test_k8s_env_podspec_terminationGracePeriodSeconds(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_nodeSelector(kube_hosts):
-    namespace = 'nodeselector-namespace'
+    namespace = random_ns + '-nodeselector-namespace'
     create_ns(namespace)
     name = "nginx"
     # Get all nodes
@@ -859,7 +860,7 @@ def test_k8s_env_podspec_nodeSelector(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_nodeName(kube_hosts):
-    namespace = 'nodename-namespace'
+    namespace = random_ns + '-nodename-namespace'
     create_ns(namespace)
     name = "nginx"
     # Get all nodes
@@ -898,7 +899,7 @@ def test_k8s_env_podspec_nodeName(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_hostPID(kube_hosts):
-    namespace = 'hostpid-namespace'
+    namespace = random_ns + '-hostpid-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create pod with hostpid
@@ -926,7 +927,7 @@ def test_k8s_env_podspec_hostPID(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_podspec_hostIPC(kube_hosts):
-    namespace = 'hostipc-namespace'
+    namespace = random_ns + '-hostipc-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create pod with hostpid
@@ -951,7 +952,7 @@ def test_k8s_env_podspec_hostIPC(kube_hosts):
 # ReplicationController Attributes/Specs
 @if_test_k8s
 def test_k8s_env_rc_create(kube_hosts):
-    namespace = 'rc-create-namespace'
+    namespace = random_ns + '-rc-create-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create rc
@@ -969,7 +970,7 @@ def test_k8s_env_rc_create(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_rc_delete(kube_hosts):
-    namespace = 'rc-delete-namespace'
+    namespace = random_ns + '-rc-delete-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create rc
@@ -997,7 +998,7 @@ def test_k8s_env_rc_delete(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_rc_edit(kube_hosts):
-    namespace = 'rc-edit-namespace'
+    namespace = random_ns + '-rc-edit-namespace'
     create_ns(namespace)
     name = "nginx"
     # Create rc
@@ -1030,7 +1031,7 @@ def test_k8s_env_rc_edit(kube_hosts):
 # Service Attributes/Specs
 @if_test_k8s
 def test_k8s_env_service_lb(kube_hosts):
-    namespace = 'service-namespace-lb'
+    namespace = random_ns + '-service-namespace-lb'
     create_ns(namespace)
     lbname = "lbnginx"
     # Create rc and services
@@ -1059,7 +1060,7 @@ def test_k8s_env_service_lb(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_service_clusterip(kube_hosts):
-    namespace = 'service-namespace-clusterip'
+    namespace = random_ns + '-service-namespace-clusterip'
     create_ns(namespace)
     clusteripname = "clusterip-nginx"
     # Create rc and services
@@ -1095,7 +1096,7 @@ def test_k8s_env_service_clusterip(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_service_externalip(kube_hosts):
-    namespace = 'service-namespace-externalip'
+    namespace = random_ns + '-service-namespace-externalip'
     create_ns(namespace)
     # Get all nodes ips
     get_response = execute_kubectl_cmds("get nodes -o json")
@@ -1136,7 +1137,7 @@ def test_k8s_env_service_externalip(kube_hosts):
 
 @if_test_k8s
 def test_k8s_env_service_nodeport(kube_hosts):
-    namespace = 'service-namespace-nodeport'
+    namespace = random_ns + '-service-namespace-nodeport'
     create_ns(namespace)
     nodeportname = "nodeport-nginx"
     # Create rc and services
@@ -1167,7 +1168,7 @@ def test_k8s_env_service_nodeport(kube_hosts):
 # hostnetwork #4345
 @if_test_k8s
 def test_k8s_env_podspec_hostnetwork(kube_hosts):
-    namespace = 'hostnetwork-namespace'
+    namespace = random_ns + '-hostnetwork-namespace'
     create_ns(namespace)
     name = "nginx"
     # create pod with hostnetwork
@@ -1190,7 +1191,7 @@ def test_k8s_env_podspec_hostnetwork(kube_hosts):
 # dashboard #4452
 @if_test_k8s
 def test_k8s_env_dashboard(kube_hosts):
-    namespace = 'dashboard-namespace'
+    namespace = random_ns + '-dashboard-namespace'
     name = 'kubernetes-dashboard'
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
@@ -1228,7 +1229,7 @@ def test_k8s_env_dashboard(kube_hosts):
 @pytest.mark.skipif(True, reason="Grafana is not supported")
 @if_test_k8s
 def test_k8s_env_heapster(kube_hosts):
-    namespace = 'kube-system'
+    namespace = random_ns + '-kube-system'
     name = 'heapster'
     # create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
@@ -1265,7 +1266,7 @@ def test_k8s_env_heapster(kube_hosts):
 @if_test_k8s
 def test_k8s_env_serviceaccount(kube_hosts):
     name = 'build-robot'
-    namespace = 'serviceaccount-namespace'
+    namespace = random_ns + '-serviceaccount-namespace'
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="serviceaccount.yml")
@@ -1283,7 +1284,7 @@ def test_k8s_env_serviceaccount(kube_hosts):
 @if_test_k8s
 def test_k8s_env_logs(kube_hosts):
     name = 'hello-nginx'
-    namespace = 'logs-namespace'
+    namespace = random_ns + '-logs-namespace'
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="hello-nginx.yml")
@@ -1303,7 +1304,7 @@ def test_k8s_env_logs(kube_hosts):
 @if_test_k8s
 def test_k8s_env_exec(kube_hosts):
     name = 'hello-nginx'
-    namespace = 'exec-namespace'
+    namespace = random_ns + '-exec-namespace'
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="hello-nginx.yml")
@@ -1326,7 +1327,7 @@ def test_k8s_env_create_pod_with_private_registry_image(
 
     quay_image = quay_creds["image"]
     # Create namespace
-    namespace = 'privateregns'
+    namespace = random_ns + '-privateregns'
     create_ns(namespace)
     name = "privateregpod"
 
