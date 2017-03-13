@@ -6,6 +6,9 @@ if_test_k8s = pytest.mark.skipif(
     reason='RANCHER_ORCHESTRATION is not k8s')
 
 
+random_ns = random_str()
+
+
 def waitfor_dns_records(cmd, namespace, pod):
     t = 0
     while True:
@@ -21,11 +24,12 @@ def waitfor_dns_records(cmd, namespace, pod):
 
 @pytest.fixture(scope='session', autouse=True)
 def create_test_pod(kube_hosts, request):
-    namespace = 'dns-test'
+    namespace = random_ns + '-dns-test'
+    name = "dns-test-pod"
     create_ns(namespace)
     execute_kubectl_cmds("create --namespace="+namespace,
                          file_name="dns-test.yml")
-    waitfor_pods(selector="app=dns-test-pod", namespace=namespace, number=1)
+    waitfor_pods(selector="app="+name, namespace=namespace, number=1)
 
     def fin():
         teardown_ns(namespace)
@@ -42,11 +46,12 @@ def execute_cmd(pod, cmd, namespace):
 # 1,2,3
 @if_test_k8s
 def test_k8s_dns_service_clusterip(kube_hosts):
-    namespace = 'dns-clusterip-namespace'
+    namespace = random_ns + '-dns-clusterip-namespace'
     create_ns(namespace)
     name = "dns-nginx"
-    test_pod = "dns-test-pod"
-    test_pod_namespace = "dns-test-namespace"
+    local_test_pod = "dns-test-clusterip"
+    global_test_pod = "dns-test-pod"
+    global_test_pod_namespace = random_ns + "-dns-test"
 
     # Create rc and service
     execute_kubectl_cmds("create --namespace="+namespace,
@@ -60,30 +65,31 @@ def test_k8s_dns_service_clusterip(kube_hosts):
 
     # test resolving service name
     cmd = "dig "+name+" +search +short"
-    waitfor_dns_records(cmd, namespace, test_pod_namespace)
+    waitfor_dns_records(cmd, namespace, local_test_pod)
     cmd_result = execute_cmd(
-        test_pod_namespace, cmd, namespace)
+        local_test_pod, cmd, namespace)
     assert cmd_result.rstrip() == clusterip
 
     # test resolving service_name.namespace
     cmd_result = execute_cmd(
-        test_pod,
+        global_test_pod,
         "dig "+name+"."+namespace+" +search +short",
-        "dns-test")
+        global_test_pod_namespace)
     assert cmd_result.rstrip() == clusterip
 
     # test resolving fqdn
     cmd_result = execute_cmd(
-        test_pod,
+        global_test_pod,
         'dig '+name+"."+namespace+'.svc.cluster.local. +short',
-        "dns-test")
+        global_test_pod_namespace)
     assert cmd_result.rstrip() == clusterip
 
     # Test connectivity to the pod
     cmd_result = execute_cmd(
-        test_pod, "wget -q -O- " +
+                  global_test_pod, "wget -q -O- " +
                   name+"." + namespace +
-                  ".svc.cluster.local:8000/name.html", "dns-test")
+                  ".svc.cluster.local:8000/name.html",
+                  global_test_pod_namespace)
     assert name in cmd_result.rstrip()
     teardown_ns(namespace)
 
@@ -91,7 +97,8 @@ def test_k8s_dns_service_clusterip(kube_hosts):
 # 4
 @if_test_k8s
 def test_k8s_dns_headless_service_clusterip(kube_hosts):
-    namespace = 'dns-headless-namespace'
+    namespace = random_ns + '-dns-headless-namespace'
+    global_test_pod_namespace = random_ns + "-dns-test"
     test_pod = "dns-test-pod"
     create_ns(namespace)
     name = "dns-nginx-headless"
@@ -119,11 +126,11 @@ def test_k8s_dns_headless_service_clusterip(kube_hosts):
 
     # test resolving service name
     cmd = 'dig '+name+"."+namespace+'.svc.cluster.local. +short'
-    waitfor_dns_records(cmd, "dns-test", test_pod)
+    waitfor_dns_records(cmd, global_test_pod_namespace, test_pod)
     cmd_result = execute_cmd(
         test_pod,
         cmd,
-        "dns-test")
+        global_test_pod_namespace)
     ips = cmd_result.splitlines()
     ips = [ip.rstrip() for ip in ips]
     assert set(ips) == set(pods_ips)
@@ -132,7 +139,7 @@ def test_k8s_dns_headless_service_clusterip(kube_hosts):
     cmd_result = execute_cmd(
         test_pod, "wget -q -O- " +
                   name+"." + namespace +
-                  ".svc.cluster.local/name.html", "dns-test")
+                  ".svc.cluster.local/name.html", global_test_pod_namespace)
     assert name in cmd_result.rstrip()
     teardown_ns(namespace)
 
@@ -140,7 +147,8 @@ def test_k8s_dns_headless_service_clusterip(kube_hosts):
 # 5
 @if_test_k8s
 def test_k8s_dns_service_namedport(kube_hosts):
-    namespace = 'dns-namedport-namespace'
+    namespace = random_ns + '-dns-namedport-namespace'
+    global_test_pod_namespace = random_ns + "-dns-test"
     test_pod = "dns-test-pod"
     create_ns(namespace)
     name = "dns-nginx-namedport"
@@ -160,11 +168,11 @@ def test_k8s_dns_service_namedport(kube_hosts):
     # test SRV record
     cmd = 'dig SRV ' \
           '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short'
-    waitfor_dns_records(cmd, "dns-test", test_pod)
+    waitfor_dns_records(cmd, global_test_pod_namespace, test_pod)
     cmd_result = execute_cmd(
         test_pod,
         cmd,
-        "dns-test")
+        global_test_pod_namespace)
     srv_record = cmd_result.rsplit()
     assert srv_record[2] == '9999'
     assert srv_record[3] == name + '.' + namespace + '.svc.cluster.local.'
@@ -173,7 +181,8 @@ def test_k8s_dns_service_namedport(kube_hosts):
     cmd_result = execute_cmd(
         test_pod, "wget -q -O- " +
                   name+"." + namespace +
-                  ".svc.cluster.local:9999/name.html", "dns-test")
+                  ".svc.cluster.local:9999/name.html",
+                  global_test_pod_namespace)
     assert name in cmd_result.rstrip()
     teardown_ns(namespace)
 
@@ -181,7 +190,8 @@ def test_k8s_dns_service_namedport(kube_hosts):
 # 6
 @if_test_k8s
 def test_k8s_dns_headless_service_namedport(kube_hosts):
-    namespace = 'dns-headless-namedport-namespace'
+    namespace = random_ns + '-dns-headless-namedport-namespace'
+    global_test_pod_namespace = random_ns + "-dns-test"
     test_pod = "dns-test-pod"
     create_ns(namespace)
     name = "dns-headless-namedport"
@@ -201,7 +211,7 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
     # test CNAME
     cmd = 'dig ' \
           '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short'
-    waitfor_dns_records(cmd, "dns-test", test_pod)
+    waitfor_dns_records(cmd, global_test_pod_namespace, test_pod)
     get_response = execute_kubectl_cmds(
         "get pod --selector=name=dns-headless-namedport"
         " -o json --namespace="+namespace)
@@ -209,7 +219,7 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
     cmd_result = execute_cmd(
         test_pod,
         cmd,
-        "dns-test")
+        global_test_pod_namespace)
     cname_record = cmd_result.rsplit()
     assert cname_record[1] == pod["items"][0]['status']['podIP']
 
@@ -218,7 +228,7 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
         test_pod,
         'dig SRV ' +
         '_tcpport._tcp.'+name+"."+namespace+'.svc.cluster.local. +short',
-        "dns-test")
+        global_test_pod_namespace)
     srv_record = cmd_result.rsplit()
     assert srv_record[2] == '80'
     assert name + '.' + namespace + '.svc.cluster.local.' in srv_record[3]
@@ -226,7 +236,7 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
     cmd_result = execute_cmd(
         test_pod, "wget -q -O- " +
                   name+"." + namespace +
-                  ".svc.cluster.local/name.html", "dns-test")
+                  ".svc.cluster.local/name.html", global_test_pod_namespace)
     assert name in cmd_result.rstrip()
     teardown_ns(namespace)
 
@@ -235,7 +245,8 @@ def test_k8s_dns_headless_service_namedport(kube_hosts):
 @if_test_k8s
 def test_k8s_dns_pod(kube_hosts):
     name = 'dns-pod-nginx'
-    namespace = 'dns-pod-nginx'
+    global_test_pod_namespace = random_ns + "-dns-test"
+    namespace = random_ns + '-dns-pod-nginx'
     test_pod = "dns-test-pod"
     create_ns(namespace)
     # pod
@@ -254,11 +265,11 @@ def test_k8s_dns_pod(kube_hosts):
     # test ip
     cmd = 'dig ' + \
           pod_ip2+'.'+namespace+'.pod.cluster.local. +short'
-    waitfor_dns_records(cmd, "dns-test", test_pod)
+    waitfor_dns_records(cmd, global_test_pod_namespace, test_pod)
     cmd_result = execute_cmd(
         test_pod,
         cmd,
-        "dns-test")
+        global_test_pod_namespace)
     assert cmd_result.rstrip() == pod_ip
 
     cmd_result = execute_cmd(
@@ -266,7 +277,7 @@ def test_k8s_dns_pod(kube_hosts):
                   pod_ip2 +
                   "." +
                   namespace +
-                  ".pod.cluster.local/name.html", "dns-test")
+                  ".pod.cluster.local/name.html", global_test_pod_namespace)
     assert name == cmd_result.rstrip()
     teardown_ns(namespace)
 
@@ -276,7 +287,8 @@ def test_k8s_dns_pod(kube_hosts):
 def test_k8s_dns_pod_hostname(kube_hosts):
     # hostname of the pod
     name = 'foo'
-    namespace = 'dns-podhostname-nginx'
+    global_test_pod_namespace = random_ns + "-dns-test"
+    namespace = random_ns + '-dns-podhostname-nginx'
     test_pod = "dns-test-pod"
     create_ns(namespace)
     # pod
@@ -294,16 +306,16 @@ def test_k8s_dns_pod_hostname(kube_hosts):
     # test ip
     cmd = 'dig ' \
           'foo.bar.'+namespace+'.svc.cluster.local. +short'
-    waitfor_dns_records(cmd, "dns-test", test_pod)
+    waitfor_dns_records(cmd, global_test_pod_namespace, test_pod)
     cmd_result = execute_cmd(
         test_pod,
         cmd,
-        "dns-test")
+        global_test_pod_namespace)
     assert cmd_result.rstrip() == pod_ip
 
     cmd_result = execute_cmd(
         test_pod, "wget -q -O- " +
                   'foo.bar.' + namespace +
-                  ".svc.cluster.local/name.html", "dns-test")
+                  ".svc.cluster.local/name.html", global_test_pod_namespace)
     assert name == cmd_result.rstrip()
     teardown_ns(namespace)

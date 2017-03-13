@@ -40,12 +40,12 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: dns-test-namespace
+  name: dns-test-clusterip
   labels:
-    app: dns-test-namespace
+    app: dns-test-clusterip
 spec:
   containers:
-  - name: dns-test-namespace
+  - name: dns-test-clusterip
     image: sangeetha/testclient
     ports:
     - containerPort: 80
