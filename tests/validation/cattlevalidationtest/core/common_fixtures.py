@@ -663,13 +663,14 @@ def socat_containers(client, request):
     request.addfinalizer(remove_socat)
 
 
-def get_docker_client(host):
+def get_docker_client(host, api_version=None):
     ip = host.ipAddresses()[0].address
     port = '2375'
 
     params = {}
     params['base_url'] = 'tcp://%s:%s' % (ip, port)
-    api_version = os.getenv('DOCKER_API_VERSION', '1.18')
+    if not api_version:
+        api_version = os.getenv('DOCKER_API_VERSION', '1.18')
     params['version'] = api_version
 
     return Client(**params)

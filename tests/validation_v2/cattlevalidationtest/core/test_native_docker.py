@@ -1,12 +1,15 @@
-from docker.utils import create_host_config
+from docker.utils import create_host_config, kwargs_from_env
 from common_fixtures import *  # NOQA
 import websocket as ws
 from test_container import assert_execute, assert_stats, assert_ip_inject
+from docker import Client
+from cattle import from_env
 
 CONTAINER_APPEAR_TIMEOUT_MSG = 'Timed out waiting for container ' \
                                'to appear. Name: [%s].'
 
 NATIVE_TEST_IMAGE = 'cattle/test-agent'
+SP_CREATE = "storagepool.create"
 
 
 @pytest.fixture(scope='module')
@@ -25,7 +28,6 @@ def pull_images(client, socat_containers):
         docker_client.pull(image[0], image[1])
 
 
-@pytest.fixture(scope='module', autouse=True)
 def native_cleanup(client, request):
     def fin():
         containers = client.list_container()
@@ -43,6 +45,120 @@ def native_cleanup(client, request):
 @pytest.fixture()
 def native_name(random_str):
     return 'native-' + random_str
+
+
+def create_agent(client, docker_client, base_name):
+    agent_name = 'agent-%s' % base_name
+    client.create_container(name=agent_name,
+                            imageUuid='docker:alpine',
+                            command='sh', tty=True, stdinOpen=True,
+                            labels={'io.rancher.container.'
+                                    'create_agent': 'true'})
+    agent_con = wait_on_rancher_container(client, agent_name)
+    ac = docker_client.inspect_container(agent_con.externalId)
+    assert ac is not None
+    for e in ac['Config']['Env']:
+        if e.startswith('CATTLE_ACCESS_KEY'):
+            access_key = e.split('=')[1]
+        elif e.startswith('CATTLE_SECRET_KEY'):
+            secret_key = e.split('=')[1]
+
+    agent_cli = from_env(url=cattle_url(), cache=False, access_key=access_key,
+                         secret_key=secret_key)
+    hosts = agent_con.hosts()
+    return agent_cli, hosts[0]
+
+
+def create_storage_pool(client, agent_client, driver_name, host_uuids):
+    event = agent_client.create_external_storage_pool_event(
+        eventType=SP_CREATE,
+        hostUuids=host_uuids,
+        externalId=driver_name,
+        storagePool={
+            'name': driver_name,
+            'driverName': driver_name,
+        })
+    assert event is not None
+    storage_pool = wait_for(lambda: sp_wait(client, driver_name))
+    return storage_pool
+
+
+def sp_wait(client, driver_name):
+    storage_pools = client.list_storage_pool(driverName=driver_name)
+    if len(storage_pools) and storage_pools[0].state == 'active':
+        return storage_pools[0]
+
+
+# def test_native_convoy_volume(socat_containers, client, pull_images):
+def test_native_convoy_volume(client):
+    driver = 'convoy%s' % random_num()
+    kwargs = kwargs_from_env(assert_hostname=False)
+    kwargs['version'] = '1.21'
+    docker_client = Client(**kwargs)  # get_docker_client(host(client))
+    agent_cli, host = create_agent(client, docker_client, driver)
+
+    create_storage_pool(client, agent_cli, driver, [host.uuid])
+
+    container = client. \
+        create_container(name=native_name(random_str() + '-convoy'),
+                         privileged=True,
+                         imageUuid='docker:cjellick/convoy-local:v0.1.0',
+                         environment={
+                             'CONVOY_SOCKET': '/var/run/%s.sock' % driver,
+                             'CONVOY_DATA_DIR': '/tmp/%s' % driver,
+                             'CONVOY_DRIVER_NAME': '%s' % driver},
+                         dataVolumes=['/var/run/:/var/run/',
+                                      '/etc/docker/plugins/:'
+                                      '/etc/docker/plugins',
+                                      '/tmp/%s:/tmp/%s' % (driver, driver)])
+
+    print '%s %s' % (docker_client.containers(), container)
+    client.wait_success(container)
+    vol_name = 'vol-1-%s' % driver
+    vol = docker_client.create_volume(name=vol_name, driver=driver)
+    assert vol is not None
+    name = 'c1-%s' % driver
+    container = docker_client.create_container('alpine', name=name,
+                                               command='sh',
+                                               stdin_open=True, tty=True,
+                                               volumes=[
+                                                   '/bar',
+                                                   '/bang',
+                                                   '/tmp2'],
+                                               host_config=create_host_config(
+                                                   binds=['%s:/bar' % vol_name,
+                                                          '/tmp:/tmp2']))
+    docker_client.start(container)
+    rc = wait_on_rancher_container(client, name)
+    assert rc.externalId == container['Id']
+    assert rc.state == 'running'
+
+    mounts = rc.mounts()
+    assert len(mounts) == 3
+    for m in mounts:
+        volume = m.volume()
+        sp = volume.storagePools()[0]
+        if m.path == '/bar':
+            assert volume.driver == driver
+            assert volume.uri == '%s://%s' % (driver, vol_name)
+            assert volume.externalId == volume.uri
+            assert volume.name == vol_name
+            assert volume.isHostPath is False
+            assert sp.driverName == driver
+        if m.path == '/bang':
+            assert volume.driver == 'local'
+            assert not volume.uri.startswith('convoy')
+            assert volume.name is not None  # Is a long random string
+            assert volume.externalId is None
+            assert volume.isHostPath is False
+            assert sp.driverName is None
+        if m.path == '/tmp2':
+            assert volume.driver is None
+            assert volume.uri == 'file:///tmp'
+            assert volume.externalId is None
+            assert volume.isHostPath is True
+            assert volume.name == '/tmp2'
+            assert sp.driverName is None
 
 
 def test_native_net_blank(socat_containers, client, native_name, pull_images):
@@ -324,7 +440,8 @@ def wait_on_rancher_container(client, name, timeout=None):
     kwargs = {}
     if timeout:
         kwargs['timeout'] = timeout
-    container = client.wait_success(container, **kwargs)
+    wait_for_state(client, 'running', container.id)
+    container = client.reload(container)
     return container
 
 
