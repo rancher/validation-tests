@@ -8,6 +8,8 @@ CONTAINER_APPEAR_TIMEOUT_MSG = 'Timed out waiting for container ' \
 
 NATIVE_TEST_IMAGE = 'cattle/test-agent'
 
+VOLUME_CLEANUP_LABEL = 'io.rancher.container.volume_cleanup_strategy'
+
 
 @pytest.fixture(scope='module')
 def host(client):
@@ -385,3 +387,81 @@ def test_native_fields(socat_containers, client, pull_images):
     assert rancher_container.restartPolicy == {'name': 'on-failure',
                                                'maximumRetryCount': 5}
     assert rancher_container.devices == ['/dev/null:/dev/xnull:rw']
+
+
+def check_mounts(resource, count):
+    mounts = [x for x in resource.mounts() if x.state != 'removed']
+    assert len(mounts) == count
+    return mounts
+
+
+def volume_cleanup_setup(docker_client, rancher_client, con_name,
+                         strategy=None):
+    labels = {}
+    if strategy:
+        labels[VOLUME_CLEANUP_LABEL] = strategy
+
+    vol_name = random_str()
+
+    host_config = docker_client.create_host_config(
+        binds=['%s:/namedvolpath' % vol_name])
+
+    docker_container = \
+        docker_client.create_container(NATIVE_TEST_IMAGE,
+                                       name=con_name,
+                                       volumes=['/namedvolpath',
+                                                '/unnamedvolpath'],
+                                       labels=labels, host_config=host_config)
+    rancher_container, docker_container = start_and_wait(rancher_client,
+                                                         docker_container,
+                                                         docker_client,
+                                                         con_name)
+
+    if strategy:
+        assert rancher_container.labels[VOLUME_CLEANUP_LABEL] == strategy
+
+    mounts = check_mounts(rancher_container, 2)
+    v1 = mounts[0].volume()
+    v2 = mounts[1].volume()
+    named_vol = v1 if v1.name == vol_name else v2
+    unnamed_vol = v1 if v1.name != vol_name else v2
+    named_vol = rancher_client.wait_success(named_vol)
+    unnamed_vol = rancher_client.wait_success(unnamed_vol)
+    assert named_vol.state == 'active'
+    assert unnamed_vol.state == 'active'
+    rancher_container = rancher_client.wait_success(
+        rancher_container.stop(remove=True, timeout=0))
+    rancher_container = rancher_client.wait_success(rancher_container.purge())
+    check_mounts(rancher_container, 0)
+    return rancher_container, named_vol, unnamed_vol
+
+
+def test_native_cleanup_volume_strategy(client, socat_containers, pull_images):
+    docker_client = get_docker_client(host(client))
+
+    # With no cleanup strategy label, default strategy is 'none'
+    c, named_vol, unnamed_vol = volume_cleanup_setup(docker_client, client,
+                                                     native_name(random_str()))
+    assert client.wait_success(named_vol).state == 'inactive'
+    assert client.wait_success(unnamed_vol).state == 'inactive'
+
+    # Unnamed strategy
+    c, named_vol, unnamed_vol = volume_cleanup_setup(docker_client, client,
+                                                     native_name(random_str()),
+                                                     strategy='unnamed')
+    assert client.wait_success(named_vol).state == 'inactive'
+    assert client.wait_success(unnamed_vol).state == 'removed'
+
+    # None strategy
+    c, named_vol, unnamed_vol = volume_cleanup_setup(docker_client, client,
+                                                     native_name(random_str()),
+                                                     strategy='none')
+    assert client.wait_success(named_vol).state == 'inactive'
+    assert client.wait_success(unnamed_vol).state == 'inactive'
+
+    # All strategy
+    c, named_vol, unnamed_vol = volume_cleanup_setup(docker_client, client,
+                                                     native_name(random_str()),
+                                                     strategy='all')
+    assert client.wait_success(named_vol).state == 'removed'
+    assert client.wait_success(unnamed_vol).state == 'removed'
