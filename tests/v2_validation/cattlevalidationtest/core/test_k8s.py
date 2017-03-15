@@ -379,7 +379,7 @@ def test_k8s_env_resourceQuota(kube_hosts):
         expected_result, file_name="quota.json")
     # Create rc to test the quota
     execute_kubectl_cmds(
-        "create", file_name="quota_nginx.yml")
+        "create --namespace="+namespace, file_name="quota_nginx.yml")
     # Verify that creation failed
     describe_response = execute_kubectl_cmds(
         "describe rc testnginx --namespace="+namespace)
