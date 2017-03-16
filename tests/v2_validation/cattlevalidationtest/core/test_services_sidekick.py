@@ -433,7 +433,8 @@ def test_sidekick_scale_down(client, admin_client):
     delete_all(client, [env])
 
 
-def test_sidekick_consumed_services_stop_start_instance(client,  admin_client):
+def test_sidekick_consumed_services_stop_start_instance(client,  admin_client,
+                                                        socat_containers):
 
     service_scale = 2
     exposed_port = "7007"
@@ -446,7 +447,7 @@ def test_sidekick_consumed_services_stop_start_instance(client,  admin_client):
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), 120)
+    stop_container_from_host(admin_client, container)
     wait_state(client, service, "active")
 
     dnsname = service.secondaryLaunchConfigs[0].name
@@ -539,7 +540,8 @@ def test_sidekick_deactivate_activate_environment(client, admin_client):
     delete_all(client, [env])
 
 
-def test_sidekick_services_stop_start_instance(client,  admin_client):
+def test_sidekick_services_stop_start_instance(client,  admin_client,
+                                               socat_containers):
 
     service_scale = 2
     exposed_port = "7011"
@@ -552,7 +554,7 @@ def test_sidekick_services_stop_start_instance(client,  admin_client):
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), 120)
+    stop_container_from_host(admin_client, container)
     wait_state(client, service, "active")
     time.sleep(restart_sleep_interval)
 

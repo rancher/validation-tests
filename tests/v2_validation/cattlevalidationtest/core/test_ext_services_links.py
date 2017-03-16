@@ -386,7 +386,8 @@ def test_extservice_delete_and_add_ext_service(admin_client, client):
     delete_all(client, con_list)
 
 
-def test_extservice_services_stop_start_instance(admin_client, client):
+def test_extservice_services_stop_start_instance(admin_client, client,
+                                                 socat_containers):
 
     port = "3020"
 
@@ -405,7 +406,7 @@ def test_extservice_services_stop_start_instance(admin_client, client):
     service_instance = containers[0]
 
     # Stop service instance
-    service_instance = client.wait_success(service_instance.stop(), 120)
+    stop_container_from_host(admin_client, service_instance)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
     time.sleep(restart_sleep_interval)

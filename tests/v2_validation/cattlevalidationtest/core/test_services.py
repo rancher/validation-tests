@@ -423,13 +423,9 @@ def test_services_random_expose_port_exhaustrange(
 
     wait_for_condition(client,
                        service,
-                       lambda x: x.publicEndpoints is not None,
+                       lambda x: len(x.publicEndpoints) == 15,
                        lambda x:
                        "publicEndpoints is " + str(x.publicEndpoints))
-    service = client.reload(service)
-    assert service.publicEndpoints is not None
-    assert len(service.publicEndpoints) == 15
-
     exposedPorts = []
     for i in range(0, 5):
         port = service.launchConfig["ports"][0]
@@ -447,7 +443,16 @@ def test_services_random_expose_port_exhaustrange(
                      "ports":
                          ["80/tcp", "81/tcp"]
                      }
-
+    random_name = random_str()
+    service_name = random_name.replace("-", "")
+    service1 = client.create_service(name=service_name,
+                                     stackId=env.id,
+                                     launchConfig=launch_config,
+                                     scale=3,
+                                     startOnCreate=True)
+    time.sleep(5)
+    assert service1.state == "registering"
+    """
     service1, env1 = create_env_and_svc(client, launch_config, 3)
     env1 = env1.activateservices()
     service1 = client.wait_success(service1, 60)
@@ -460,44 +465,43 @@ def test_services_random_expose_port_exhaustrange(
     service1 = client.reload(service1)
     print service.publicEndpoints
     assert len(service1.publicEndpoints) == 0
+    """
 
     # Delete the service that consumed 5 random ports
-    delete_all(client, [env])
-
+    delete_all(client, [service])
     wait_for_condition(
         admin_client, service,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
-    service = client.reload(service)
-    assert service.state == "removed"
 
-    # Create a service that has 2 random exposed ports and validate that
-    # the service gets exposed in 2 random ports from the range
+    # Wait for service that is stuck in "registering" state to get to "active"
+    # state
 
-    service2, env2 = create_env_and_svc(client, launch_config, 3)
-    env2 = env2.activateservices()
-    service2 = client.wait_success(service2, 60)
-    print service2.name
+    wait_for_condition(
+        admin_client, service1,
+        lambda x: x.state == "active",
+        lambda x: 'State is: ' + x.state,
+        120)
 
     wait_for_condition(client,
-                       service2,
+                       service1,
                        lambda x: x.publicEndpoints is not None,
                        lambda x:
                        "publicEndpoints is " + str(x.publicEndpoints))
-    service2 = client.reload(service2)
-    assert service2.publicEndpoints is not None
-    assert len(service2.publicEndpoints) == 6
+    service1 = client.reload(service1)
+    assert service1.publicEndpoints is not None
+    assert len(service1.publicEndpoints) == 6
 
     exposedPorts = []
     for i in range(0, 2):
-        port = service2.launchConfig["ports"][0]
+        port = service1.launchConfig["ports"][0]
         exposedPort = int(port[0:port.index(":")])
         exposedPorts.append(exposedPort)
         assert exposedPort in range(65500, 65506)
 
-    validate_exposed_port(admin_client, service2, exposedPorts)
+    validate_exposed_port(admin_client, service1, exposedPorts)
 
-    delete_all(client, [env1, env2])
+    delete_all(client, [env])
 
 
 def test_environment_activate_deactivate_delete(admin_client,
@@ -876,9 +880,9 @@ def test_service_reconcile_stop_instance_restart_policy_no(
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    container1 = client.wait_success(container1.stop())
+    stop_container_from_host(admin_client, container1)
     container2 = containers[1]
-    container2 = client.wait_success(container2.stop())
+    stop_container_from_host(admin_client, container2)
 
     service = wait_state(client, service, "active")
     time.sleep(30)
@@ -1411,6 +1415,8 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
     delete_all(client, [env])
 
 
+@pytest.mark.skipif(True,
+                    reason='Service names not editable from 1.6 release')
 def test_service_name_unique(admin_client, client):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
@@ -1614,12 +1620,11 @@ def check_service_activate_stop_instance_scale(admin_client, client,
     # Stop instance
     for i in stop_instance_index:
         container_name = get_container_name(env, service, str(i))
-        containers = client.list_container(name=container_name)
+        containers = client.list_container(name=container_name,
+                                           include="hosts")
         assert len(containers) == 1
         container = containers[0]
-        container = client.wait_success(container.stop(), 300)
-        # assert container.state == 'stopped'
-        logger.info("Stopped container - " + container_name)
+        stop_container_from_host(admin_client, container)
 
     service = wait_state(client, service, "active")
 
@@ -1773,9 +1778,9 @@ def check_for_service_reconciliation_on_stop(admin_client, client, service):
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    container1 = client.wait_success(container1.stop())
+    stop_container_from_host(admin_client, container1)
     container2 = containers[1]
-    container2 = client.wait_success(container2.stop())
+    stop_container_from_host(admin_client, container2)
 
     service = wait_state(client, service, "active")
 

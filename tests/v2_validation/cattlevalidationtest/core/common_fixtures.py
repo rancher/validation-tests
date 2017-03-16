@@ -3658,7 +3658,7 @@ def stop_service_instances(client, env, service, stop_instance_index):
         containers = client.list_container(name=container_name)
         assert len(containers) == 1
         container = containers[0]
-        container = client.wait_success(container.stop(), 120)
+        stop_container_from_host(admin_client, container)
         logger.info("Stopped container - " + container_name)
     service = wait_state(client, service, "active")
     check_container_in_service(client, service)
@@ -3722,3 +3722,13 @@ def create_stack_using_rancher_cli(client, stack_name, service_name,
     stack, service = get_env_service_by_name(client, stack_name, service_name)
     assert service.state == "active"
     return stack, service
+
+
+def stop_container_from_host(admin_client, container):
+        containers = admin_client.list_container(
+            externalId=container.externalId, include="hosts")
+        assert len(containers) == 1
+        container = containers[0]
+        host = admin_client.by_id('host', container.hosts[0].id)
+        docker_client = get_docker_client(host)
+        docker_client.stop(container.externalId)

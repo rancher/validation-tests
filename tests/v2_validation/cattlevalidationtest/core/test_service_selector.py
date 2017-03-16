@@ -670,9 +670,9 @@ def test_selectorContainer_for_service_reconciliation_on_stop(
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    container1 = client.wait_success(container1.stop())
+    stop_container_from_host(admin_client, container1)
     container2 = containers[1]
-    container2 = client.wait_success(container2.stop())
+    stop_container_from_host(admin_client, container2)
 
     service = wait_state(client, service, "active")
 
@@ -719,9 +719,12 @@ def test_selectorContainer_for_container_stop(
     env, service, c = env_with_service_selectorContainer(
         admin_client, client, labels)
 
-    # Delete the joined container
-    c = client.wait_success(c.stop())
-    assert c.state == 'stopped'
+    # Stop the joined container
+    stop_container_from_host(admin_client, c)
+    c = wait_for_condition(
+        admin_client, c,
+        lambda x: x.state == "stopped",
+        lambda x: 'State is: ' + x.state)
 
     wait_for_scale_to_adjust(admin_client, service)
     check_container_in_service(admin_client, service)

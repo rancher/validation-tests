@@ -503,7 +503,7 @@ def test_volume_mount_consumed_services_stop_start_instance(
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), 120)
+    stop_container_from_host(admin_client, container)
     wait_state(client, service, "active")
 
     validate_volume_mount(admin_client, service, service_name,
@@ -608,7 +608,7 @@ def test_volume_mount_services_stop_start_instance(
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), 120)
+    stop_container_from_host(admin_client, container)
     wait_state(client, service, "active")
     time.sleep(restart_sleep_interval)
 
