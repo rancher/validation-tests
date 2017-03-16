@@ -311,7 +311,8 @@ def test_dns_consumed_services_scale_down(admin_client, client):
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_stop_start_instance(admin_client, client):
+def test_dns_consumed_services_stop_start_instance(admin_client, client,
+                                                   socat_containers):
 
     port = "3111"
 
@@ -332,7 +333,7 @@ def test_dns_consumed_services_stop_start_instance(admin_client, client):
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), 120)
+    stop_container_from_host(admin_client, container)
     consumed_service = wait_state(client, consumed_service, "active")
     wait_for_scale_to_adjust(admin_client, consumed_service)
 
@@ -656,7 +657,8 @@ def test_dns_services_delete_and_add_consumed_service(admin_client, client):
     delete_all(client, [env])
 
 
-def test_dns_services_stop_start_instance(admin_client, client):
+def test_dns_services_stop_start_instance(admin_client, client,
+                                          socat_containers):
 
     port = "3120"
 
@@ -677,7 +679,7 @@ def test_dns_services_stop_start_instance(admin_client, client):
     service_instance = containers[0]
 
     # Stop service instance
-    service_instance = client.wait_success(service_instance.stop(), 120)
+    stop_container_from_host(admin_client, service_instance)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
     validate_dns_service(

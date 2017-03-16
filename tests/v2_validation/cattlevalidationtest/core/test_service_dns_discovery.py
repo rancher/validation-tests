@@ -147,7 +147,7 @@ def test_dns_discovery_consumed_services_scale_down(admin_client, client):
 
 
 def test_dns_discovery_consumed_services_stop_start_instance(
-        admin_client, client):
+        admin_client, client, socat_container):
 
     port = "406"
 
@@ -165,7 +165,7 @@ def test_dns_discovery_consumed_services_stop_start_instance(
     container = containers[0]
 
     # Stop instance
-    container = client.wait_success(container.stop(), SERVICE_WAIT_TIMEOUT)
+    stop_container_from_host(admin_client, container)
     service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, consumed_service)
@@ -317,7 +317,8 @@ def test_dns_discovery_deactivate_activate_environment(admin_client, client):
     delete_all(client, [env])
 
 
-def test_dns_discovery_services_stop_start_instance(admin_client, client):
+def test_dns_discovery_services_stop_start_instance(admin_client, client,
+                                                    socat_containers):
 
     port = "416"
 
@@ -336,8 +337,7 @@ def test_dns_discovery_services_stop_start_instance(admin_client, client):
     service_instance = containers[0]
 
     # Stop service instance
-    service_instance = client.wait_success(
-        service_instance.stop(), SERVICE_WAIT_TIMEOUT)
+    stop_container_from_host(admin_client, service_instance)
     service = client.wait_success(service)
     wait_for_scale_to_adjust(admin_client, service)
     time.sleep(restart_sleep_interval)
