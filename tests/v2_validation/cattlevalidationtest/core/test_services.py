@@ -1575,6 +1575,18 @@ def test_service_reconcile_on_delete_exposed_port(admin_client, client,
     delete_all(client, [env])
 
 
+@if_container_refactoring
+def test_global_service(admin_client, client):
+    min_scale = 2
+    max_scale = 4
+    increment = 2
+    env, service = create_global_service(client, min_scale, max_scale,
+                                         increment, host_label=None)
+    containers = get_service_container_list(admin_client, service)
+    assert len(containers) == 2
+    delete_all(client, [env])
+
+
 def check_service_scale(admin_client, client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
@@ -1771,17 +1783,22 @@ def check_service_map(admin_client, service, instance, state):
     assert instance_service_map[0].state == state
 
 
-def check_for_service_reconciliation_on_stop(admin_client, client, service):
+def check_for_service_reconciliation_on_stop(admin_client, client, service,
+                                             stopFromRancher=False,
+                                             shouldRestart=True):
     # Stop 2 containers of the service
     assert service.scale > 1
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    stop_container_from_host(admin_client, container1)
     container2 = containers[1]
-    stop_container_from_host(admin_client, container2)
-
+    if not stopFromRancher:
+        stop_container_from_host(admin_client, container1)
+        stop_container_from_host(admin_client, container2)
+    else:
+        client.wait_success(container1.stop(), 120)
+        client.wait_success(container2.stop(), 120)
     service = wait_state(client, service, "active")
 
     wait_for_scale_to_adjust(admin_client, service)
@@ -1789,8 +1806,12 @@ def check_for_service_reconciliation_on_stop(admin_client, client, service):
     check_container_in_service(admin_client, service)
     container1 = client.reload(container1)
     container2 = client.reload(container2)
-    assert container1.state == 'running'
-    assert container2.state == 'running'
+    if shouldRestart:
+        assert container1.state == 'running'
+        assert container2.state == 'running'
+    else:
+        assert container1.state == 'stopped'
+        assert container2.state == 'stopped'
 
 
 def check_for_service_reconciliation_on_restart(admin_client, client, service):
@@ -1878,30 +1899,3 @@ def check_for_healthstate(client, admin_client, service):
             client, con,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
-
-
-def mark_container_unhealthy(admin_client, con, port):
-    con_host = admin_client.by_id('host', con.hosts[0].id)
-    hostIpAddress = con_host.ipAddresses()[0].address
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostIpAddress, username="root",
-                password="root", port=port)
-    cmd = "mv /usr/share/nginx/html/name.html name1.html"
-
-    logger.info(cmd)
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-
-
-def mark_container_healthy(admin_client, con, port):
-    con_host = admin_client.by_id('host', con.hosts[0].id)
-    hostIpAddress = con_host.ipAddresses()[0].address
-
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostIpAddress, username="root",
-                password="root", port=port)
-    cmd = "mv name1.html /usr/share/nginx/html/name.html"
-
-    logger.info(cmd)
-    stdin, stdout, stderr = ssh.exec_command(cmd)
