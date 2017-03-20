@@ -147,7 +147,7 @@ def test_dns_discovery_consumed_services_scale_down(admin_client, client):
 
 
 def test_dns_discovery_consumed_services_stop_start_instance(
-        admin_client, client, socat_container):
+        admin_client, client, socat_containers):
 
     port = "406"
 
