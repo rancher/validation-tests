@@ -147,6 +147,27 @@ def turn_on_off_ldap_auth(admin_client, request):
     request.addfinalizer(fin)
 
 
+def reconfigure_ldap(admin_client, domain, groupSearchDomain):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    config = load_config()
+    client = create_ldap_client(username=ldap_main_user,
+                                password=ldap_main_pass)
+    token = get_authed_token(username=ldap_main_user,
+                             password=ldap_main_pass)
+    config['enabled'] = None
+    client.create_ldapconfig(config)
+
+    user = token['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+    config['domain'] = domain
+    config['groupSearchDomain'] = groupSearchDomain
+    admin_client.create_openldapconfig(config)
+
+
 # 1
 @if_test_ldap
 def test_allow_any_ldap_user(admin_client):
@@ -486,6 +507,58 @@ def test_ldap_create_new_env_add_group_owner(admin_client):
 
     project = u2_client.by_id('project', project.id)
     project.setmembers(members=new_members)
+
+
+@if_test_ldap
+def test_ldap_group_search_domain(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    group = os.environ.get('LDAP_GROUP')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+
+    # Narrow down domain to OU=dev, so that group search fails
+    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+        dc=internal', '')
+    assert len(main_client.list_identity(name=group)) == 0
+
+    # Set groupSearchDomain so group search works
+    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+        dc=internal', 'ou=groups,dc=us-west-2,dc=compute,dc=internal')
+    assert len(main_client.list_identity(name=group)) == 1
+    assert main_client.list_identity(name=group)[0]['login'] == group
+
+    # Set domain back to original value
+    reconfigure_ldap(admin_client,
+                     os.environ.get('API_AUTH_LDAP_SEARCH_BASE'), '')
+
+    # Two groups with same name 'caringQA' are added under separate OUs
+    # OU=groups has 'caringQA' and so does OU=groupsDuplicate
+    duplicate_name_group = 'caringQA'
+
+    # Set groupSearchDomain such that caringQA from only OU=groups is returned
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     'ou=groups,dc=us-west-2,dc=compute,dc=internal')
+    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    assert len(groups_searched) == 1
+    assert groups_searched[0]['externalId'] == \
+        'cn=caringQA,ou=groups,dc=us-west-2,dc=compute,dc=internal'
+
+    # Set groupSearchDomain such that
+    # caringQA from only OU=groupsDuplicate is returned
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     'ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal')
+    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    assert len(groups_searched) == 1
+    assert groups_searched[0]['externalId'] == \
+        'cn=caringQA,ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal'
+
+    # Unset groupSearchDomain, so both groups get searched
+    # and settings are restored for remanining tests
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     '')
+    assert len(main_client.list_identity(name=duplicate_name_group)) == 2
 
 
 # 10
