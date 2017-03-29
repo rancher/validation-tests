@@ -26,6 +26,32 @@ def create_environment_with_balancer_services(admin_client, client,
     return env, service, lb_service
 
 
+def create_lb_services_with_sa_con_targets(admin_client, client,
+                                           lb_scale, port,
+                                           con_health_check=False,
+                                           con_port=None):
+    env, cons, lb_service = create_env_with_containers_and_lb(
+        client, lb_scale, port, con_health_check_enabled=con_health_check,
+        con_port=con_port)
+    lb_service.activate()
+    lb_service = client.wait_success(lb_service, 180)
+    assert lb_service.state == "active"
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port)
+    return env, cons, lb_service
+
+
+def validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port):
+    wait_for_lb_service_to_become_active(admin_client, client,
+                                         cons, lb_service)
+    con_names = []
+    for con in cons:
+        con_names.append(con.externalId[:12])
+    validate_lb_service_con_names(admin_client, client, lb_service, port,
+                                  con_names)
+
+
 def test_lbservice_and_targetservice_activate(
         admin_client, client, socat_containers):
 
@@ -1002,3 +1028,153 @@ def test_lb_tcp(
                                          [service], lb_service)
     validate_lb_service(admin_client, client, lb_service, port, [service])
     delete_all(client, [env])
+
+
+@if_container_refactoring
+def test_lb_with_container(admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20001"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_scale_up(admin_client, client, socat_containers):
+    lb_scale = 1
+    final_lb_scale = 2
+    port = "20002"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    lb_service = client.update(lb_service, scale=final_lb_scale,
+                               name=lb_service.name)
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
+    assert lb_service.scale == final_lb_scale
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_stop_container(
+        admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20003"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    # Stop container from host
+    con1 = cons[0]
+    stop_container_from_host(admin_client, con1)
+    con1 = wait_for_condition(
+        client, con1,
+        lambda x: x.state == "stopped",
+        lambda x: 'State is: ' + x.state,
+        timeout=60)
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    [cons[1]], lb_service, port)
+    con1 = client.wait_success(con1.start(), 120)
+    assert con1.state == "running"
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_restart_container(
+        admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20004"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    # Restart container
+    con1 = cons[0]
+    con1 = client.wait_success(con1.restart(), 120)
+    assert con1.state == "running"
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_delete_container(
+        admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20005"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    # Delete container from host
+    con1 = cons[0]
+    con1 = client.delete(con1)
+    con1 = wait_for_condition(
+        client, con1,
+        lambda x: x.state == "removed",
+        lambda x: 'State is: ' + x.state,
+        timeout=60)
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    [cons[1]], lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_deactivate_and_activate_lb_service(
+        admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20006"
+
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port)
+    lb_service = lb_service.deactivate()
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "inactive"
+    wait_until_instances_get_stopped(admin_client, lb_service)
+
+    lb_service = lb_service.activate()
+    lb_service = client.wait_success(lb_service, 120)
+    assert lb_service.state == "active"
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    cons, lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)
+
+
+@if_container_refactoring
+def test_lb_with_container_unhealthy_container(
+        admin_client, client, socat_containers):
+    lb_scale = 1
+    port = "20007"
+    con_port = "2008"
+    env, cons, lb_service = create_lb_services_with_sa_con_targets(
+        admin_client, client, lb_scale, port,
+        con_health_check=True, con_port=con_port)
+
+    # Delete requestUrl from one of the containers to trigger health check
+    # failure and service reconcile
+    con = cons[0]
+    mark_container_unhealthy(admin_client, con, int(con_port))
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.healthState == 'unhealthy',
+        lambda x: 'State is: ' + x.healthState)
+    con = client.reload(con)
+    assert con.healthState == "unhealthy"
+
+    wait_for_condition(
+        client, con,
+        lambda x: x.state in ('removed', 'purged'),
+        lambda x: 'State is: ' + x.healthState)
+    new_containers = client.list_container(name=con.name,
+                                           state="running",
+                                           healthState="healthy")
+    assert len(new_containers) == 1
+    validate_lb_with_sa_con_targets(admin_client, client,
+                                    [cons[1], new_containers[0]],
+                                    lb_service, port)
+    delete_all(client, [env])
+    delete_all(client, cons)

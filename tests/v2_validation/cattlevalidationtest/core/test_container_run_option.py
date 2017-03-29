@@ -103,7 +103,6 @@ def test_container_run_with_options_1(client, test_name,
     assert inspect["Config"]["Cmd"] == command
     assert inspect["Config"]["Memory"] == memory
     assert "name1=value1" in inspect["Config"]["Env"]
-
     delete_all(client, [con_vol, c])
 
 

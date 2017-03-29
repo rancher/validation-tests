@@ -50,6 +50,14 @@ OVERRIDE_CATALOG = os.environ.get(
 RANCHER_ORCHESTRATION = os.environ.get(
     'RANCHER_ORCHESTRATION', "cattle")
 
+CONTAINER_REFACTORING = os.environ.get(
+    'CONTAINER_REFACTORING', "False")
+
+if_container_refactoring = pytest.mark.skipif(
+    CONTAINER_REFACTORING != "True",
+    reason='Container Refactoring not available')
+
+
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
 WEB_SSL_IMAGE2_UUID = "docker:sangeetha/ssllbtarget2:latest"
@@ -467,11 +475,12 @@ def get_port_content(port, path, params={}):
     url = 'http://{}:{}/{}'.format(port.publicIpAddress().address,
                                    port.publicPort,
                                    path)
-
     e = None
     for i in range(60):
         try:
-            return requests.get(url, params=params, timeout=5).text
+            r = requests.get(url, params=params, timeout=5)
+            print r.url
+            return r.text
         except Exception as e1:
             e = e1
             logger.exception('Failed to call %s', url)
@@ -503,7 +512,6 @@ def ping_link(src, link_name, var=None, value=None):
             'path': 'env?var=' + var,
             'port': links[0].ports[0].privatePort
         })
-
         if from_link == value:
             continue
         else:
@@ -1654,6 +1662,57 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
     assert lb_service.state == "inactive"
 
     return env, service, lb_service
+
+
+def create_env_with_containers_and_lb(client, scale_lb, port,
+                                      internal=False, stickiness_policy=None,
+                                      config=None, includePortRule=True,
+                                      lb_protocol="http",
+                                      target_with_certs=False,
+                                      con_health_check_enabled=False,
+                                      con_port=None):
+    if not target_with_certs:
+        imageuuid = LB_HOST_ROUTING_IMAGE_UUID
+        target_port = 80
+    else:
+        imageuuid = WEB_SSL_IMAGE1_UUID
+        target_port = 443
+    launch_config_lb = {"imageUuid": get_haproxy_image()}
+    if not internal:
+        launch_config_lb["ports"] = [port]
+
+    # Create Environment
+    env = create_env(client)
+
+    # Create Container
+    con1 = create_sa_container(client, healthcheck=con_health_check_enabled,
+                               port=con_port, imageuuid=imageuuid)
+    con2 = create_sa_container(client, healthcheck=con_health_check_enabled,
+                               port=con_port, imageuuid=imageuuid)
+    cons = [con1, con2]
+    # Create LB Service
+    random_name = random_str()
+    service_name = "LB-" + random_name.replace("-", "")
+
+    port_rules = []
+    if includePortRule:
+        port_rule = {"sourcePort": port, "protocol": lb_protocol,
+                     "instanceId": con1.id, "targetPort": target_port}
+        port_rules.append(port_rule)
+        port_rule = {"sourcePort": port, "protocol": lb_protocol,
+                     "instanceId": con2.id, "targetPort": target_port}
+        port_rules.append(port_rule)
+    lb_service = client.create_loadBalancerService(
+        name=service_name,
+        stackId=env.id,
+        launchConfig=launch_config_lb,
+        scale=scale_lb,
+        lbConfig=create_lb_config(
+            port_rules, None, None, stickiness_policy, config))
+    lb_service = client.wait_success(lb_service)
+    assert lb_service.state == "inactive"
+
+    return env, cons, lb_service
 
 
 def create_lb_config(
@@ -3732,3 +3791,92 @@ def stop_container_from_host(admin_client, container):
         host = admin_client.by_id('host', container.hosts[0].id)
         docker_client = get_docker_client(host)
         docker_client.stop(container.externalId)
+
+
+def create_global_service(client, min, max, increment, host_label=None):
+    env = create_env(client)
+    launch_config = {
+        "imageUuid": LB_HOST_ROUTING_IMAGE_UUID,
+        "labels": {
+            'io.rancher.scheduler.global': 'true'}
+    }
+    if host_label is not None:
+        launch_config["labels"]["io.rancher.scheduler.affinity:host_label"] \
+            = host_label
+    service = client.create_service(name=random_str(),
+                                    stackId=env.id,
+                                    launchConfig=launch_config,
+                                    scaleMin=min,
+                                    scaleMax=max,
+                                    scaleIncrement=increment,
+                                    startOnCreate=True)
+    service = client.wait_success(service)
+    assert service.state == "active"
+    return env, service
+
+
+def create_sa_container(client, stack=None, healthcheck=False, port=None,
+                        sidekick_to=None,
+                        imageuuid=LB_HOST_ROUTING_IMAGE_UUID):
+    health_check = {"name": "check1", "responseTimeout": 2000,
+                    "interval": 2000, "healthyThreshold": 2,
+                    "unhealthyThreshold": 2,
+                    "port": 80,
+                    "requestLine": "GET /name.html HTTP/1.0",
+                    "strategy": "recreate"}
+    # Create Container
+    container_name = random_str()
+    con_params = {"name": container_name,
+                  "imageUuid": imageuuid}
+    if healthcheck:
+        con_params["imageUuid"] = HEALTH_CHECK_IMAGE_UUID
+        con_params["healthCheck"] = health_check
+    if stack is not None:
+        con_params["stackId"] = stack.id
+
+    if sidekick_to is not None:
+        con_params["sidekickTo"] = sidekick_to.id
+    if port is not None:
+        con_params["ports"] = [port + ":22/tcp"]
+    con = client.create_container(**con_params)
+
+    con = client.wait_success(con)
+    assert con.state == "running"
+    return con
+
+
+def mark_container_unhealthy(admin_client, con, port):
+    con_host = get_container_host(admin_client, con)
+    hostIpAddress = con_host.ipAddresses()[0].address
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "mv /usr/share/nginx/html/name.html name1.html"
+
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+
+
+def mark_container_healthy(admin_client, con, port):
+    con_host = get_container_host(admin_client, con)
+    hostIpAddress = con_host.ipAddresses()[0].address
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd = "mv name1.html /usr/share/nginx/html/name.html"
+
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+
+
+def get_container_host(admin_client, con):
+    containers = admin_client.list_container(
+        externalId=con.externalId,
+        include="hosts")
+    assert len(containers) == 1
+    con = containers[0]
+    con_host = admin_client.by_id('host', con.hosts[0].id)
+    return con_host
