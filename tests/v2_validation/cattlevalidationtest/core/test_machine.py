@@ -123,12 +123,12 @@ def test_digital_ocean_machine_parallel(client):
             assert host.state == 'active'
 
         for host in hosts:
+            host_ip = host.ipAddresses()[0].address
             host = client.wait_success(host.deactivate())
             assert host.state == "inactive"
             host = client.wait_success(client.delete(host))
             assert host.state == 'removed'
-            wait_for_host_destroy_in_digital_ocean(
-                host.ipAddresses()[0].address)
+            wait_for_host_destroy_in_digital_ocean(host_ip)
     finally:
         for host in hosts:
             hostname = host.hostname
@@ -213,11 +213,12 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
     assert droplet["region"]["slug"] == expected_values["region"]
 
     # Remove the host
+    host_ip = host.ipAddresses()[0].address
     host = client.wait_success(host.deactivate())
     assert host.state == "inactive"
     host = client.wait_success(client.delete(host))
     assert host.state == 'removed'
-    wait_for_host_destroy_in_digital_ocean(host.ipAddresses()[0].address)
+    wait_for_host_destroy_in_digital_ocean(host_ip)
 
 
 def get_droplet_page(url):
