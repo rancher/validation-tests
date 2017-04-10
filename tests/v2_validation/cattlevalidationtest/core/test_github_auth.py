@@ -2,6 +2,10 @@ from common_fixtures import *  # NOQA
 from selenium import webdriver
 from requests.auth import AuthBase
 from github import GitHub
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import InvalidElementStateException
+from selenium.common.exceptions import ElementNotVisibleException
 import requests
 import json
 
@@ -49,7 +53,6 @@ def github_client(admin_client):
                          secret_key=key.secretValue)
     global GITHUB_CLIENT
     GITHUB_CLIENT = gh_client
-
 
 def idToMember(identity, role):
     return {
@@ -99,42 +102,58 @@ def get_users_tokens():
 
 def get_authed_token(username=None,
                      password=None):
-    port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
-    phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
-    driver = webdriver.PhantomJS(
-        phantom_bin, port=port, service_args=['--load-images=yes'])
+    # port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4444))
+    # phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
+    # driver = webdriver.PhantomJS(
+    #     phantom_bin, port=port, service_args=['--load-images=yes'])
+    driver = webdriver.Firefox()
     driver.delete_all_cookies()
-    max_wait = 60
+    max_wait = 180
     driver.set_page_load_timeout(max_wait)
     driver.set_script_timeout(max_wait)
     driver.implicitly_wait(10)
     driver.set_window_size(1120, 550)
-
-    # driver.get('{}logout'.format(cattle_url()[:-7]))
-    time.sleep(10)
+    time.sleep(1)
     try:
         driver.get('https://github.com/logout')
+        assert 'Sign out?' in driver.title
         driver.find_element_by_class_name('btn').click()
-    except:
-        pass
+    except (NoSuchElementException, StaleElementReferenceException):
+        print "Unable to logout"
     rancher_url = cattle_url()[:-7]
     driver.get('https://github.com/login')
+    assert 'Sign in to GitHub' in driver.title
     driver.find_element_by_id('login_field').send_keys(username)
     driver.find_element_by_id('password').send_keys(password)
     driver.find_element_by_name('commit').click()
     driver.get(rancher_url)
-    time.sleep(10)
+    time.sleep(1)
     try:
+        print "doing rancher authenticate github"
         driver.find_element_by_class_name('btn-primary').click()
-        time.sleep(10)
+        time.sleep(5)
+        print "done rancher authenticate github"
+        print "doing authorize application on github"
         driver.find_element_by_class_name('btn-primary').click()
-        time.sleep(10)
-    except:
-        pass
+        time.sleep(5)
+        print "done authorize application on github"
+        # print "doing authorize application on github"
+        # driver.execute_script('document.querySelectorAll(\'BUTTON[name="authorize"]\')[0].disabled=false')
+        # time.sleep(5)
+        # driver.find_element_by_class_name('btn-primary').click()
+        # time.sleep(5)
+        # print "done authorize application on github"
+    except (NoSuchElementException, StaleElementReferenceException, InvalidElementStateException, ElementNotVisibleException):
+        print "Unable to authorize application"
     driver.get(cattle_url())
-    time.sleep(10)
+    time.sleep(5)
     all_cookies = driver.get_cookies()
-    token = all_cookies[1]['value']
+    token_present = False
+    for i in range(0, len(all_cookies)):
+        if all_cookies[i]['name'] == 'token':
+            token = all_cookies[i]['value']
+            token_present = True
+    assert token_present is True
     return token
 
 
@@ -214,44 +233,42 @@ def get_github_identites(ids):
 def create_oauth_app(github_oauth):
     username = os.getenv('GITHUB_MAIN_USER', None)
     password = os.getenv('GITHUB_MAIN_PASS', None)
-    port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4445))
-    phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
-    driver = webdriver.PhantomJS(phantom_bin, port=port)
+    # port = int(os.getenv('PHANTOMJS_WEBDRIVER_PORT', 4445))
+    # phantom_bin = os.getenv('PHANTOMJS_BIN', '/usr/local/bin/phantomjs')
+    # driver = webdriver.PhantomJS(phantom_bin, port=port)
+    driver = webdriver.Firefox()
     driver.delete_all_cookies()
-    max_wait = 60
+    max_wait = 180
     driver.set_page_load_timeout(max_wait)
     driver.set_script_timeout(max_wait)
     driver.implicitly_wait(10)
     driver.set_window_size(1120, 550)
+    # driver.maximize_window()
     driver.get('https://github.com/logout')
-    try:
-        driver.find_element_by_class_name('btn').click()
-    except:
-        pass
+    time.sleep(1)
+    driver.find_element_by_class_name('btn').click()
     driver.get('https://github.com/login')
+    time.sleep(1)
     try:
         driver.find_element_by_id('login_field').send_keys(username)
         driver.find_element_by_id('password').send_keys(password)
         driver.find_element_by_name('commit').click()
-    except:
-        pass
+    except (NoSuchElementException, StaleElementReferenceException):
+        print "Unable to login"
     driver.get('https://github.com/settings/applications/new')
-    time.sleep(10)
+    time.sleep(1)
     inputs = driver.find_elements_by_class_name('form-control')
     inputs[2].send_keys(github_oauth)
     inputs[3].send_keys(cattle_url()[:-7])
     inputs[5].send_keys(cattle_url()[:-7])
     driver.find_elements_by_class_name('btn-primary')[0].click()
-    time.sleep(10)
-    try:
-        client_id = driver.find_elements_by_xpath("//dd")[0].text
-        client_secret = driver.find_elements_by_xpath("//dd")[1].text
-        global CLIENT_ID
-        CLIENT_ID = client_id
-        global CLIENT_SECRET
-        CLIENT_SECRET = client_secret
-    except:
-        pass
+    time.sleep(1)
+    client_id = driver.find_elements_by_xpath("//dd")[0].text
+    client_secret = driver.find_elements_by_xpath("//dd")[1].text
+    global CLIENT_ID
+    CLIENT_ID = client_id
+    global CLIENT_SECRET
+    CLIENT_SECRET = client_secret
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -1968,3 +1985,27 @@ def test_github_add_user_to_env_with_restricted_access(admin_client):
             assert not access.ok
         else:
             assert access.ok
+
+
+def delete_github_token(token_url, cookies):
+    response = requests.delete(token_url, cookies=cookies)
+    assert response.status_code == 204
+
+
+# 36
+@if_test_github
+def test_github_delete_token_on_logout(admin_client):
+    user2 = os.getenv('GITHUB_USER_2')
+    pass2 = os.getenv('GITHUB_PASS_2')
+    user2_token = get_authed_token(username=user2,
+                                   password=pass2)
+    cookies = dict(token=user2_token)
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    response = requests.get(cattle_url() + "/token", cookies=cookies)
+    token_url = response.json()['data'][0]['links']['self']
+    delete_github_token(token_url, cookies)
+
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 401
