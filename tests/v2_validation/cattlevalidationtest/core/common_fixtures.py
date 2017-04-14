@@ -707,84 +707,6 @@ def kube_hosts(admin_user_client, admin_client, client, request):
 
 
 @pytest.fixture(scope='session')
-def glusterfs_glusterconvoy(client, admin_client, request):
-    catalog_url = cattle_url() + "/v1-catalog/templates/library:"
-
-    # Deploy GlusterFS template from catalog
-    r = requests.get(catalog_url + "glusterfs:0")
-    template = json.loads(r.content)
-    r.close()
-
-    dockerCompose = template["dockerCompose"]
-    rancherCompose = template["rancherCompose"]
-    environment = {}
-    questions = template["questions"]
-    for question in questions:
-        label = question["variable"]
-        value = question["default"]
-        environment[label] = value
-
-    env = client.create_stack(name="glusterfs",
-                              dockerCompose=dockerCompose,
-                              rancherCompose=rancherCompose,
-                              environment=environment,
-                              startOnCreate=True)
-    env = client.wait_success(env, timeout=300)
-    assert env.state == "active"
-
-    for service in env.services():
-        wait_for_condition(
-            admin_client, service,
-            lambda x: x.state == "active",
-            lambda x: 'State is: ' + x.state,
-            timeout=600)
-
-    # Deploy ConvoyGluster template from catalog
-
-    r = requests.get(catalog_url + "convoy-gluster:1")
-    template = json.loads(r.content)
-    r.close()
-    dockerCompose = template["dockerCompose"]
-    rancherCompose = template["rancherCompose"]
-    environment = {}
-    questions = template["questions"]
-    print questions
-    for question in questions:
-        label = question["variable"]
-        value = question["default"]
-        environment[label] = value
-    environment["GLUSTERFS_SERVICE"] = "glusterfs/glusterfs-server"
-    env = client.create_stack(name="convoy-gluster",
-                              dockerCompose=dockerCompose,
-                              rancherCompose=rancherCompose,
-                              environment=environment,
-                              startOnCreate=True)
-    env = client.wait_success(env, timeout=300)
-
-    for service in env.services():
-        wait_for_condition(
-            admin_client, service,
-            lambda x: x.state == "active",
-            lambda x: 'State is: ' + x.state,
-            timeout=600)
-
-    # Verify that storage pool is created
-    storagepools = client.list_storage_pool(removed_null=True,
-                                            include="hosts",
-                                            kind="storagePool")
-    print storagepools
-    assert len(storagepools) == 1
-
-    def remove():
-        env1 = client.list_stack(name="glusterfs")
-        assert len(env1) == 1
-        env2 = client.list_stack(name="convoy-gluster")
-        assert len(env2) == 1
-        delete_all(client, [env1[0], env2[0]])
-    request.addfinalizer(remove)
-
-
-@pytest.fixture(scope='session')
 def socat_containers(client, request):
     # When these tests run in the CI environment, the hosts don't expose the
     # docker daemon over tcp, so we need to create a container that binds to
@@ -3516,33 +3438,80 @@ class Context(object):
         return obj
 
 
+def deploy_nfs(client):
+    nfs_server = os.environ.get('NFS_SERVER')
+    mount_dir = os.environ.get('MOUNT_DIR')
+    assert nfs_server is not None and mount_dir is not None
+    nfs_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/library:infra*nfs"
+    r = requests.get(nfs_catalog_url)
+    template_details = json.loads(r.content)
+    r.close()
+    default_version_link = template_details["defaultTemplateVersionId"]
+
+    default_nfs_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/" + default_version_link
+    r = requests.get(default_nfs_catalog_url)
+    template = json.loads(r.content)
+    r.close()
+    environment = {}
+    dockerCompose = template["files"]["docker-compose.yml"]
+    rancherCompose = template["files"]["rancher-compose.yml"]
+    questions = template["questions"]
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        environment[label] = value
+
+    environment["NFS_SERVER"] = nfs_server
+    environment["MOUNT_DIR"] = mount_dir
+    deploy_and_wait_for_stack_creation(client,
+                                       dockerCompose,
+                                       rancherCompose,
+                                       environment,
+                                       "nfs",
+                                       True)
+
+
 @pytest.fixture(scope='session')
 def deploy_catalog_template(client, super_client, request,
-                            t_name, t_version, t_env):
+                            t_name, t_version, t_env, system=False):
     catalog_url = rancher_server_url() + "/v1-catalog/templates/community:"
     # Deploy Catalog template from catalog
     r = requests.get(catalog_url + t_name + ":" + str(t_version))
     template = json.loads(r.content)
     r.close()
-
     dockerCompose = template["files"]["docker-compose.yml"]
     rancherCompose = template["files"]["rancher-compose.yml"]
+    deploy_and_wait_for_stack_creation(client,
+                                       dockerCompose,
+                                       rancherCompose,
+                                       t_env,
+                                       t_name,
+                                       system)
 
-    environment = t_env
+
+def deploy_and_wait_for_stack_creation(client,
+                                       dockerCompose,
+                                       rancherCompose,
+                                       environment,
+                                       t_name,
+                                       system):
     env = client.create_stack(name=t_name,
                               dockerCompose=dockerCompose,
                               rancherCompose=rancherCompose,
                               environment=environment,
-                              startOnCreate=True)
+                              startOnCreate=True,
+                              system=system)
     env = client.wait_success(env, timeout=300)
     wait_for_condition(
-        super_client, env,
+        client, env,
         lambda x: x.healthState == "healthy",
         lambda x: 'State is: ' + x.state,
         timeout=600)
     for service in env.services():
         wait_for_condition(
-            super_client, service,
+            client, service,
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
@@ -3880,3 +3849,47 @@ def get_container_host(admin_client, con):
     con = containers[0]
     con_host = admin_client.by_id('host', con.hosts[0].id)
     return con_host
+
+
+def write_data(con, port, dir, file, content):
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    print hostIpAddress
+    print str(port)
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    cmd1 = "cd " + dir
+    cmd2 = "echo '" + content + "' > " + file
+    cmd = cmd1 + ";" + cmd2
+    logger.info(cmd)
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    ssh.close()
+    return stdin, stdout, stderr
+
+
+def read_data(con, port, dir, file):
+    hostIpAddress = con.dockerHostIp
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    print hostIpAddress
+    print str(port)
+
+    ssh.connect(hostIpAddress, username="root",
+                password="root", port=port)
+    print ssh
+    cmd1 = "cd " + dir
+    cmd2 = "cat " + file
+    cmd = cmd1 + ";" + cmd2
+
+    logger.info(cmd)
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    assert len(response) == 1
+    resp = response[0].strip("\n")
+    ssh.close()
+    return resp
