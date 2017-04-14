@@ -134,10 +134,6 @@ def turn_on_off_ldap_auth(admin_client, request):
     config['enabled'] = False
     admin_client.create_openldapconfig(config)
 
-    # Get main user token and client
-    client = create_ldap_client(username=ldap_main_user,
-                                password=ldap_main_pass)
-
     token = get_authed_token(username=ldap_main_user,
                              password=ldap_main_pass)
     user = token['userIdentity']
@@ -150,6 +146,8 @@ def turn_on_off_ldap_auth(admin_client, request):
     admin_client.create_openldapconfig(config)
 
     def fin():
+        client = create_ldap_client(username=ldap_main_user,
+                                    password=ldap_main_pass)
         config = load_config()
         config['enabled'] = None
         client.create_ldapconfig(config)
@@ -191,6 +189,7 @@ def test_allow_any_ldap_user(admin_client):
     assert schemas.status_code == 200
 
 
+# 2
 @if_test_ldap
 def test_ldap_delete_token_on_logout(admin_client):
     ldap_user2 = os.environ.get('LDAP_USER2')
@@ -207,6 +206,63 @@ def test_ldap_delete_token_on_logout(admin_client):
 
     identities = requests.get(cattle_url() + "identities", cookies=cookies)
     assert identities.status_code == 401
+
+
+# 3
+@if_test_ldap
+def test_restrict_concurrent_sessions(admin_client, request):
+    # Use admin's token to enable restrict concurrent sessions
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+
+    admin_token = get_authed_token(username=ldap_main_user,
+                                   password=ldap_main_pass)
+
+    # Check admin_token current works
+    cookies = dict(token=admin_token['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    client = create_ldap_client(username=ldap_main_user,
+                                password=ldap_main_pass)
+    restrict_setting = client.by_id_setting(
+        'api.auth.restrict.concurrent.sessions')
+    restrict_setting = client.update(restrict_setting, value=True)
+
+    # Use user's token to test restrict
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    user_token_1 = get_authed_token(username=ldap_user2,
+                                    password=ldap_pass2)
+
+    cookies = dict(token=user_token_1['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    # Start another session
+    user_token_2 = get_authed_token(username=ldap_user2,
+                                    password=ldap_pass2)
+
+    cookies = dict(token=user_token_2['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    # Token from first session shouldn't work now
+    cookies = dict(token=user_token_1['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 401
+
+    # Check admin_token still works
+    cookies = dict(token=admin_token['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    def fin():
+        restrict_setting = client.by_id_setting(
+            'api.auth.restrict.concurrent.sessions')
+        restrict_setting = client.update(restrict_setting, value=False)
+    request.addfinalizer(fin)
 
 
 # 4
@@ -1395,6 +1451,7 @@ def test_ldap_create_new_env_with_restricted_member(admin_client):
 
 # 32
 @if_test_ldap
+@if_do_key
 def test_ldap_create_service_with_restricted_member(admin_client):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
