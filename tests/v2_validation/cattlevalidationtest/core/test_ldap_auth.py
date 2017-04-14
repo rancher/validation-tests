@@ -74,6 +74,15 @@ def get_authed_token(username=None, password=None):
     return token
 
 
+def delete_ldap_token(id, cookies):
+    response = requests.delete(cattle_url() + '/token/' + id, cookies=cookies)
+    assert response.status_code == 204
+    for c in response.cookies:
+        assert c.name != "token"
+    assert "token=;Path=/;Expires=Thu, 01 Jan 1970 00:00:00 GMT;" \
+        in response.headers['set-cookie']
+
+
 def load_config():
     config = {
         'accessMode': 'unrestricted',
@@ -180,6 +189,24 @@ def test_allow_any_ldap_user(admin_client):
     cookies = dict(token=token['jwt'])
     schemas = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert schemas.status_code == 200
+
+
+@if_test_ldap
+def test_ldap_delete_token_on_logout(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+
+    token = get_authed_token(username=ldap_user2,
+                             password=ldap_pass2)
+
+    cookies = dict(token=token['jwt'])
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 200
+
+    delete_ldap_token("current", cookies)
+
+    identities = requests.get(cattle_url() + "identities", cookies=cookies)
+    assert identities.status_code == 401
 
 
 # 4
