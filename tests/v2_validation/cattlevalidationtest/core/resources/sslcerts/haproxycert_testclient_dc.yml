@@ -1,0 +1,13 @@
+version: '2'
+volumes:
+  $volname:
+    external: true
+    driver: rancher-nfs
+services:
+  testclient:
+    scale: 1
+    image: sangeetha/testclient
+    volumes:
+    - $volname:/certs
+    ports:
+    - 7890:22/tcp
