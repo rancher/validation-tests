@@ -1,0 +1,26 @@
+version: '2'
+services:
+  newstacklb:
+    image: $lbimage
+    ports:
+    - 600$portsuffixnum:600$portsuffixnum/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.container.create_agent: 'true'
+  newstackservicewithlink:
+    image: sangeetha/testclient
+    stdin_open: true
+    external_links:
+    - $stack/service1:mynewstacklink
+    tty: true
+    ports:
+    - 700$portsuffixnum:22/tcp
+    labels:
+      io.rancher.container.pull_image: always
+  newstackservice1:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.container.pull_image: always
+

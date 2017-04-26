@@ -3722,6 +3722,14 @@ def create_stack_with_service(
         client, env_name, resource_dir, dc_file, rc_file):
     dockerCompose = readDataFile(resource_dir, dc_file)
     rancherCompose = readDataFile(resource_dir, rc_file)
+
+    create_stack_with_service_from_config(client, env_name,
+                                          dockerCompose, rancherCompose)
+
+
+def create_stack_with_service_from_config(client, env_name,
+                                          dockerCompose, rancherCompose):
+
     env = client.create_stack(name=env_name,
                               dockerCompose=dockerCompose,
                               rancherCompose=rancherCompose,
