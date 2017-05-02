@@ -1056,13 +1056,14 @@ def validate_lb_service_con_names(admin_client, client, lb_service, port,
 
 def validate_cert_error(admin_client, client, lb_service, port, domain,
                         default_domain, cert,
-                        hostheader=None, path=None,
-                        test_ssl_client_con=None):
+                        test_ssl_client_con=None,
+                        strict_sni_check=False):
     lb_containers = get_service_container_list(admin_client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
         check_for_cert_error(host, port, domain, default_domain, cert,
-                             test_ssl_client_con)
+                             test_ssl_client_con,
+                             strict_sni_check=strict_sni_check)
 
 
 def wait_until_lb_is_active(host, port, timeout=30, is_ssl=False):
@@ -2118,7 +2119,8 @@ def check_round_robin_access_for_ssl_lb_ip(container_names, lb_ip,
 
 
 def check_for_cert_error(host, port, domain, default_domain, cert,
-                         test_ssl_client_con, path="/name.html"):
+                         test_ssl_client_con, path="/name.html",
+                         strict_sni_check=False):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -2136,8 +2138,11 @@ def check_for_cert_error(host, port, domain, default_domain, cert,
     url_str = " https://" + domain + ":" + port + path
     cmd = "wget -O result.txt --timeout=20 --tries=1" + \
           cert_str + url_str + ";cat result.txt"
-
-    error_string = "ERROR: cannot verify " + domain + "'s certificate"
+    print cmd
+    if strict_sni_check:
+        error_string = "Unable to establish SSL connection"
+    else:
+        error_string = "ERROR: cannot verify " + domain + "'s certificate"
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
     errors = stderr.readlines()
@@ -2147,6 +2152,18 @@ def check_for_cert_error(host, port, domain, default_domain, cert,
         if error_string in error:
             found_error = True
     assert found_error
+
+    if not strict_sni_check:
+        default_domain_presented = \
+            "ERROR: certificate common name '" + default_domain + \
+            "' doesn't match requested host name '"+domain + "'"
+
+        found_error = False
+        print default_domain_presented
+        for error in errors:
+            if default_domain_presented in error:
+                found_error = True
+        assert found_error
 
 
 def execute_command(ssh, cmd):
@@ -3760,6 +3777,24 @@ def create_stack_using_rancher_cli(client, stack_name, service_name,
     return stack, service
 
 
+def create_stack_with_multiple_service_using_rancher_cli(
+        client, stack_name, service_names,
+        compose_dir,
+        docker_compose, rancher_compose=None):
+    # Create an stack using up
+    launch_rancher_cli_from_file(
+        client, compose_dir, stack_name,
+        "up -d ", "Creating",
+        docker_compose, rancher_compose)
+    services = {}
+    for service_name in service_names:
+        stack, service = get_env_service_by_name(client, stack_name,
+                                                 service_name)
+        assert service.state == "active"
+        services[service_name] = service
+    return stack, services
+
+
 def stop_container_from_host(admin_client, container):
         containers = admin_client.list_container(
             externalId=container.externalId, include="hosts")
@@ -3926,3 +3961,11 @@ def check_round_robin_access_k8s_service(container_names, lb_ip, port,
         if con_hostname == []:
             return
     assert False
+
+
+def get_lb_image_version(admin_client):
+
+    setting = admin_client.by_id_setting(
+        "lb.instance.image")
+    default_lb_image_setting = setting.value
+    return default_lb_image_setting

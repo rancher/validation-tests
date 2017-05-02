@@ -1,0 +1,35 @@
+version: '2'
+services:
+  lb-withselectorlinks:
+    scale: 1
+    lb_config:
+      port_rules:
+      - protocol: https
+        selector: $label=value1
+        source_port: $port
+      - protocol: https
+        selector: $label=value2
+        source_port: $port
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      reinitializing_timeout: 60000
+  s1:
+    scale: 1
+    lb_config:
+      port_rules:
+      - hostname: test1.com
+        path: /service1.html
+        target_port: 80
+  s2:
+    scale: 1
+    lb_config:
+      port_rules:
+      - hostname: test2.com
+        path: /service2.html
+        target_port: 80

@@ -99,7 +99,7 @@ def test_lb_ssl_with_default_cert(admin_client, client, certs,
     # Attempting to access LB rules with cert other supported default
     # cert should return certificate error
     cert = dom_list[1]
-    validate_cert_error(admin_client, client, lb_service, port, domain, domain,
+    validate_cert_error(admin_client, client, lb_service, port, cert, domain,
                         cert, test_ssl_client_con=test_ssl_client_con)
     delete_all(client, [env, test_ssl_client_con["container"]])
 
@@ -279,7 +279,7 @@ def test_lb_ssl_edit_add_cert(
                                default_domain)
 
     cert = dom_list[1]
-    validate_cert_error(admin_client, client, lb_service, port, default_domain,
+    validate_cert_error(admin_client, client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -303,10 +303,7 @@ def test_lb_ssl_edit_add_cert(
     # Attempting to access LB rules with cert other supported default
     # cert should return certificate error
     cert = dom_list[2]
-    validate_cert_error(admin_client, client, lb_service, port, default_domain,
-                        default_domain, cert,
-                        test_ssl_client_con=test_ssl_client_con)
-    validate_cert_error(admin_client, client, lb_service, port, new_domain,
+    validate_cert_error(admin_client, client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
