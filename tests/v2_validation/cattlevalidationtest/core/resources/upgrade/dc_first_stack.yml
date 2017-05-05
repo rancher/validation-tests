@@ -17,7 +17,7 @@ services:
   ssllb:
     image: $lbimage
     ports:
-    - 401:401/tcp
+    - 40$portsuffixnum:40$portsuffixnum/tcp
     labels:
       io.rancher.container.agent.role: environmentAdmin
       io.rancher.container.create_agent: 'true'

@@ -17,13 +17,13 @@ services:
         path: /service1.html
         protocol: https
         service: service1
-        source_port: 401
+        source_port: 40$portsuffixnum
         target_port: 80
       - hostname: www.abc2.com
         path: /service2.html
         protocol: https
         service: service2
-        source_port: 401
+        source_port: 40$portsuffixnum
         target_port: 80
     health_check:
       healthy_threshold: 2
