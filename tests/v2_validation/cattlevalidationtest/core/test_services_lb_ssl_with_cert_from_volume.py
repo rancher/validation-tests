@@ -12,12 +12,16 @@ dom_list = readDataFile(SSLCERT_SUBDIR, "certlist.txt").rstrip().split(",")
 test_cert_con = {}
 cert_change_interval = os.environ.get('CATTLE_CERT_CHANGE_INTERVAL',
                                       '45')
+if_rancher_nfs_enabled = pytest.mark.skipif(
+    not os.environ.get('RANCHER_NFS_ENABLED'),
+    reason='Rancher NFS test not enabled')
+volume_driver = "rancher-nfs"
 service_names_list = ["lb-withselectorlinks", "s1", "s2"]
 shared_vol_name = "mytestcerts" + "-" + random_str()
 
 
 @pytest.fixture(scope='session')
-def test_cert_container(admin_client, client, request):
+def test_cert_container(client, request):
     assert check_for_nfs_driver(client)
     volume = client.create_volume(driver="rancher-nfs",
                                   name=shared_vol_name)
@@ -55,6 +59,10 @@ def test_cert_container(admin_client, client, request):
     test_cert_con["con"] = con_info[0]
     test_cert_con["host"] = con_info[0].hosts[0].agentIpAddress
     test_cert_con["port"] = "7890"
+
+    def remove_test_cert_client():
+        delete_all(client, [stack])
+    request.addfinalizer(remove_test_cert_client)
 
 
 def create_lb_services_ssl_with_cert(admin_client, client,
@@ -224,7 +232,7 @@ def validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
                             test_ssl_client_con)
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_certs_and_default_cert(admin_client, client,
                                             socat_containers,
                                             rancher_cli_container,
@@ -255,7 +263,7 @@ def test_lb_ssl_with_certs_and_default_cert(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
                                                        socat_containers,
                                                        rancher_cli_container,
@@ -307,7 +315,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
         admin_client, client, socat_containers,
         rancher_cli_container,
@@ -361,7 +369,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_default_cert_add(admin_client, client,
                                       socat_containers,
                                       rancher_cli_container,
@@ -400,7 +408,7 @@ def test_lb_ssl_with_default_cert_add(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_default_cert_delete(admin_client, client,
                                          socat_containers,
                                          rancher_cli_container,
@@ -449,7 +457,7 @@ def test_lb_ssl_with_default_cert_delete(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_with_default_cert_edit(admin_client, client,
                                        socat_containers,
                                        rancher_cli_container,
@@ -508,7 +516,7 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_delete_default_cert(admin_client, client,
                                     socat_containers,
                                     rancher_cli_container,
@@ -567,7 +575,7 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_edit_default_cert(admin_client, client,
                                   socat_containers,
                                   rancher_cli_container,
@@ -633,7 +641,7 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
-@if_certs_available
+@if_rancher_nfs_enabled
 def test_lb_ssl_add_default_cert(admin_client, client,
                                  socat_containers,
                                  rancher_cli_container,

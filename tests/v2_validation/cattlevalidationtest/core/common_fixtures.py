@@ -1165,7 +1165,8 @@ def validate_linked_service(admin_client, service, consumed_services,
                             con_host.ipAddresses()[0].address)
                         host_name = con_host.hostname
                         host_os = con_host.info["osInfo"]["operatingSystem"]
-                        if host_os.startswith("Ubuntu"):
+                        if host_os.startswith("Ubuntu") \
+                           or host_os.startswith("CentOS"):
                             # If host name is fqdn , get only the hostname
                             index = host_name.find(".")
                             if index != -1:
@@ -1276,7 +1277,8 @@ def validate_dns_service(admin_client, service, consumed_services,
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
                     host_name = con_host.hostname
                     host_os = con_host.info["osInfo"]["operatingSystem"]
-                    if host_os.startswith("Ubuntu"):
+                    if host_os.startswith("Ubuntu") \
+                            or host_os.startswith("CentOS"):
                         # If host name is fqdn , get only the hostname
                         index = host_name.find(".")
                         if index != -1:

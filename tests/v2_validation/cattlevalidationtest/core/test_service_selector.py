@@ -753,6 +753,8 @@ def test_selectorContainer_for_container_delete(admin_client, client,
     delete_all(client, [env, c])
 
 
+@pytest.mark.skipif(
+    True, reason="Skip since there is no support for restore from v1.6.0")
 def test_selectorContainer_for_container_restore(admin_client, client,
                                                  socat_containers):
     labels = {}
