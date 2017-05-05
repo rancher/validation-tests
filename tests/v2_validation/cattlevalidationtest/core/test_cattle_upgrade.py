@@ -120,7 +120,7 @@ def validate_stacks(admin_client, client, stackname,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
 
-    wait_for_condition(
+    healthlbservice = wait_for_condition(
         client, healthlbservice,
         lambda x: x.healthState == 'healthy',
         lambda x: 'State is: ' + x.healthState)
@@ -150,7 +150,7 @@ def validate_stacks(admin_client, client, stackname,
             lambda x: x.healthState == 'healthy',
             lambda x: 'State is: ' + x.healthState)
 
-    wait_for_condition(
+    globalhealthlbservice = wait_for_condition(
         client, globalhealthlbservice,
         lambda x: x.healthState == 'healthy',
         lambda x: 'State is: ' + x.healthState)
@@ -173,9 +173,9 @@ def validate_stacks(admin_client, client, stackname,
     assert ssllbservice['state'] == "active"
     assert ssllbservice.scale == 1
 
-    port = "401"
-    ssl_port = "401"
-    client_port = port + "0"
+    ssl_port = "40" + str(portsuffixnum)
+    client_port = ssl_port + "0"
+    port = ssl_port
     domain = dom_list[0]
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
     print "***TEST CLIENT CONTAINER***"
