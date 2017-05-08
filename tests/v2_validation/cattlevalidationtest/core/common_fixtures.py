@@ -53,10 +53,13 @@ RANCHER_ORCHESTRATION = os.environ.get(
 CONTAINER_REFACTORING = os.environ.get(
     'CONTAINER_REFACTORING', "False")
 
+ACCESS_KEY = os.environ.get('ACCESS_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+PROJECT_ID = os.environ.get('PROJECT_ID')
+
 if_container_refactoring = pytest.mark.skipif(
     CONTAINER_REFACTORING != "True",
     reason='Container Refactoring not available')
-
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
@@ -708,6 +711,15 @@ def kube_hosts(admin_user_client, admin_client, client, request):
 
 @pytest.fixture(scope='session')
 def socat_containers(client, request):
+    create_socat_containers(client)
+
+    def remove_socat():
+        delete_all(client, socat_container_list)
+        delete_all(client, host_container_list)
+    request.addfinalizer(remove_socat)
+
+
+def create_socat_containers(client):
     # When these tests run in the CI environment, the hosts don't expose the
     # docker daemon over tcp, so we need to create a container that binds to
     # the docker socket and exposes it on a port
@@ -755,11 +767,6 @@ def socat_containers(client, request):
             lambda x: 'State is: ' + x.state)
 
     time.sleep(10)
-
-    def remove_socat():
-        delete_all(client, socat_container_list)
-        delete_all(client, host_container_list)
-    request.addfinalizer(remove_socat)
 
 
 def get_docker_client(host):
@@ -3971,3 +3978,11 @@ def get_lb_image_version(admin_client):
         "lb.instance.image")
     default_lb_image_setting = setting.value
     return default_lb_image_setting
+
+
+def get_client_for_auth_enabled_setup(access_key, secret_key, project_id):
+    client = api_client(access_key, secret_key, project_id=project_id)
+    client._headers.__setitem__("X-API-Project-Id", project_id)
+    client.reload_schema()
+    assert client.valid()
+    return client

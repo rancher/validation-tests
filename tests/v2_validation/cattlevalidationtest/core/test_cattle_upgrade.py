@@ -4,10 +4,6 @@ from test_services_lb_ssl_balancer import validate_lb_services_ssl
 UPGRADE_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/upgrade')
 
-if_upgrade_testing = pytest.mark.skipif(
-    os.environ.get('UPGRADE_TESTING') != "true",
-    reason='UPGRADE_TESTING is not set to true')
-
 pre_upgrade_stack_name = os.environ.get('PRE_UPGRADE_STACK_NAME')
 post_upgrade_stack_name = os.environ.get('POST_UPGRADE_STACK_NAME')
 preportsuffixnum = os.environ.get('PRE_PORT_SUFFIX_NUM')
@@ -17,8 +13,22 @@ postupgrade_stacklist = []
 
 dom_list = ["test1.com"]
 
+if_pre_upgrade_testing = pytest.mark.skipif(
+    os.environ.get('UPGRADE_TESTING') != "true" or
+    pre_upgrade_stack_name is None or
+    preportsuffixnum is None,
+    reason='All parameters needed for UPGRADE_TESTING is not set')
 
-def pre_upgrade(admin_client, client, socat_containers):
+if_post_upgrade_testing = pytest.mark.skipif(
+    os.environ.get('UPGRADE_TESTING') != "true" or
+    post_upgrade_stack_name is None or
+    postportsuffixnum is None,
+    pre_upgrade_stack_name is None or
+    preportsuffixnum is None,
+    reason='All parameters needed for UPGRADE_TESTING is not set')
+
+
+def pre_upgrade(admin_client, client):
 
     # Create certificate to be used in the yml files
     domain = dom_list[0]
@@ -261,7 +271,7 @@ def validate_stacks(admin_client, client, stackname,
     return
 
 
-def post_upgrade(admin_client, client, socat_containers):
+def post_upgrade(admin_client, client):
 
     post_upgrade_stack1 = post_upgrade_stack_name+"-1"
     post_upgrade_stack2 = post_upgrade_stack_name+"-2"
@@ -374,18 +384,24 @@ def modify_preupgradestack_verify(admin_client, client,
                             linkName="mynewstacklink")
 
 
-@if_upgrade_testing
-def test_pre_upgrade(admin_client, client, socat_containers):
-
+@if_pre_upgrade_testing
+def test_pre_upgrade():
+    client = \
+        get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
+    admin_client = client
+    create_socat_containers(client)
     print "***PRE UPGRADE TEST***"
-    pre_upgrade(admin_client, client, socat_containers)
+    pre_upgrade(admin_client, client)
 
 
-@if_upgrade_testing
-def test_post_upgrade(admin_client, client, socat_containers):
-
+@if_post_upgrade_testing
+def test_post_upgrade():
+    client = \
+        get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
+    admin_client = client
     print "***POST UPGRADE TEST***"
-    post_upgrade(admin_client, client, socat_containers)
+    create_socat_containers(client)
+    post_upgrade(admin_client, client)
 
 
 def get_lb_image_version(admin_client, client):
