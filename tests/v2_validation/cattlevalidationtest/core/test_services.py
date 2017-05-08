@@ -638,6 +638,8 @@ def test_service_activate_purge_instance(
     check_container_in_service(admin_client, service)
 
 
+@pytest.mark.skipif(
+    True, reason="Skip since there is no support for restore from v1.6.0")
 def test_service_activate_restore_instance(
         admin_client, client, socat_containers):
 

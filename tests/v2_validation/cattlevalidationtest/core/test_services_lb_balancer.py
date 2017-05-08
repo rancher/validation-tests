@@ -987,6 +987,7 @@ def test_lbservice_custom_haproxy_3(
     check_for_balancer_first(admin_client, client, lb_service, port,
                              [services[0]], {"host": "www.abc1.com"},
                              "service1.html")
+    delete_all(client, [env])
 
 
 def test_lbservice_lbcookie(
