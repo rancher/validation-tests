@@ -61,6 +61,10 @@ if_container_refactoring = pytest.mark.skipif(
     CONTAINER_REFACTORING != "True",
     reason='Container Refactoring not available')
 
+RANCHER_EBS = os.environ.get(
+    'RANCHER_EBS', "false")
+
+
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
 WEB_SSL_IMAGE2_UUID = "docker:sangeetha/ssllbtarget2:latest"
