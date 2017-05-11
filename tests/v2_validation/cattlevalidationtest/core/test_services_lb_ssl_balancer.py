@@ -11,7 +11,7 @@ if_certs_available = pytest.mark.skipif(
 dom_list = readDataFile(SSLCERT_SUBDIR, "certlist.txt").rstrip().split(",")
 
 
-def create_lb_services_ssl(admin_client, client,
+def create_lb_services_ssl(client,
                            service_scale, lb_scale,
                            port, ssl_port,
                            default_domain, domains=None):
@@ -46,18 +46,18 @@ def create_lb_services_ssl(admin_client, client,
 
     client_port = port + "0"
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+    validate_lb_services_ssl(client, test_ssl_client_con,
                              env, services, lb_service,
                              port, ssl_port, default_domain, domains)
     return env, services, lb_service, test_ssl_client_con
 
 
-def validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+def validate_lb_services_ssl(client, test_ssl_client_con,
                              env, services, lb_service,
                              port, ssl_port,
                              default_domain, domains=None):
 
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          services, lb_service)
     supported_domains = [default_domain]
     if domains:
@@ -66,19 +66,19 @@ def validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
     for domain in supported_domains:
         start_time = time.time()
         logger.info("Validate Domain Start time  " + str(start_time))
-        validate_lb_service(admin_client, client,
+        validate_lb_service(client,
                             lb_service, ssl_port,
                             [services[0]],
                             "www.abc1.com", "/service1.html", domain,
                             test_ssl_client_con)
-        validate_lb_service(admin_client, client,
+        validate_lb_service(client,
                             lb_service, ssl_port, [services[1]],
                             "www.abc2.com", "/service2.html", domain,
                             test_ssl_client_con)
 
 
 @if_certs_available
-def test_lb_ssl_with_default_cert(admin_client, client, certs,
+def test_lb_ssl_with_default_cert(client, certs,
                                   socat_containers):
     domain = dom_list[0]
     service_scale = 2
@@ -88,7 +88,7 @@ def test_lb_ssl_with_default_cert(admin_client, client, certs,
     start_time = time.time()
     logger.info("Start time " + str(start_time))
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -99,14 +99,14 @@ def test_lb_ssl_with_default_cert(admin_client, client, certs,
     # Attempting to access LB rules with cert other supported default
     # cert should return certificate error
     cert = dom_list[1]
-    validate_cert_error(admin_client, client, lb_service, port, cert, domain,
+    validate_cert_error(client, lb_service, port, cert, domain,
                         cert, test_ssl_client_con=test_ssl_client_con)
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
 @if_certs_available
 def test_lb_ssl_scale_up_service(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     domain = dom_list[0]
     port = "401"
@@ -117,7 +117,7 @@ def test_lb_ssl_scale_up_service(
     final_service_scale = 3
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -128,7 +128,7 @@ def test_lb_ssl_scale_up_service(
     assert services[0].state == "active"
     assert services[0].scale == final_service_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, domain)
 
@@ -137,7 +137,7 @@ def test_lb_ssl_scale_up_service(
 
 @if_certs_available
 def test_lb_ssl_scale_down_service(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     domain = dom_list[0]
     port = "402"
@@ -148,7 +148,7 @@ def test_lb_ssl_scale_down_service(
     final_service_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -159,7 +159,7 @@ def test_lb_ssl_scale_down_service(
     assert services[0].state == "active"
     assert services[0].scale == final_service_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, domain)
 
@@ -168,7 +168,7 @@ def test_lb_ssl_scale_down_service(
 
 @if_certs_available
 def test_lb_ssl_scale_up_lb_service(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     domain = dom_list[0]
     port = "403"
@@ -179,7 +179,7 @@ def test_lb_ssl_scale_up_lb_service(
     final_lb_scale = 2
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -190,7 +190,7 @@ def test_lb_ssl_scale_up_lb_service(
     assert lb_service.state == "active"
     assert lb_service.scale == final_lb_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, domain)
 
@@ -199,7 +199,7 @@ def test_lb_ssl_scale_up_lb_service(
 
 @if_certs_available
 def test_lb_ssl_scale_up_lb_service_passing_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     domain = dom_list[0]
     port = "4031"
@@ -210,7 +210,7 @@ def test_lb_ssl_scale_up_lb_service_passing_cert(
     final_lb_scale = 2
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -223,7 +223,7 @@ def test_lb_ssl_scale_up_lb_service_passing_cert(
     assert lb_service.state == "active"
     assert lb_service.scale == final_lb_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, domain)
 
@@ -232,7 +232,7 @@ def test_lb_ssl_scale_up_lb_service_passing_cert(
 
 @if_certs_available
 def test_lb_ssl_scale_down_lb_service(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     domain = dom_list[0]
     port = "404"
@@ -243,7 +243,7 @@ def test_lb_ssl_scale_down_lb_service(
     final_lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                domain)
@@ -254,7 +254,7 @@ def test_lb_ssl_scale_down_lb_service(
     assert lb_service.state == "active"
     assert lb_service.scale == final_lb_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, domain)
 
@@ -263,7 +263,7 @@ def test_lb_ssl_scale_down_lb_service(
 
 @if_certs_available
 def test_lb_ssl_edit_add_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     port = "405"
@@ -273,13 +273,13 @@ def test_lb_ssl_edit_add_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain)
 
     cert = dom_list[1]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -296,14 +296,14 @@ def test_lb_ssl_edit_add_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain, [new_domain])
 
     # Attempting to access LB rules with cert other supported default
     # cert should return certificate error
     cert = dom_list[2]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -312,7 +312,7 @@ def test_lb_ssl_edit_add_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_edit_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -324,7 +324,7 @@ def test_lb_ssl_edit_edit_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain, [domain])
@@ -342,7 +342,7 @@ def test_lb_ssl_edit_edit_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain, [new_domain])
     delete_all(client, [env, test_ssl_client_con["container"]])
@@ -350,7 +350,7 @@ def test_lb_ssl_edit_edit_cert(
 
 @if_certs_available
 def test_lb_ssl_swap_default_and_alternate_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -362,7 +362,7 @@ def test_lb_ssl_swap_default_and_alternate_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain, [domain])
@@ -378,7 +378,7 @@ def test_lb_ssl_swap_default_and_alternate_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain, [domain])
     delete_all(client, [env, test_ssl_client_con["container"]])
@@ -386,7 +386,7 @@ def test_lb_ssl_swap_default_and_alternate_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_add_more_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -398,7 +398,7 @@ def test_lb_ssl_edit_add_more_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain, [domain])
@@ -417,7 +417,7 @@ def test_lb_ssl_edit_add_more_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain,
                              [domain, new_domain])
@@ -426,7 +426,7 @@ def test_lb_ssl_edit_add_more_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_remove_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     domain1 = dom_list[1]
@@ -439,7 +439,7 @@ def test_lb_ssl_edit_remove_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain, [domain1, domain2])
@@ -457,7 +457,7 @@ def test_lb_ssl_edit_remove_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain, [domain1])
     delete_all(client, [env, test_ssl_client_con["container"]])
@@ -465,7 +465,7 @@ def test_lb_ssl_edit_remove_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_add_cert_without_setting_default_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
     port = "409"
@@ -475,7 +475,7 @@ def test_lb_ssl_edit_add_cert_without_setting_default_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain)
@@ -490,7 +490,7 @@ def test_lb_ssl_edit_add_cert_without_setting_default_cert(
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con, env,
+    validate_lb_services_ssl(client, test_ssl_client_con, env,
                              services, lb_service,
                              port, ssl_port, default_domain, [new_domain])
 
@@ -499,7 +499,7 @@ def test_lb_ssl_edit_add_cert_without_setting_default_cert(
 
 @if_certs_available
 def test_lb_ssl_delete_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[3]
     port = "410"
@@ -508,7 +508,7 @@ def test_lb_ssl_delete_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain)
@@ -535,7 +535,7 @@ def test_lb_ssl_delete_cert(
 
 @if_certs_available
 def test_lb_ssl_multiple_certs(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[0]
 
@@ -546,11 +546,11 @@ def test_lb_ssl_multiple_certs(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain, [dom_list[1], dom_list[2]])
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
         check_cert_using_openssl(
@@ -564,7 +564,7 @@ def test_lb_ssl_multiple_certs(
 
 @if_certs_available
 def test_lb_sni(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     port = "20001"
     client_port = "20002"
@@ -607,15 +607,15 @@ def test_lb_sni(
 
     lb_service = client.update(lb_service,
                                lbConfig=create_lb_config(port_rules))
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          [service], lb_service)
 
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [service],
                         "test1.com", "/name.html", dom_list[0],
                         test_ssl_client_con)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [service1],
                         "test2.com", "/name.html", dom_list[1],
                         test_ssl_client_con)
@@ -624,7 +624,7 @@ def test_lb_sni(
 
 @if_certs_available
 def test_lb_tcp_ssl_pass_through(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     port = "20003"
     client_port = "20004"
@@ -665,11 +665,11 @@ def test_lb_tcp_ssl_pass_through(
 
     lb_service = client.update(lb_service,
                                lbConfig=create_lb_config(port_rules))
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          [service], lb_service)
 
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [service, service1],
                         None, "/name.html", dom_list[0],
                         test_ssl_client_con)
@@ -678,7 +678,7 @@ def test_lb_tcp_ssl_pass_through(
 
 @if_certs_available
 def test_lb_tls(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     service_count = 2
     certs = []
@@ -704,7 +704,7 @@ def test_lb_tls(
 
     client_port = port + "0"
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port,
                         [services[0], services[1]],
                         None, "/name.html", dom_list[0],
@@ -714,7 +714,7 @@ def test_lb_tls(
 
 @if_certs_available
 def test_lb_ssl_remove_cert(
-        admin_client, client, certs, socat_containers):
+        client, certs, socat_containers):
 
     default_domain = dom_list[4]
     port = "410"
@@ -723,7 +723,7 @@ def test_lb_ssl_remove_cert(
     lb_scale = 1
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl(admin_client, client,
+        create_lb_services_ssl(client,
                                service_scale, lb_scale,
                                port, ssl_port,
                                default_domain)

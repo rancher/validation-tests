@@ -3,7 +3,7 @@ from common_fixtures import *  # NOQA
 logger = logging.getLogger(__name__)
 
 
-def create_environment_with_dns_services(admin_client, client,
+def create_environment_with_dns_services(client,
                                          service_scale,
                                          consumed_service_scale,
                                          port, cross_linking=False,
@@ -38,14 +38,14 @@ def create_environment_with_dns_services(admin_client, client,
     assert consumed_service.state == "active"
     assert consumed_service1.state == "active"
 
-    validate_add_service_link(admin_client, service, dns)
-    validate_add_service_link(admin_client, dns, consumed_service)
-    validate_add_service_link(admin_client, dns, consumed_service1)
+    validate_add_service_link(client, service, dns)
+    validate_add_service_link(client, dns, consumed_service)
+    validate_add_service_link(client, dns, consumed_service1)
 
     return env, service, consumed_service, consumed_service1, dns
 
 
-def test_dns_activate_svc_dns_consumed_svc_link(admin_client, client):
+def test_dns_activate_svc_dns_consumed_svc_link(client):
 
     port = "31100"
 
@@ -54,16 +54,16 @@ def test_dns_activate_svc_dns_consumed_svc_link(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_cross_link(admin_client, client):
+def test_dns_cross_link(client):
 
     port = "31101"
 
@@ -72,18 +72,18 @@ def test_dns_cross_link(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale,
+            client, service_scale, consumed_service_scale,
             port, True)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
-    delete_all(client, [env, get_env(admin_client, consumed_service),
-                        get_env(admin_client, consumed_service1), dns])
+    delete_all(client, [env, get_env(client, consumed_service),
+                        get_env(client, consumed_service1), dns])
 
 
-def test_dns_activate_consumed_svc_link_activate_svc(admin_client, client):
+def test_dns_activate_consumed_svc_link_activate_svc(client):
 
     port = "31102"
 
@@ -94,20 +94,20 @@ def test_dns_activate_consumed_svc_link_activate_svc(admin_client, client):
         create_env_with_2_svc_dns(
             client, service_scale, consumed_service_scale, port)
 
-    link_svc(admin_client, service, [dns])
-    link_svc(admin_client, dns, [consumed_service, consumed_service1])
+    link_svc(client, service, [dns])
+    link_svc(client, dns, [consumed_service, consumed_service1])
     service = activate_svc(client, service)
     consumed_service = activate_svc(client, consumed_service)
     consumed_service1 = activate_svc(client, consumed_service1)
     dns = activate_svc(client, dns)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_activate_svc_link_activate_consumed_svc(admin_client, client):
+def test_dns_activate_svc_link_activate_consumed_svc(client):
 
     port = "31103"
 
@@ -121,17 +121,17 @@ def test_dns_activate_svc_link_activate_consumed_svc(admin_client, client):
     service = activate_svc(client, service)
     consumed_service = activate_svc(client, consumed_service)
     consumed_service1 = activate_svc(client, consumed_service1)
-    link_svc(admin_client, service, [dns])
-    link_svc(admin_client, dns, [consumed_service, consumed_service1])
+    link_svc(client, service, [dns])
+    link_svc(client, dns, [consumed_service, consumed_service1])
     dns = activate_svc(client, dns)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_link_activate_consumed_svc_activate_svc(admin_client, client):
+def test_dns_link_activate_consumed_svc_activate_svc(client):
 
     port = "31104"
 
@@ -143,18 +143,18 @@ def test_dns_link_activate_consumed_svc_activate_svc(admin_client, client):
             client, service_scale, consumed_service_scale, port)
 
     dns = activate_svc(client, dns)
-    link_svc(admin_client, service, [dns])
-    link_svc(admin_client, dns, [consumed_service, consumed_service1])
+    link_svc(client, service, [dns])
+    link_svc(client, dns, [consumed_service, consumed_service1])
     service = activate_svc(client, service)
     consumed_service = activate_svc(client, consumed_service)
     consumed_service1 = activate_svc(client, consumed_service1)
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_link_when_services_still_activating(admin_client, client):
+def test_dns_link_when_services_still_activating(client):
 
     port = "31106"
 
@@ -183,17 +183,17 @@ def test_dns_link_when_services_still_activating(admin_client, client):
     assert consumed_service.state == "active"
     assert consumed_service1.state == "active"
 
-    validate_add_service_link(admin_client, service, dns)
-    validate_add_service_link(admin_client, dns, consumed_service)
-    validate_add_service_link(admin_client, dns, consumed_service1)
+    validate_add_service_link(client, service, dns)
+    validate_add_service_link(client, dns, consumed_service)
+    validate_add_service_link(client, dns, consumed_service1)
 
-    validate_dns_service(admin_client, service,
+    validate_dns_service(client, service,
                          [consumed_service, consumed_service1], port, dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_service_scale_up(admin_client, client):
+def test_dns_service_scale_up(client):
 
     port = "31107"
 
@@ -204,10 +204,10 @@ def test_dns_service_scale_up(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     service = client.update(service, scale=final_service_scale,
@@ -217,12 +217,12 @@ def test_dns_service_scale_up(admin_client, client):
     assert service.scale == final_service_scale
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_services_scale_down(admin_client, client):
+def test_dns_services_scale_down(client):
 
     port = "31108"
 
@@ -233,10 +233,10 @@ def test_dns_services_scale_down(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     service = client.update(service, scale=final_service_scale,
@@ -246,12 +246,12 @@ def test_dns_services_scale_down(admin_client, client):
     assert service.scale == final_service_scale
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_scale_up(admin_client, client):
+def test_dns_consumed_services_scale_up(client):
 
     port = "31109"
 
@@ -262,10 +262,10 @@ def test_dns_consumed_services_scale_up(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     consumed_service = client.update(consumed_service,
@@ -276,12 +276,12 @@ def test_dns_consumed_services_scale_up(admin_client, client):
     assert consumed_service.scale == final_consumed_service_scale
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_scale_down(admin_client, client):
+def test_dns_consumed_services_scale_down(client):
 
     port = "3110"
 
@@ -292,10 +292,10 @@ def test_dns_consumed_services_scale_down(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     consumed_service = client.update(consumed_service,
@@ -306,12 +306,12 @@ def test_dns_consumed_services_scale_down(admin_client, client):
     assert consumed_service.scale == final_consumed_service_scale
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_stop_start_instance(admin_client, client,
+def test_dns_consumed_services_stop_start_instance(client,
                                                    socat_containers):
 
     port = "3111"
@@ -321,10 +321,10 @@ def test_dns_consumed_services_stop_start_instance(admin_client, client,
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     container_name = get_container_name(env, consumed_service, 2)
@@ -333,17 +333,17 @@ def test_dns_consumed_services_stop_start_instance(admin_client, client,
     container = containers[0]
 
     # Stop instance
-    stop_container_from_host(admin_client, container)
+    stop_container_from_host(client, container)
     consumed_service = wait_state(client, consumed_service, "active")
-    wait_for_scale_to_adjust(admin_client, consumed_service)
+    wait_for_scale_to_adjust(client, consumed_service)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_restart_instance(admin_client, client):
+def test_dns_consumed_services_restart_instance(client):
 
     port = "3112"
 
@@ -352,10 +352,10 @@ def test_dns_consumed_services_restart_instance(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     container_name = get_container_name(env, consumed_service, 2)
     containers = client.list_container(name=container_name)
@@ -367,12 +367,12 @@ def test_dns_consumed_services_restart_instance(admin_client, client):
     assert container.state == 'running'
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_delete_instance(admin_client, client):
+def test_dns_consumed_services_delete_instance(client):
 
     port = "3113"
 
@@ -381,10 +381,10 @@ def test_dns_consumed_services_delete_instance(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     container_name = get_container_name(env, consumed_service, 1)
@@ -397,15 +397,15 @@ def test_dns_consumed_services_delete_instance(admin_client, client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, consumed_service)
+    wait_for_scale_to_adjust(client, consumed_service)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_consumed_services_deactivate_activate(admin_client, client):
+def test_dns_consumed_services_deactivate_activate(client):
 
     port = "3114"
 
@@ -414,28 +414,28 @@ def test_dns_consumed_services_deactivate_activate(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     consumed_service = consumed_service.deactivate()
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, consumed_service)
+    wait_until_instances_get_stopped(client, consumed_service)
 
     consumed_service = consumed_service.activate()
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "active"
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_service_deactivate_activate(admin_client, client):
+def test_dns_service_deactivate_activate(client):
 
     port = "3115"
 
@@ -444,16 +444,16 @@ def test_dns_service_deactivate_activate(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     service = service.deactivate()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
 
     service = service.activate()
     service = client.wait_success(service, 120)
@@ -461,12 +461,12 @@ def test_dns_service_deactivate_activate(admin_client, client):
     time.sleep(restart_sleep_interval)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_deactivate_activate_environment(admin_client, client):
+def test_dns_deactivate_activate_environment(client):
 
     port = "3116"
 
@@ -475,10 +475,10 @@ def test_dns_deactivate_activate_environment(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     env = env.deactivateservices()
@@ -488,8 +488,8 @@ def test_dns_deactivate_activate_environment(admin_client, client):
     consumed_service = client.wait_success(consumed_service, 120)
     assert consumed_service.state == "inactive"
 
-    wait_until_instances_get_stopped(admin_client, service)
-    wait_until_instances_get_stopped(admin_client, consumed_service)
+    wait_until_instances_get_stopped(client, service)
+    wait_until_instances_get_stopped(client, consumed_service)
 
     env = env.activateservices()
     service = client.wait_success(service, 120)
@@ -500,12 +500,12 @@ def test_dns_deactivate_activate_environment(admin_client, client):
     time.sleep(restart_sleep_interval)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_add_remove_servicelinks(admin_client, client):
+def test_dns_add_remove_servicelinks(client):
     port = "3117"
 
     service_scale = 1
@@ -513,10 +513,10 @@ def test_dns_add_remove_servicelinks(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     # Add another service to environment
@@ -537,23 +537,23 @@ def test_dns_add_remove_servicelinks(admin_client, client):
 
     # Add another service link
     dns.addservicelink(serviceLink={"serviceId": consumed_service2.id})
-    validate_add_service_link(admin_client, dns, consumed_service2)
+    validate_add_service_link(client, dns, consumed_service2)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1,
-                                consumed_service2], port, dns.name)
+        client, service, [consumed_service, consumed_service1,
+                          consumed_service2], port, dns.name)
 
     # Remove existing service link to the service
     dns.removeservicelink(serviceLink={"serviceId": consumed_service.id})
-    validate_remove_service_link(admin_client, dns, consumed_service)
+    validate_remove_service_link(client, dns, consumed_service)
 
     validate_dns_service(
-        admin_client, service, [consumed_service1, consumed_service2],
+        client, service, [consumed_service1, consumed_service2],
         port, dns.name)
     delete_all(client, [env])
 
 
-def test_dns_services_delete_service_add_service(admin_client, client):
+def test_dns_services_delete_service_add_service(client):
 
     port = "3118"
 
@@ -562,17 +562,17 @@ def test_dns_services_delete_service_add_service(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     # Delete Service
 
     service = client.wait_success(client.delete(service))
     assert service.state == "removed"
-    validate_remove_service_link(admin_client, service, dns)
+    validate_remove_service_link(client, service, dns)
 
     port1 = "31180"
 
@@ -594,16 +594,16 @@ def test_dns_services_delete_service_add_service(admin_client, client):
     assert service1.state == "active"
 
     service1.addservicelink(serviceLink={"serviceId": dns.id})
-    validate_add_service_link(admin_client, service1, dns)
+    validate_add_service_link(client, service1, dns)
 
     validate_dns_service(
-        admin_client, service1, [consumed_service, consumed_service1], port1,
+        client, service1, [consumed_service, consumed_service1], port1,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_services_delete_and_add_consumed_service(admin_client, client):
+def test_dns_services_delete_and_add_consumed_service(client):
 
     port = "3119"
 
@@ -612,19 +612,19 @@ def test_dns_services_delete_and_add_consumed_service(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     # Delete consume service
 
     consumed_service = client.wait_success(client.delete(consumed_service))
     assert consumed_service.state == "removed"
-    validate_remove_service_link(admin_client, dns, consumed_service)
+    validate_remove_service_link(client, dns, consumed_service)
 
-    validate_dns_service(admin_client, service, [consumed_service1], port,
+    validate_dns_service(client, service, [consumed_service1], port,
                          dns.name)
 
     # Add another consume service and link the service to this newly created
@@ -648,16 +648,16 @@ def test_dns_services_delete_and_add_consumed_service(admin_client, client):
     service_link = {"serviceId": consumed_service2.id}
     dns.addservicelink(serviceLink=service_link)
 
-    validate_add_service_link(admin_client, dns, consumed_service2)
+    validate_add_service_link(client, dns, consumed_service2)
 
     validate_dns_service(
-        admin_client, service, [consumed_service1, consumed_service2], port,
+        client, service, [consumed_service1, consumed_service2], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_services_stop_start_instance(admin_client, client,
+def test_dns_services_stop_start_instance(client,
                                           socat_containers):
 
     port = "3120"
@@ -667,10 +667,10 @@ def test_dns_services_stop_start_instance(admin_client, client,
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     container_name = get_container_name(env, service, 2)
@@ -679,17 +679,17 @@ def test_dns_services_stop_start_instance(admin_client, client,
     service_instance = containers[0]
 
     # Stop service instance
-    stop_container_from_host(admin_client, service_instance)
+    stop_container_from_host(client, service_instance)
     service = client.wait_success(service)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_services_restart_instance(admin_client, client):
+def test_dns_services_restart_instance(client):
 
     port = "3121"
 
@@ -698,10 +698,10 @@ def test_dns_services_restart_instance(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     container_name = get_container_name(env, service, 2)
@@ -714,13 +714,13 @@ def test_dns_services_restart_instance(admin_client, client):
     assert service_instance.state == 'running'
     time.sleep(restart_sleep_interval)
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_service_restore_instance(admin_client, client):
+def test_dns_service_restore_instance(client):
 
     port = "3122"
 
@@ -729,10 +729,10 @@ def test_dns_service_restore_instance(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     container_name = get_container_name(env, service, 2)
@@ -744,16 +744,16 @@ def test_dns_service_restore_instance(admin_client, client):
     service_instance = client.wait_success(client.delete(service_instance))
     assert service_instance.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_dns_deactivate_activate(admin_client, client):
+def test_dns_dns_deactivate_activate(client):
 
     port = "3114"
 
@@ -762,10 +762,10 @@ def test_dns_dns_deactivate_activate(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     dns = dns.deactivate()
@@ -777,12 +777,12 @@ def test_dns_dns_deactivate_activate(admin_client, client):
     assert dns.state == "active"
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_dns_add_remove_servicelinks_using_set(admin_client, client):
+def test_dns_add_remove_servicelinks_using_set(client):
     port = "3117"
 
     service_scale = 1
@@ -790,10 +790,10 @@ def test_dns_add_remove_servicelinks_using_set(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port)
+            client, service_scale, consumed_service_scale, port)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     # Add another service to environment
@@ -819,21 +819,21 @@ def test_dns_add_remove_servicelinks_using_set(admin_client, client):
 
     dns.setservicelinks(serviceLinks=[service_link1, service_link2])
 
-    validate_add_service_link(admin_client, dns, consumed_service1)
+    validate_add_service_link(client, dns, consumed_service1)
 
-    validate_dns_service(admin_client, service,
+    validate_dns_service(client, service,
                          [consumed_service, consumed_service1], port, dns.name)
 
     # Remove existing service link to the service using setservicelinks
     dns.setservicelinks(serviceLinks=[service_link2])
-    validate_remove_service_link(admin_client, dns, consumed_service)
+    validate_remove_service_link(client, dns, consumed_service)
 
-    validate_dns_service(admin_client, service, [consumed_service1], port,
+    validate_dns_service(client, service, [consumed_service1], port,
                          dns.name)
     delete_all(client, [env])
 
 
-def test_dns_svc_managed_cosumed_service_hostnetwork(admin_client, client):
+def test_dns_svc_managed_cosumed_service_hostnetwork(client):
 
     port = "3118"
 
@@ -842,17 +842,17 @@ def test_dns_svc_managed_cosumed_service_hostnetwork(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port,
+            client, service_scale, consumed_service_scale, port,
             isnetworkModeHost_svc=False, isnetworkModeHost_consumed_svc=True)
 
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name)
 
     delete_all(client, [env])
 
 
-def test_dns_svc_hostnetwork_cosumed_service_hostnetwork(admin_client, client):
+def test_dns_svc_hostnetwork_cosumed_service_hostnetwork(client):
 
     port = "3119"
 
@@ -861,18 +861,18 @@ def test_dns_svc_hostnetwork_cosumed_service_hostnetwork(admin_client, client):
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port,
+            client, service_scale, consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=True)
 
     dns_name = dns.name + "." + env.name + ".rancher.internal"
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], "33",
+        client, service, [consumed_service, consumed_service1], "33",
         dns_name)
     delete_all(client, [env])
 
 
 def test_dns_svc_hostnetwork_cosumed_service_managednetwork(
-        admin_client, client):
+        client):
 
     port = "3119"
 
@@ -881,12 +881,12 @@ def test_dns_svc_hostnetwork_cosumed_service_managednetwork(
 
     env, service, consumed_service, consumed_service1, dns = \
         create_environment_with_dns_services(
-            admin_client, client, service_scale, consumed_service_scale, port,
+            client, service_scale, consumed_service_scale, port,
             isnetworkModeHost_svc=True, isnetworkModeHost_consumed_svc=False)
 
     dns_name = dns.name + "." + env.name + ".rancher.internal"
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], "33",
+        client, service, [consumed_service, consumed_service1], "33",
         dns_name)
 
     delete_all(client, [env])

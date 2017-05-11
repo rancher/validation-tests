@@ -12,7 +12,7 @@ if_compose_data_files = pytest.mark.skipif(
     reason='Docker compose files directory location not set')
 
 
-def test_rancher_compose_service(admin_client, client,
+def test_rancher_compose_service(client,
                                  rancher_cli_container,
                                  socat_containers):
 
@@ -79,9 +79,9 @@ def test_rancher_compose_service(admin_client, client,
     rancher_service = get_rancher_compose_service(
         client, rancher_env.id, service)
 
-    check_container_in_service(admin_client, rancher_service)
+    check_container_in_service(client, rancher_service)
 
-    container_list = get_service_container_list(admin_client, rancher_service)
+    container_list = get_service_container_list(client, rancher_service)
 
     dns_name.append(RANCHER_DNS_SERVER)
     dns_search.append(rancher_env.name+"."+RANCHER_DNS_SEARCH)
@@ -120,7 +120,7 @@ def test_rancher_compose_service(admin_client, client,
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_service_option_2(admin_client, client,
+def test_rancher_compose_service_option_2(client,
                                           rancher_cli_container,
                                           socat_containers):
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
@@ -211,9 +211,9 @@ def test_rancher_compose_service_option_2(admin_client, client,
     rancher_service = get_rancher_compose_service(
         client, rancher_env.id, service)
 
-    check_container_in_service(admin_client, rancher_service)
+    check_container_in_service(client, rancher_service)
 
-    container_list = get_service_container_list(admin_client, rancher_service)
+    container_list = get_service_container_list(client, rancher_service)
 
     for c in container_list:
         docker_client = get_docker_client(c.hosts[0])
@@ -267,7 +267,7 @@ def test_rancher_compose_service_option_2(admin_client, client,
 
 @pytest.mark.skipif(True, reason='not implemented yet')
 def test_rancher_compose_services_port_and_link_options(
-        admin_client, client, rancher_cli_container, socat_containers):
+        client, rancher_cli_container, socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
 
@@ -311,13 +311,13 @@ def test_rancher_compose_services_port_and_link_options(
     assert len(containers) == 1
     con = containers[0]
 
-    validate_exposed_port_and_container_link(admin_client, con, link_name,
+    validate_exposed_port_and_container_link(client, con, link_name,
                                              link_port, exposed_port)
 
     delete_all(client, [env, rancher_env, link_container])
 
 
-def test_rancher_compose_lbservice(admin_client, client,
+def test_rancher_compose_lbservice(client,
                                    rancher_cli_container):
 
     port = "7900"
@@ -368,12 +368,12 @@ def test_rancher_compose_lbservice(admin_client, client,
         client, rancher_env.id, service1)
     client.wait_success(rancher_service1)
 
-    validate_lb_service(admin_client, client, rancher_lb_service, port,
+    validate_lb_service(client, rancher_lb_service, port,
                         [rancher_service, rancher_service1])
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_lbservice_internal(admin_client, client,
+def test_rancher_compose_lbservice_internal(client,
                                             rancher_cli_container):
 
     port = "7911"
@@ -435,21 +435,21 @@ def test_rancher_compose_lbservice_internal(admin_client, client,
     rancher_service1 = get_rancher_compose_service(
         client, rancher_env.id, service1)
     client.wait_success(rancher_service1)
-    validate_internal_lb(admin_client, rancher_lb_service,
+    validate_internal_lb(client, rancher_lb_service,
                          [rancher_service, rancher_service1],
                          host, con_port, port)
     # Check that port in the host where LB Agent is running is not accessible
     lb_containers = get_service_container_list(
-        admin_client, rancher_lb_service)
+        client, rancher_lb_service)
     assert len(lb_containers) == lb_service.scale
     for lb_con in lb_containers:
-        host = admin_client.by_id('host', lb_con.hosts[0].id)
+        host = client.by_id('host', lb_con.hosts[0].id)
         assert check_for_no_access(host, port)
 
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_service_links(admin_client, client,
+def test_rancher_compose_service_links(client,
                                        rancher_cli_container):
 
     port = "7901"
@@ -480,29 +480,29 @@ def test_rancher_compose_service_links(admin_client, client,
 
     client.wait_success(rancher_service)
     client.wait_success(rancher_consumed_service)
-    validate_add_service_link(admin_client, rancher_service,
+    validate_add_service_link(client, rancher_service,
                               rancher_consumed_service)
 
-    validate_linked_service(admin_client, rancher_service,
+    validate_linked_service(client, rancher_service,
                             [rancher_consumed_service], port)
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_dns_services(admin_client, client,
+def test_rancher_compose_dns_services(client,
                                       rancher_cli_container):
     port = "7902"
-    rancher_compose_dns_services(admin_client, client, port,
+    rancher_compose_dns_services(client, port,
                                  rancher_cli_container)
 
 
-def test_rancher_compose_dns_services_cross_stack(admin_client, client,
+def test_rancher_compose_dns_services_cross_stack(client,
                                                   rancher_cli_container):
     port = "7903"
-    rancher_compose_dns_services(admin_client, client, port,
+    rancher_compose_dns_services(client, port,
                                  rancher_cli_container, True)
 
 
-def test_rancher_compose_external_services(admin_client, client,
+def test_rancher_compose_external_services(client,
                                            rancher_cli_container):
 
     port = "7904"
@@ -532,16 +532,16 @@ def test_rancher_compose_external_services(admin_client, client,
     client.wait_success(rancher_service)
     client.wait_success(rancher_ext_service)
 
-    validate_add_service_link(admin_client, rancher_service,
+    validate_add_service_link(client, rancher_service,
                               rancher_ext_service)
 
-    validate_external_service(admin_client, rancher_service,
+    validate_external_service(client, rancher_service,
                               [rancher_ext_service],
                               port, con_list)
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_lbservice_host_routing(admin_client, client,
+def test_rancher_compose_lbservice_host_routing(client,
                                                 rancher_cli_container):
 
     port1 = "7906"
@@ -623,34 +623,34 @@ def test_rancher_compose_lbservice_host_routing(admin_client, client,
         client, rancher_env.id, services[2])
     client.wait_success(rancher_service2)
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port1,
                         [rancher_service, rancher_service1],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port1,
                         [rancher_service, rancher_service1],
                         "www.abc2.com", "/service2.html")
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port1, [rancher_service2],
                         "www.abc1.com", "/name.html")
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port1, [rancher_service2],
                         "www.abc2.com", "/name.html")
 
-    validate_lb_service_for_no_access(admin_client, rancher_lb_service, port1,
+    validate_lb_service_for_no_access(client, rancher_lb_service, port1,
                                       "www.abc1.com",
                                       "/service2.html")
-    validate_lb_service_for_no_access(admin_client, rancher_lb_service, port1,
+    validate_lb_service_for_no_access(client, rancher_lb_service, port1,
                                       "www.abc2.com",
                                       "/service1.html")
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_lbservice_multiple_port(admin_client, client,
+def test_rancher_compose_lbservice_multiple_port(client,
                                                  rancher_cli_container):
 
     port1 = "7907"
@@ -697,17 +697,17 @@ def test_rancher_compose_lbservice_multiple_port(admin_client, client,
         client, rancher_env.id, services[1])
     client.wait_success(rancher_service1)
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port1, [rancher_service],
                         "www.abc1.com", "/service1.html")
 
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         rancher_lb_service, port2, [rancher_service1],
                         "www.abc2.com", "/service3.html")
     delete_all(client, [env, rancher_env])
 
 
-def test_rancher_compose_external_services_hostname(admin_client, client,
+def test_rancher_compose_external_services_hostname(client,
                                                     rancher_cli_container):
 
     port = "7904"
@@ -735,15 +735,15 @@ def test_rancher_compose_external_services_hostname(admin_client, client,
     client.wait_success(rancher_service)
     client.wait_success(rancher_ext_service)
 
-    validate_add_service_link(admin_client, rancher_service,
+    validate_add_service_link(client, rancher_service,
                               rancher_ext_service)
 
-    validate_external_service_for_hostname(admin_client, rancher_service,
+    validate_external_service_for_hostname(client, rancher_service,
                                            [rancher_ext_service], port)
     delete_all(client, [env, rancher_env])
 
 
-def rancher_compose_dns_services(admin_client, client, port,
+def rancher_compose_dns_services(client, port,
                                  rancher_cli_container,
                                  cross_linking=False):
 
@@ -773,13 +773,13 @@ def rancher_compose_dns_services(admin_client, client, port,
 
     if cross_linking:
         # Launch Consumed Service2
-        env_con = get_env(admin_client, consumed_service)
+        env_con = get_env(client, consumed_service)
         env_con = env_con.activateservices()
         env_con = client.wait_success(env_con, 120)
         assert env_con.state == "active"
         con_service1_id = env_con.id
         # Launch Consumed Service1
-        env_con1 = get_env(admin_client, consumed_service1)
+        env_con1 = get_env(client, consumed_service1)
         env_con1 = env_con1.activateservices()
         env_con1 = client.wait_success(env_con1, 120)
         assert env_con1.state == "active"
@@ -803,14 +803,14 @@ def rancher_compose_dns_services(admin_client, client, port,
     client.wait_success(rancher_consumed_service)
     client.wait_success(rancher_consumed_service1)
     client.wait_success(rancher_service)
-    validate_add_service_link(admin_client, rancher_service,
+    validate_add_service_link(client, rancher_service,
                               rancher_dns)
-    validate_add_service_link(admin_client, rancher_dns,
+    validate_add_service_link(client, rancher_dns,
                               rancher_consumed_service)
-    validate_add_service_link(admin_client, rancher_dns,
+    validate_add_service_link(client, rancher_dns,
                               rancher_consumed_service1)
 
-    validate_dns_service(admin_client, rancher_service,
+    validate_dns_service(client, rancher_service,
                          [rancher_consumed_service, rancher_consumed_service1],
                          port, rancher_dns.name)
     to_delete = [env, rancher_env]

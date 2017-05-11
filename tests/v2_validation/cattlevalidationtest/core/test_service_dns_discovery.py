@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port,
+        client, service_scale, consumed_service_scale, port,
         ssh_port="22", isnetworkModeHost_svc=False,
         isnetworkModeHost_consumed_svc=False):
 
@@ -31,7 +31,7 @@ def create_environment_with_services(
 
 
 def test_dns_discovery_activate_svc_activate_consumed_svc_link(
-        admin_client, client):
+        client):
 
     port = "401"
 
@@ -39,14 +39,14 @@ def test_dns_discovery_activate_svc_activate_consumed_svc_link(
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     delete_all(client, [env])
 
 
-def test_dns_discovery_service_scale_up(admin_client, client):
+def test_dns_discovery_service_scale_up(client):
 
     port = "402"
 
@@ -56,9 +56,9 @@ def test_dns_discovery_service_scale_up(admin_client, client):
     final_service_scale = 3
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     service = client.update(service, scale=final_service_scale,
                             name=service.name)
@@ -66,11 +66,11 @@ def test_dns_discovery_service_scale_up(admin_client, client):
     assert service.state == "active"
     assert service.scale == final_service_scale
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_services_scale_down(admin_client, client):
+def test_dns_discovery_services_scale_down(client):
 
     port = "403"
 
@@ -80,9 +80,9 @@ def test_dns_discovery_services_scale_down(admin_client, client):
     final_service_scale = 1
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     service = client.update(service, scale=final_service_scale,
                             name=service.name)
@@ -90,11 +90,11 @@ def test_dns_discovery_services_scale_down(admin_client, client):
     assert service.state == "active"
     assert service.scale == final_service_scale
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_consumed_services_scale_up(admin_client, client):
+def test_dns_discovery_consumed_services_scale_up(client):
 
     port = "404"
 
@@ -104,9 +104,9 @@ def test_dns_discovery_consumed_services_scale_up(admin_client, client):
     final_consumed_service_scale = 4
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     consumed_service = client.update(consumed_service,
                                      scale=final_consumed_service_scale,
@@ -116,11 +116,11 @@ def test_dns_discovery_consumed_services_scale_up(admin_client, client):
     assert consumed_service.state == "active"
     assert consumed_service.scale == final_consumed_service_scale
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_consumed_services_scale_down(admin_client, client):
+def test_dns_discovery_consumed_services_scale_down(client):
 
     port = "405"
 
@@ -130,9 +130,9 @@ def test_dns_discovery_consumed_services_scale_down(admin_client, client):
     final_consumed_service_scale = 1
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     consumed_service = client.update(consumed_service,
                                      scale=final_consumed_service_scale,
@@ -142,12 +142,12 @@ def test_dns_discovery_consumed_services_scale_down(admin_client, client):
     assert consumed_service.state == "active"
     assert consumed_service.scale == final_consumed_service_scale
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
 def test_dns_discovery_consumed_services_stop_start_instance(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     port = "406"
 
@@ -155,9 +155,9 @@ def test_dns_discovery_consumed_services_stop_start_instance(
     consumed_service_scale = 3
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 2)
     containers = client.list_container(name=container_name)
@@ -165,17 +165,17 @@ def test_dns_discovery_consumed_services_stop_start_instance(
     container = containers[0]
 
     # Stop instance
-    stop_container_from_host(admin_client, container)
+    stop_container_from_host(client, container)
     service = wait_state(client, service, "active")
 
-    wait_for_scale_to_adjust(admin_client, consumed_service)
+    wait_for_scale_to_adjust(client, consumed_service)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
 def test_dns_discovery_consumed_services_restart_instance(
-        admin_client, client):
+        client):
 
     port = "407"
 
@@ -183,9 +183,9 @@ def test_dns_discovery_consumed_services_restart_instance(
     consumed_service_scale = 3
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 2)
     containers = client.list_container(name=container_name)
@@ -196,11 +196,11 @@ def test_dns_discovery_consumed_services_restart_instance(
     container = client.wait_success(container.restart(), SERVICE_WAIT_TIMEOUT)
     assert container.state == 'running'
     time.sleep(10)
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_consumed_services_delete_instance(admin_client, client):
+def test_dns_discovery_consumed_services_delete_instance(client):
 
     port = "408"
 
@@ -208,9 +208,9 @@ def test_dns_discovery_consumed_services_delete_instance(admin_client, client):
     consumed_service_scale = 3
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 1)
     containers = client.list_container(name=container_name)
@@ -221,14 +221,14 @@ def test_dns_discovery_consumed_services_delete_instance(admin_client, client):
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, consumed_service)
+    wait_for_scale_to_adjust(client, consumed_service)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
 def test_dns_discovery_consumed_services_deactivate_activate(
-        admin_client, client):
+        client):
 
     port = "409"
 
@@ -236,26 +236,26 @@ def test_dns_discovery_consumed_services_deactivate_activate(
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     consumed_service = consumed_service.deactivate()
     consumed_service = client.wait_success(
         consumed_service, SERVICE_WAIT_TIMEOUT)
     assert consumed_service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, consumed_service)
+    wait_until_instances_get_stopped(client, consumed_service)
 
     consumed_service = consumed_service.activate()
     consumed_service = client.wait_success(
         consumed_service, SERVICE_WAIT_TIMEOUT)
     assert consumed_service.state == "active"
     time.sleep(10)
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_service_deactivate_activate(admin_client, client):
+def test_dns_discovery_service_deactivate_activate(client):
 
     port = "410"
 
@@ -263,25 +263,25 @@ def test_dns_discovery_service_deactivate_activate(admin_client, client):
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     service = service.deactivate()
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
 
     service = service.activate()
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
     time.sleep(restart_sleep_interval)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_deactivate_activate_environment(admin_client, client):
+def test_dns_discovery_deactivate_activate_environment(client):
 
     port = "411"
 
@@ -289,9 +289,9 @@ def test_dns_discovery_deactivate_activate_environment(admin_client, client):
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port,
+    validate_linked_service(client, service, [consumed_service], port,
                             )
 
     env = env.deactivateservices()
@@ -302,7 +302,7 @@ def test_dns_discovery_deactivate_activate_environment(admin_client, client):
         consumed_service, SERVICE_WAIT_TIMEOUT)
     assert consumed_service.state == "inactive"
 
-    wait_until_instances_get_stopped(admin_client, consumed_service)
+    wait_until_instances_get_stopped(client, consumed_service)
 
     env = env.activateservices()
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
@@ -313,11 +313,11 @@ def test_dns_discovery_deactivate_activate_environment(admin_client, client):
     assert consumed_service.state == "active"
     time.sleep(restart_sleep_interval)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discovery_services_stop_start_instance(admin_client, client,
+def test_dns_discovery_services_stop_start_instance(client,
                                                     socat_containers):
 
     port = "416"
@@ -326,9 +326,9 @@ def test_dns_discovery_services_stop_start_instance(admin_client, client,
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port,
+    validate_linked_service(client, service, [consumed_service], port,
                             )
 
     container_name = get_container_name(env, consumed_service, 2)
@@ -337,17 +337,17 @@ def test_dns_discovery_services_stop_start_instance(admin_client, client,
     service_instance = containers[0]
 
     # Stop service instance
-    stop_container_from_host(admin_client, service_instance)
+    stop_container_from_host(client, service_instance)
     service = client.wait_success(service)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     time.sleep(restart_sleep_interval)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     delete_all(client, [env])
 
 
-def test_dns_discovery_services_restart_instance(admin_client, client):
+def test_dns_discovery_services_restart_instance(client):
 
     port = "417"
 
@@ -355,9 +355,9 @@ def test_dns_discovery_services_restart_instance(admin_client, client):
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, service, 2)
     containers = client.list_container(name=container_name)
@@ -369,13 +369,13 @@ def test_dns_discovery_services_restart_instance(admin_client, client):
         service_instance.restart(), SERVICE_WAIT_TIMEOUT)
     assert service_instance.state == 'running'
     time.sleep(restart_sleep_interval)
-    validate_linked_service(admin_client, service, [consumed_service], port,
+    validate_linked_service(client, service, [consumed_service], port,
                             )
 
     delete_all(client, [env])
 
 
-def test_dns_discovery_services_delete_instance(admin_client, client):
+def test_dns_discovery_services_delete_instance(client):
 
     port = "418"
 
@@ -383,9 +383,9 @@ def test_dns_discovery_services_delete_instance(admin_client, client):
     consumed_service_scale = 2
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port)
+        client, service_scale, consumed_service_scale, port)
 
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, service, 2)
     containers = client.list_container(name=container_name)
@@ -396,13 +396,13 @@ def test_dns_discovery_services_delete_instance(admin_client, client):
     container = client.wait_success(client.delete(service_instance))
     assert container.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, service)
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    wait_for_scale_to_adjust(client, service)
+    validate_linked_service(client, service, [consumed_service], port)
 
     delete_all(client, [env])
 
 
-def test_dns_discoverys_with_hostnetwork_1(admin_client, client):
+def test_dns_discoverys_with_hostnetwork_1(client):
 
     # Verify if able to resolve to containers of service in host network
     # from containers that belong to another service in managed network.
@@ -412,14 +412,14 @@ def test_dns_discoverys_with_hostnetwork_1(admin_client, client):
     consumed_service_scale = 2
     ssh_port = "33"
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port,
+        client, service_scale, consumed_service_scale, port,
         ssh_port, isnetworkModeHost_svc=False,
         isnetworkModeHost_consumed_svc=True)
-    validate_linked_service(admin_client, service, [consumed_service], port)
+    validate_linked_service(client, service, [consumed_service], port)
     delete_all(client, [env])
 
 
-def test_dns_discoverys_with_hostnetwork_2(admin_client, client):
+def test_dns_discoverys_with_hostnetwork_2(client):
 
     # Verify if able to resolve to container of service in host network
     # from containers that belong to another service in host network in the
@@ -431,17 +431,17 @@ def test_dns_discoverys_with_hostnetwork_2(admin_client, client):
     ssh_port = "33"
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port,
+        client, service_scale, consumed_service_scale, port,
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=True)
     validate_linked_service(
-        admin_client, service, [consumed_service], ssh_port,
+        client, service, [consumed_service], ssh_port,
         linkName=consumed_service.name + "." + env.name + ".rancher.internal")
 
     delete_all(client, [env])
 
 
-def test_dns_discoverys_with_hostnetwork_3(admin_client, client):
+def test_dns_discoverys_with_hostnetwork_3(client):
 
     # Verify if able to resolve to containers of service in managed
     # network from containers that belong to another service in host network.
@@ -453,16 +453,16 @@ def test_dns_discoverys_with_hostnetwork_3(admin_client, client):
     ssh_port = "33"
 
     env, service, consumed_service = create_environment_with_services(
-        admin_client, client, service_scale, consumed_service_scale, port,
+        client, service_scale, consumed_service_scale, port,
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
-        admin_client, service, [consumed_service], ssh_port,
+        client, service, [consumed_service], ssh_port,
         linkName=consumed_service.name + "." + env.name + ".rancher.internal")
     delete_all(client, [env])
 
 
-def test_dns_discoverys_with_hostnetwork_externalService(admin_client, client):
+def test_dns_discoverys_with_hostnetwork_externalService(client):
 
     # Verify if able to resolve external services from containers
     # that belong to another service in host network.
@@ -489,14 +489,14 @@ def test_dns_discoverys_with_hostnetwork_externalService(admin_client, client):
     assert ext_service.state == "active"
 
     validate_external_service(
-        admin_client, host_service, [ext_service], 33, con_list,
+        client, host_service, [ext_service], 33, con_list,
         fqdn="." + env.name + ".rancher.internal")
     con_list.append(env)
     delete_all(client, con_list)
 
 
 def test_dns_discoverys_with_hostnetwork_externalService_cname(
-        admin_client, client):
+        client):
 
     # Verify if able to resolve external services from containers
     # that belong to another service in host network.
@@ -522,13 +522,13 @@ def test_dns_discoverys_with_hostnetwork_externalService_cname(
     assert host_service.state == "active"
     assert ext_service.state == "active"
 
-    validate_external_service_for_hostname(admin_client, host_service,
+    validate_external_service_for_hostname(client, host_service,
                                            [ext_service], 33)
     delete_all(client, [env])
 
 
 def test_dns_discoverys_coss_stack_service(
-        admin_client, client):
+        client):
 
     env = create_env(client)
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -556,12 +556,12 @@ def test_dns_discoverys_coss_stack_service(
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
-    validate_linked_service(admin_client, service1, [service],
+    validate_linked_service(client, service1, [service],
                             port,
                             linkName=service.name+"."+env.name)
 
     linkName = service.name+"."+env.name+"."+RANCHER_FQDN
-    validate_linked_service(admin_client, service1, [service],
+    validate_linked_service(client, service1, [service],
                             port,
                             linkName=linkName)
 
@@ -569,7 +569,7 @@ def test_dns_discoverys_coss_stack_service(
 
 
 def test_dns_discoverys_coss_stack_service_uppercase(
-        admin_client, client):
+        client):
 
     env = create_env(client)
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -597,12 +597,12 @@ def test_dns_discoverys_coss_stack_service_uppercase(
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
-    validate_linked_service(admin_client, service1, [service],
+    validate_linked_service(client, service1, [service],
                             port,
                             linkName=service.name+"."+env.name)
 
     linkName = service.name+"."+env.name+"."+RANCHER_FQDN
-    validate_linked_service(admin_client, service1, [service],
+    validate_linked_service(client, service1, [service],
                             port,
                             linkName=linkName)
 
@@ -610,7 +610,7 @@ def test_dns_discoverys_coss_stack_service_uppercase(
 
 
 def test_dns_discoverys_for_containers_by_name_and_fqdn(
-        admin_client, client):
+        client):
 
     env = create_env(client)
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -637,22 +637,22 @@ def test_dns_discoverys_for_containers_by_name_and_fqdn(
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == service.scale
 
     for container in containers:
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container, container.name)
+            client, service1, port, container, container.name)
 
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container,
+            client, service1, port, container,
             container.name+"."+RANCHER_FQDN)
 
     delete_all(client, [env])
 
 
 def test_dns_discoverys_for_containers_by_name_and_fqdn_cross_stack(
-        admin_client, client):
+        client):
 
     env = create_env(client)
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -681,22 +681,22 @@ def test_dns_discoverys_for_containers_by_name_and_fqdn_cross_stack(
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == service.scale
 
     for container in containers:
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container, container.name)
+            client, service1, port, container, container.name)
 
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container,
+            client, service1, port, container,
             container.name+"."+RANCHER_FQDN)
 
     delete_all(client, [env, env1])
 
 
 def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
-        admin_client, client):
+        client):
 
     port = "428"
     service_scale = 2
@@ -710,11 +710,11 @@ def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    validate_sidekick(admin_client, service, service_name,
+    validate_sidekick(client, service, service_name,
                       consumed_service_name, port)
 
     secondary_cons = get_service_containers_with_name(
-        admin_client, service, consumed_service_name)
+        client, service, consumed_service_name)
     assert len(secondary_cons) == service.scale
 
     # Deploy client service in another environment
@@ -734,16 +734,16 @@ def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
 
     for container in secondary_cons:
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container, container.name)
+            client, service1, port, container, container.name)
 
         validate_for_container_dns_resolution(
-            admin_client, service1, port, container,
+            client, service1, port, container,
             container.name+"."+RANCHER_FQDN)
 
     delete_all(client, [env, env1])
 
 
-def test_dns_discovery_for_service_with_sidekick(admin_client, client):
+def test_dns_discovery_for_service_with_sidekick(client):
     port = "430"
     service_scale = 2
 
@@ -758,11 +758,11 @@ def test_dns_discovery_for_service_with_sidekick(admin_client, client):
     assert service.state == "active"
     dnsname = service.secondaryLaunchConfigs[0].name
 
-    validate_sidekick(admin_client, service, service_name,
+    validate_sidekick(client, service, service_name,
                       consumed_service_name, port, dnsname)
 
     secondary_cons = get_service_containers_with_name(
-        admin_client, service, consumed_service_name)
+        client, service, consumed_service_name)
 
     # Deploy client service in same environment
     port = "431"
@@ -777,16 +777,16 @@ def test_dns_discovery_for_service_with_sidekick(admin_client, client):
     service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
-    client_containers = get_service_container_list(admin_client, service1)
+    client_containers = get_service_container_list(client, service1)
 
     dnsname = service.secondaryLaunchConfigs[0].name + "." + service.name
     validate_dns(
-        admin_client, client_containers, secondary_cons, port, dnsname)
+        client, client_containers, secondary_cons, port, dnsname)
     delete_all(client, [env])
 
 
 def test_dns_discovery_for_service_with_sidekick_cross_stack(
-        admin_client, client):
+        client):
     port = "432"
     service_scale = 2
 
@@ -801,11 +801,11 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
     assert service.state == "active"
     dnsname = service.secondaryLaunchConfigs[0].name
 
-    validate_sidekick(admin_client, service, service_name,
+    validate_sidekick(client, service, service_name,
                       consumed_service_name, port, dnsname)
 
     secondary_cons = get_service_containers_with_name(
-        admin_client, service, consumed_service_name)
+        client, service, consumed_service_name)
 
     # Deploy client service in a different environment
     port = "433"
@@ -821,25 +821,25 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
     service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
-    client_containers = get_service_container_list(admin_client, service1)
+    client_containers = get_service_container_list(client, service1)
 
     dnsname = \
         service.secondaryLaunchConfigs[0].name + "." + service.name + \
         "." + env.name + "." + RANCHER_FQDN
 
     validate_dns(
-        admin_client, client_containers, secondary_cons, port, dnsname)
+        client, client_containers, secondary_cons, port, dnsname)
     delete_all(client, [env, env1])
 
 
 def validate_for_container_dns_resolution(
-        admin_client, service, sshport, container, dns_name):
+        client, service, sshport, container, dns_name):
 
     time.sleep(sleep_interval)
-    client_containers = get_service_container_list(admin_client, service)
+    client_containers = get_service_container_list(client, service)
     assert len(client_containers) == service.scale
     for con in client_containers:
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
 
         # Validate port mapping
         ssh = paramiko.SSHClient()

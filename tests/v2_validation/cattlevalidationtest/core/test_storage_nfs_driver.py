@@ -8,39 +8,30 @@ volume_driver = "rancher-nfs"
 
 
 @if_test_rancher_nfs
-def test_nfs_services_with_shared_vol(
-        super_client, client):
+def test_nfs_services_with_shared_vol(client):
     assert check_for_nfs_driver(client)
-    services_with_shared_vol(
-        super_client, client, volume_driver=volume_driver)
+    services_with_shared_vol(client, volume_driver=volume_driver)
 
 
 @if_test_rancher_nfs
-def test_nfs_services_with_shared_vol_scaleup(
-        super_client, client):
+def test_nfs_services_with_shared_vol_scaleup(client):
     assert check_for_nfs_driver(client)
-    services_with_shared_vol_scaleup(
-        super_client, client, volume_driver=volume_driver)
+    services_with_shared_vol_scaleup(client, volume_driver=volume_driver)
 
 
 @if_test_rancher_nfs
-def test_nfs_multiple_services_with_same_shared_vol(
-        super_client, client):
+def test_nfs_multiple_services_with_same_shared_vol(client):
     assert check_for_nfs_driver(client)
-    multiple_services_with_same_shared_vol(
-        super_client, client, volume_driver=volume_driver)
+    multiple_services_with_same_shared_vol(client, volume_driver=volume_driver)
 
 
 @if_test_rancher_nfs
-def test_nfs_delete_volume(
-        super_client, client):
+def test_nfs_delete_volume(client):
     assert check_for_nfs_driver(client)
-    delete_volume_after_service_deletes(
-        super_client, client, volume_driver=volume_driver)
+    delete_volume_after_service_deletes(client, volume_driver=volume_driver)
 
 
-def services_with_shared_vol(
-        super_client, client, volume_driver):
+def services_with_shared_vol(client, volume_driver):
 
     # Create Environment with service that has shared volume from
     # volume_driver
@@ -64,7 +55,7 @@ def services_with_shared_vol(
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(service)
     assert len(container_list) == service.scale
     assert container_list[0].dockerHostIp != container_list[1].dockerHostIp
 
@@ -86,8 +77,7 @@ def services_with_shared_vol(
     delete_volume(client, volumes[0])
 
 
-def services_with_shared_vol_scaleup(
-        super_client, client, volume_driver):
+def services_with_shared_vol_scaleup(client, volume_driver):
 
     # Create Environment with service that has shared volume from
     # volume_driver
@@ -111,7 +101,7 @@ def services_with_shared_vol_scaleup(
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
@@ -140,7 +130,7 @@ def services_with_shared_vol_scaleup(
     # After scale up , make sure all container share the same volume by making
     # sure all containers are able to access the contents of the file
     # the was created before scaling service
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
     for container in container_list:
         file_content = \
@@ -159,8 +149,7 @@ def services_with_shared_vol_scaleup(
     delete_volume(client, volumes[0])
 
 
-def multiple_services_with_same_shared_vol(
-        super_client, client, volume_driver):
+def multiple_services_with_same_shared_vol(client, volume_driver):
 
     # Create Environment with service that has shared volume from
     # volume_driver
@@ -184,7 +173,7 @@ def multiple_services_with_same_shared_vol(
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
@@ -221,7 +210,7 @@ def multiple_services_with_same_shared_vol(
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    container_list = get_service_container_list(super_client, service1)
+    container_list = get_service_container_list(client, service1)
     assert len(container_list) == service1.scale
 
     # Make sure all container of this service share the same volume as the
@@ -237,8 +226,7 @@ def multiple_services_with_same_shared_vol(
     delete_volume(client, volumes[0])
 
 
-def delete_volume_after_service_deletes(
-        super_client, client, volume_driver):
+def delete_volume_after_service_deletes(client, volume_driver):
     # Create Environment with service that has shared volume from
     # volume_driver
 
@@ -261,7 +249,7 @@ def delete_volume_after_service_deletes(
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
@@ -299,7 +287,7 @@ def delete_volume_after_service_deletes(
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
-    container_list = get_service_container_list(super_client, service1)
+    container_list = get_service_container_list(client, service1)
     assert len(container_list) == service1.scale
 
     # Make sure all container share the same volume as the first service
@@ -315,7 +303,7 @@ def delete_volume_after_service_deletes(
     # After deleting one of the services that uses the volumes , volume state
     # should still be active and we should not be allowed to delete the volume
     delete_all(client, [service])
-    container_list = get_service_container_list(super_client, service)
+    container_list = get_service_container_list(client, service)
     for container in container_list:
         wait_for_condition(
             client, container,
@@ -338,7 +326,7 @@ def delete_volume_after_service_deletes(
     # should be detached and we should be allowed to delete the volume
 
     delete_all(client, [service1])
-    container_list = get_service_container_list(super_client, service1)
+    container_list = get_service_container_list(client, service1)
     for container in container_list:
         wait_for_condition(
             client, container,

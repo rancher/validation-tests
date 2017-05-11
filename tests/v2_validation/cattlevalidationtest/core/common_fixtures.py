@@ -53,17 +53,16 @@ RANCHER_ORCHESTRATION = os.environ.get(
 CONTAINER_REFACTORING = os.environ.get(
     'CONTAINER_REFACTORING', "False")
 
+RANCHER_EBS = os.environ.get(
+    'RANCHER_EBS', "false")
+
 ACCESS_KEY = os.environ.get('ACCESS_KEY')
 SECRET_KEY = os.environ.get('SECRET_KEY')
-PROJECT_ID = os.environ.get('PROJECT_ID')
+PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
 
 if_container_refactoring = pytest.mark.skipif(
     CONTAINER_REFACTORING != "True",
     reason='Container Refactoring not available')
-
-RANCHER_EBS = os.environ.get(
-    'RANCHER_EBS', "false")
-
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
@@ -138,6 +137,11 @@ def rancher_server_url():
     default_url = 'http://localhost:8080'
     rancher_url = os.environ.get('CATTLE_TEST_URL', default_url)
     return rancher_url
+
+
+def webhook_url():
+    webhook_url = rancher_server_url() + "/v1-webhooks/receivers"
+    return webhook_url
 
 
 def _admin_client():
@@ -270,18 +274,28 @@ def accounts():
 
 @pytest.fixture(scope='session')
 def client(admin_client):
-    client = client_for_project(
-        admin_client.list_project(uuid="adminProject")[0])
-    assert client.valid()
+    if (ACCESS_KEY is not None and SECRET_KEY is not None):
+        client = \
+            get_client_for_auth_enabled_setup(
+                ACCESS_KEY, SECRET_KEY, PROJECT_ID)
+    else:
+        client = client_for_project(
+            admin_client.list_project(uuid="adminProject")[0])
+        assert client.valid()
     return client
 
 
 @pytest.fixture(scope='session')
 def admin_client():
-    admin_client = _admin_client()
-    assert admin_client.valid()
+    if (ACCESS_KEY is not None and SECRET_KEY is not None):
+        admin_client = \
+            get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY)
+    else:
+        admin_client = _admin_client()
+        assert admin_client.valid()
     set_haproxy_image(admin_client)
-    set_host_url(admin_client)
+    if (ACCESS_KEY is None or SECRET_KEY is None):
+        set_host_url(admin_client)
     return admin_client
 
 
@@ -639,12 +653,13 @@ def ha_hosts(client, admin_client):
 
 
 @pytest.fixture(scope='session')
-def kube_hosts(admin_user_client, admin_client, client, request):
+def kube_hosts(admin_client, client, request):
     if kubectl_client_con["container"] is not None:
         return
     k8s_client = client
-    k8s_project_name = "Default"
-    k8s_project_id = "1a5"
+    project = admin_client.by_id("project", PROJECT_ID)
+    k8s_project_name = project.name
+    k8s_project_id = PROJECT_ID
     if K8S_DEPLOY == "True":
         if OVERRIDE_CATALOG == "True":
             # Set the catalog for K8s system stack
@@ -663,7 +678,8 @@ def kube_hosts(admin_user_client, admin_client, client, request):
             # Wait for sometime for the settings to take effect
             time.sleep(30)
 
-        k8s_context = new_k8s_context(admin_user_client, "k8s")
+        k8s_context = new_k8s_context(
+            admin_user_client(super_client(accounts())), "k8s")
         k8s_client = k8s_context.client
         k8s_project_name = k8s_context.project.name
         k8s_project_id = k8s_context.project.id
@@ -816,10 +832,10 @@ def check_service_map(admin_client, service, instance, state):
     assert len(instance_service_map) == 1
 
 
-def get_container_names_list(admin_client, services):
+def get_container_names_list(client, services):
     container_names = []
     for service in services:
-        containers = get_service_container_list(admin_client, service)
+        containers = get_service_container_list(client, service)
         for c in containers:
             if c.state == "running":
                 container_names.append(c.externalId[:12])
@@ -848,16 +864,29 @@ def validate_remove_service_link(admin_client, service, consumedService):
         assert len(service_maps) == 0
 
 
-def get_service_container_list(admin_client, service, managed=None):
+def get_service_container_list(client, service, managed=None):
 
+    services = client.list_service(uuid=service.uuid,
+                                   include="instances")
+    assert len(services) == 1
+    container = []
+    for instance in services[0].instances:
+        containers = client.list_container(externalId=instance.externalId,
+                                           include="hosts")
+        assert len(containers) == 1
+        container.append(containers[0])
+    return container
+
+
+def get_service_container_managed_list(client, service, managed=None):
     container = []
     if managed is not None:
         all_instance_maps = \
-            admin_client.list_serviceExposeMap(serviceId=service.id,
-                                               managed=managed)
+            client.list_serviceExposeMap(serviceId=service.id,
+                                         managed=managed)
     else:
         all_instance_maps = \
-            admin_client.list_serviceExposeMap(serviceId=service.id)
+            client.list_serviceExposeMap(serviceId=service.id)
 
     instance_maps = []
     for instance_map in all_instance_maps:
@@ -865,9 +894,9 @@ def get_service_container_list(admin_client, service, managed=None):
             instance_maps.append(instance_map)
 
     for instance_map in instance_maps:
-        c = admin_client.by_id('container', instance_map.instanceId)
+        c = client.by_id('container', instance_map.instanceId)
         assert c.state in CONTAINER_STATES
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=c.externalId,
             include="hosts")
         assert len(containers) == 1
@@ -902,28 +931,28 @@ def activate_svc(client, service):
     return service
 
 
-def validate_exposed_port(admin_client, service, public_port):
-    con_list = get_service_container_list(admin_client, service)
+def validate_exposed_port(client, service, public_port):
+    con_list = get_service_container_list(client, service)
     assert len(con_list) == service.scale
     time.sleep(sleep_interval)
     for con in con_list:
-        con_host = admin_client.by_id('host', con.hosts[0].id)
+        con_host = con.hosts[0]
         for port in public_port:
             response = get_http_response(con_host, port, "/service.html")
             assert response == con.externalId[:12]
 
 
-def validate_exposed_port_and_container_link(admin_client, con, link_name,
+def validate_exposed_port_and_container_link(client, con, link_name,
                                              link_port, exposed_port):
     time.sleep(sleep_interval)
     # Validate that the environment variables relating to link containers are
     # set
-    containers = admin_client.list_container(externalId=con.externalId,
-                                             include="hosts",
-                                             removed_null=True)
+    containers = client.list_container(externalId=con.externalId,
+                                       include="hosts",
+                                       removed_null=True)
     assert len(containers) == 1
     con = containers[0]
-    host = admin_client.by_id('host', con.hosts[0].id)
+    host = con.hosts[0]
     docker_client = get_docker_client(host)
     inspect = docker_client.inspect_container(con.externalId)
     response = inspect["Config"]["Env"]
@@ -964,17 +993,15 @@ def validate_exposed_port_and_container_link(admin_client, con, link_name,
     assert link_name == resp
 
 
-def wait_for_lb_service_to_become_active(admin_client, client,
-                                         services, lb_service,
-                                         unmanaged_con_count=None):
+def wait_for_lb_service_to_become_active(client, service, lb_service):
     # wait_for_config_propagation(admin_client, lb_service)
     time.sleep(sleep_interval)
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     assert len(lb_containers) == lb_service.scale
 
     # Get haproxy config from Lb Agents
     for lb_con in lb_containers:
-        host = admin_client.by_id('host', lb_con.hosts[0].id)
+        host = lb_con.hosts[0]
         docker_client = get_docker_client(host)
         haproxy = docker_client.copy(
             lb_con.externalId, "/etc/haproxy/haproxy.cfg")
@@ -995,17 +1022,17 @@ def wait_for_lb_service_to_become_active(admin_client, client,
             print response
 
 
-def validate_lb_service_for_external_services(admin_client, client, lb_service,
+def validate_lb_service_for_external_services(client, lb_service,
                                               port, container_list,
                                               hostheader=None, path=None):
     container_names = []
     for con in container_list:
         container_names.append(con.externalId[:12])
-    validate_lb_service_con_names(admin_client, client, lb_service, port,
+    validate_lb_service_con_names(client, lb_service, port,
                                   container_names, hostheader, path)
 
 
-def validate_lb_service(admin_client, client, lb_service, port,
+def validate_lb_service(client, lb_service, port,
                         target_services, hostheader=None, path=None,
                         domain=None, test_ssl_client_con=None,
                         unmanaged_cons=None):
@@ -1013,7 +1040,7 @@ def validate_lb_service(admin_client, client, lb_service, port,
     for service in target_services:
         target_count = \
             target_count + get_service_instance_count(client, service)
-    container_names = get_container_names_list(admin_client,
+    container_names = get_container_names_list(client,
                                                target_services)
     logger.info(container_names)
     # Check that unmanaged containers for each services in present in
@@ -1031,20 +1058,20 @@ def validate_lb_service(admin_client, client, lb_service, port,
     else:
         assert len(container_names) == target_count
 
-    validate_lb_service_con_names(admin_client, client, lb_service, port,
+    validate_lb_service_con_names(client, lb_service, port,
                                   container_names, hostheader, path, domain,
                                   test_ssl_client_con)
 
 
-def validate_lb_service_con_names(admin_client, client, lb_service, port,
+def validate_lb_service_con_names(client, lb_service, port,
                                   container_names,
                                   hostheader=None, path=None, domain=None,
                                   test_ssl_client_con=None):
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     assert len(lb_containers) == get_service_instance_count(client, lb_service)
 
     for lb_con in lb_containers:
-        host = client.by_id('host', lb_con.hosts[0].id)
+        host = lb_con.hosts[0]
         if domain:
             # Validate for ssl listeners
             # wait_until_lb_is_active(host, port, is_ssl=True)
@@ -1065,13 +1092,13 @@ def validate_lb_service_con_names(admin_client, client, lb_service, port,
                 check_round_robin_access(container_names, host, port)
 
 
-def validate_cert_error(admin_client, client, lb_service, port, domain,
+def validate_cert_error(client, lb_service, port, domain,
                         default_domain, cert,
                         test_ssl_client_con=None,
                         strict_sni_check=False):
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
-        host = client.by_id('host', lb_con.hosts[0].id)
+        host = lb_con.hosts[0]
         check_for_cert_error(host, port, domain, default_domain, cert,
                              test_ssl_client_con,
                              strict_sni_check=strict_sni_check)
@@ -1137,7 +1164,7 @@ def validate_linked_service(admin_client, service, consumed_services,
     assert len(containers) == service.scale
 
     for container in containers:
-        host = admin_client.by_id('host', container.hosts[0].id)
+        host = container.hosts[0]
         for consumed_service in consumed_services:
             expected_dns_list = []
             expected_link_response = []
@@ -1171,7 +1198,7 @@ def validate_linked_service(admin_client, service, consumed_services,
                     logger.info("Excluded from DNS and wget list:" + con.name)
                 else:
                     if con.networkMode == "host":
-                        con_host = admin_client.by_id('host', con.hosts[0].id)
+                        con_host = con.hosts[0]
                         expected_dns_list.append(
                             con_host.ipAddresses()[0].address)
                         host_name = con_host.hostname
@@ -1249,7 +1276,7 @@ def validate_dns_service(admin_client, service, consumed_services,
     assert len(service_containers) == service.scale
 
     for con in service_containers:
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = con.hosts[0]
         containers = []
         expected_dns_list = []
         expected_link_response = []
@@ -1284,7 +1311,7 @@ def validate_dns_service(admin_client, service, consumed_services,
                 logger.info("Excluded from DNS and wget list:" + con.name)
             else:
                 if con.networkMode == "host":
-                    con_host = admin_client.by_id('host', con.hosts[0].id)
+                    con_host = con.hosts[0]
                     expected_dns_list.append(con_host.ipAddresses()[0].address)
                     host_name = con_host.hostname
                     host_os = con_host.info["osInfo"]["operatingSystem"]
@@ -1348,7 +1375,7 @@ def validate_external_service(admin_client, service, ext_services,
     assert len(containers) == service.scale
     for container in containers:
         print "Validation for container -" + str(container.name)
-        host = admin_client.by_id('host', container.hosts[0].id)
+        host = container.hosts[0]
         for ext_service in ext_services:
             expected_dns_list = []
             expected_link_response = []
@@ -1415,7 +1442,7 @@ def validate_external_service_for_hostname(admin_client, service, ext_services,
     assert len(containers) == service.scale
     for container in containers:
         print "Validation for container -" + str(container.name)
-        host = admin_client.by_id('host', container.hosts[0].id)
+        host = container.hosts[0]
         for ext_service in ext_services:
             # Validate port mapping
             ssh = paramiko.SSHClient()
@@ -1437,7 +1464,7 @@ def rancher_compose_container(admin_client, client, request):
     if rancher_compose_con["container"] is not None:
         return
     setting = admin_client.by_id_setting(
-        "default.cattle.rancher.compose.linux.url")
+        "rancher.compose.linux.url")
     default_rancher_compose_url = setting.value
     rancher_compose_url = \
         os.environ.get('RANCHER_COMPOSE_URL', default_rancher_compose_url)
@@ -1856,8 +1883,8 @@ def create_env_and_svc(client, launch_config, scale=None, retainIp=False):
 
 def check_container_in_service(admin_client, service):
 
-    container_list = get_service_container_list(admin_client, service,
-                                                managed=1)
+    container_list = get_service_container_managed_list(
+        admin_client, service, managed=1)
     assert len(container_list) == service.scale
 
     for container in container_list:
@@ -1888,12 +1915,12 @@ def create_svc(client, env, launch_config, scale=None, retainIp=False):
     return service
 
 
-def wait_until_instances_get_stopped(admin_client, service, timeout=60):
+def wait_until_instances_get_stopped(client, service, timeout=60):
     stopped_count = 0
     start = time.time()
     while stopped_count != service.scale:
         time.sleep(.5)
-        container_list = get_service_container_list(admin_client, service)
+        container_list = get_service_container_list(client, service)
         stopped_count = 0
         for con in container_list:
             if con.state == "stopped":
@@ -1959,12 +1986,12 @@ def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
                 'Timed out waiting for instances to get to stopped state')
 
 
-def validate_lb_service_for_no_access(admin_client, lb_service, port,
+def validate_lb_service_for_no_access(client, lb_service, port,
                                       hostheader=None, path="/name.html"):
 
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
-        host = admin_client.by_id('host', lb_con.hosts[0].id)
+        host = lb_con.hosts[0]
         wait_until_lb_is_active(host, port)
         check_for_service_unavailable(host, port, hostheader, path)
 
@@ -2841,11 +2868,11 @@ def check_for_appcookie_policy(admin_client, client, lb_service, port,
         check_for_stickiness(url, container_names, headers=headers)
 
 
-def check_for_lbcookie_policy(admin_client, client, lb_service, port,
+def check_for_lbcookie_policy(client, lb_service, port,
                               target_services):
-    container_names = get_container_names_list(admin_client,
+    container_names = get_container_names_list(client,
                                                target_services)
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
@@ -2869,11 +2896,11 @@ def check_for_lbcookie_policy(admin_client, client, lb_service, port,
             assert response == sticky_response
 
 
-def check_for_balancer_first(admin_client, client, lb_service, port,
+def check_for_balancer_first(client, lb_service, port,
                              target_services, headers=None, path="name.html"):
-    container_names = get_container_names_list(admin_client,
+    container_names = get_container_names_list(client,
                                                target_services)
-    lb_containers = get_service_container_list(admin_client, lb_service)
+    lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
@@ -2968,11 +2995,11 @@ def get_service_instance_count(client, service):
     return scale
 
 
-def check_config_for_service(admin_client, service, labels, managed,
+def check_config_for_service(client, service, labels, managed,
                              is_global=False):
-    containers = get_service_container_list(admin_client, service, managed)
+    containers = get_service_container_managed_list(client, service, managed)
     if is_global:
-        hosts = admin_client.list_host(
+        hosts = client.list_host(
             kind='docker', removed_null=True, state="active")
         assert len(containers) == len(hosts)
     else:
@@ -3215,7 +3242,7 @@ def rancher_cli_container(admin_client, client, request):
     if rancher_cli_con["container"] is not None:
         return
     setting = admin_client.by_id_setting(
-        "default.cattle.rancher.cli.linux.url")
+        "rancher.cli.linux.url")
     default_rancher_cli_url = setting.value
     rancher_cli_url = \
         os.environ.get('RANCHER_CLI_URL', default_rancher_cli_url)
@@ -3323,13 +3350,17 @@ def create_webhook(projectid, data):
 
     # This method creates the webhook
 
-    url = base_url().split("v2-beta")[0] + "v1-webhooks/receivers?projectId=" \
-                           + projectid
+    url = webhook_url() + "?projectId=" + projectid
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
     print "Url is \n"
     print url
-    response = requests.post(url, data=json.dumps(data), headers=headers)
+    if SECRET_KEY is not None and ACCESS_KEY is not None:
+        auth = (ACCESS_KEY, SECRET_KEY)
+        response = requests.post(
+            url, data=json.dumps(data), headers=headers, auth=auth)
+    else:
+        response = requests.post(url, data=json.dumps(data), headers=headers)
     return response
 
 
@@ -3338,12 +3369,15 @@ def delete_webhook_verify(projectid, webhook_id):
     # This method deletes a webhook and verifies that
     # it has been deleted in the webhook list
 
-    url = base_url().split("v2-beta")[0] + "v1-webhooks/receivers/"\
-                           + webhook_id+"?projectId=" + projectid
+    url = webhook_url() + "/" + webhook_id+"?projectId=" + projectid
     print "Delete URL is " + url
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
-    r = requests.delete(url, headers=headers)
+    if SECRET_KEY is not None and ACCESS_KEY is not None:
+        auth = (ACCESS_KEY, SECRET_KEY)
+        r = requests.delete(url, headers=headers, auth=auth)
+    else:
+        r = requests.delete(url, headers=headers)
     assert r.status_code == 204
 
     # List the webhooks and ensure deletion is successful
@@ -3356,28 +3390,36 @@ def delete_webhook_verify(projectid, webhook_id):
             assert False
 
 
-def list_webhook(projectid):
+def list_webhook(projectid, webhook_id=None):
 
     # This method returns the list of webhooks
-
-    url = base_url().split("v2-beta")[0] + \
-                           "v1-webhooks/receivers?projectId=" \
-                           + projectid
+    if webhook_id is not None:
+        url = webhook_url() + "/" + webhook_id + "?projectId=" + projectid
+    else:
+        url = webhook_url() + "?projectId=" + projectid
     print "List URL is " + url
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
-    r = requests.get(url, headers=headers)
+    if SECRET_KEY is not None and ACCESS_KEY is not None:
+        auth = (ACCESS_KEY, SECRET_KEY)
+        r = requests.get(url, headers=headers, auth=auth)
+    else:
+        r = requests.get(url, headers=headers)
     assert r.status_code == 200
     resp = json.loads(r.content)
-    webhook_list = resp["data"]
+    if webhook_id is not None:
+        webhook_list = resp
+    else:
+        webhook_list = resp["data"]
     return webhook_list
 
 
 @pytest.fixture(scope='session')
 def set_haproxy_image(admin_client):
     if MICROSERVICE_IMAGES["haproxy_image_uuid"] is None:
-        setting = admin_client.by_id_setting("lb.instance.image.uuid")
-        MICROSERVICE_IMAGES["haproxy_image_uuid"] = setting.value
+        # setting = admin_client.by_id_setting("lb.instance.image.uuid")
+        setting = admin_client.by_id_setting("lb.instance.image")
+        MICROSERVICE_IMAGES["haproxy_image_uuid"] = "docker:" + setting.value
 
 
 def get_haproxy_image():
@@ -3619,7 +3661,7 @@ def validate_connectivity_between_containers(admin_client, con1, con2,
         return
     print "Checking connectivity between " + con1.name + " and " + con2.name
     # Exec into the con1 using the exposed port
-    host = admin_client.by_id('host', con1.hosts[0].id)
+    host = con1.hosts[0]
     assert len(con1.userPorts) >= 1
     port_str = con1.userPorts[0]
     exposed_port = port_str[:port_str.index(":22")]
@@ -3808,12 +3850,12 @@ def create_stack_with_multiple_service_using_rancher_cli(
     return stack, services
 
 
-def stop_container_from_host(admin_client, container):
-        containers = admin_client.list_container(
+def stop_container_from_host(client, container):
+        containers = client.list_container(
             externalId=container.externalId, include="hosts")
         assert len(containers) == 1
         container = containers[0]
-        host = admin_client.by_id('host', container.hosts[0].id)
+        host = container.hosts[0]
         docker_client = get_docker_client(host)
         docker_client.stop(container.externalId)
 
@@ -3902,9 +3944,7 @@ def get_container_host(admin_client, con):
         externalId=con.externalId,
         include="hosts")
     assert len(containers) == 1
-    con = containers[0]
-    con_host = admin_client.by_id('host', con.hosts[0].id)
-    return con_host
+    return containers[0].hosts[0]
 
 
 def write_data(con, port, dir, file, content):
@@ -3984,9 +4024,16 @@ def get_lb_image_version(admin_client):
     return default_lb_image_setting
 
 
-def get_client_for_auth_enabled_setup(access_key, secret_key, project_id):
-    client = api_client(access_key, secret_key, project_id=project_id)
-    client._headers.__setitem__("X-API-Project-Id", project_id)
-    client.reload_schema()
+def get_client_for_auth_enabled_setup(access_key, secret_key, project_id=None):
+    if project_id is not None:
+        client = api_client(access_key, secret_key, project_id=project_id)
+        client._headers.__setitem__("X-API-Project-Id", project_id)
+        client.reload_schema()
+    else:
+        client = from_env(url=cattle_url(),
+                          cache=False,
+                          access_key=access_key,
+                          secret_key=secret_key)
+        client.reload_schema()
     assert client.valid()
     return client

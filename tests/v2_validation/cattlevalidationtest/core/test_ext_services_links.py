@@ -3,7 +3,7 @@ logger = logging.getLogger(__name__)
 
 
 def activate_environment_with_external_services(
-        admin_client, client, service_scale, port):
+        client, service_scale, port):
 
     env, service, ext_service, con_list = create_env_with_ext_svc(
         client, service_scale, port)
@@ -15,13 +15,13 @@ def activate_environment_with_external_services(
     ext_service = client.wait_success(ext_service, 120)
     assert service.state == "active"
     assert ext_service.state == "active"
-    validate_add_service_link(admin_client, service, ext_service)
+    validate_add_service_link(client, service, ext_service)
 
     return env, service, ext_service, con_list
 
 
 def test_extservice_activate_svc_activate_external_svc_link(
-        admin_client, client):
+        client):
 
     port = "3001"
 
@@ -29,16 +29,16 @@ def test_extservice_activate_svc_activate_external_svc_link(
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
 def test_extservice_activate_external_svc_link_activate_svc(
-        admin_client, client):
+        client):
 
     port = "3002"
 
@@ -48,17 +48,17 @@ def test_extservice_activate_external_svc_link_activate_svc(
         client, service_scale, port)
 
     ext_service = activate_svc(client, ext_service)
-    link_svc(admin_client, service, [ext_service])
+    link_svc(client, service, [ext_service])
     service = activate_svc(client, service)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
 def test_extservice_activate_svc_link_activate_external_svc(
-        admin_client, client):
+        client):
 
     port = "3003"
 
@@ -68,17 +68,17 @@ def test_extservice_activate_svc_link_activate_external_svc(
         client, service_scale, port)
 
     service = activate_svc(client, service)
-    link_svc(admin_client, service, [ext_service])
+    link_svc(client, service, [ext_service])
     ext_service = activate_svc(client, ext_service)
-    validate_add_service_link(admin_client, service, ext_service)
+    validate_add_service_link(client, service, ext_service)
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
 def test_extservice_link_activate_external_svc_activate_svc(
-        admin_client, client):
+        client):
 
     port = "3004"
 
@@ -87,18 +87,18 @@ def test_extservice_link_activate_external_svc_activate_svc(
     env, service, ext_service, con_list = create_env_with_ext_svc(
         client, service_scale, port)
 
-    link_svc(admin_client, service, [ext_service])
+    link_svc(client, service, [ext_service])
     ext_service = activate_svc(client, ext_service)
     service = activate_svc(client, service)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
 def test_extservice_link_activate_svc_activate_external_svc(
-        admin_client, client):
+        client):
 
     port = "3005"
 
@@ -107,17 +107,17 @@ def test_extservice_link_activate_svc_activate_external_svc(
     env, service, ext_service, con_list = create_env_with_ext_svc(
         client, service_scale, port)
 
-    link_svc(admin_client, service, [ext_service])
+    link_svc(client, service, [ext_service])
     service = activate_svc(client, service)
     ext_service = activate_svc(client, ext_service)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_link_when_services_still_activating(admin_client, client):
+def test_extservice_link_when_services_still_activating(client):
 
     port = "3006"
 
@@ -135,15 +135,15 @@ def test_extservice_link_when_services_still_activating(admin_client, client):
 
     assert service.state == "active"
     assert ext_service.state == "active"
-    validate_add_service_link(admin_client, service, ext_service)
+    validate_add_service_link(client, service, ext_service)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_service_scale_up(admin_client, client):
+def test_extservice_service_scale_up(client):
 
     port = "3007"
 
@@ -152,9 +152,9 @@ def test_extservice_service_scale_up(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
-    validate_external_service(admin_client, service,
+    validate_external_service(client, service,
                               [ext_service], port, con_list)
 
     service = client.update(service, scale=final_service_scale,
@@ -164,12 +164,12 @@ def test_extservice_service_scale_up(admin_client, client):
     assert service.scale == final_service_scale
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_services_scale_down(admin_client, client):
+def test_extservice_services_scale_down(client):
 
     port = "3008"
 
@@ -178,9 +178,9 @@ def test_extservice_services_scale_down(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
-    validate_external_service(admin_client, service,
+    validate_external_service(client, service,
                               [ext_service], port, con_list)
 
     service = client.update(service, scale=final_service_scale,
@@ -190,12 +190,12 @@ def test_extservice_services_scale_down(admin_client, client):
     assert service.scale == final_service_scale
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_ext_services_deactivate_activate(admin_client, client):
+def test_extservice_ext_services_deactivate_activate(client):
 
     port = "3014"
 
@@ -203,10 +203,10 @@ def test_extservice_ext_services_deactivate_activate(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     ext_service = ext_service.deactivate()
     ext_service = client.wait_success(ext_service, 120)
@@ -217,12 +217,12 @@ def test_extservice_ext_services_deactivate_activate(admin_client, client):
     assert ext_service.state == "active"
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_service_deactivate_activate(admin_client, client):
+def test_extservice_service_deactivate_activate(client):
 
     port = "3015"
 
@@ -230,28 +230,28 @@ def test_extservice_service_deactivate_activate(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
-    validate_external_service(admin_client, service, [ext_service],
+    validate_external_service(client, service, [ext_service],
                               port, con_list)
 
     service = service.deactivate()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
 
     service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
     time.sleep(restart_sleep_interval)
 
-    validate_external_service(admin_client, service, [ext_service],
+    validate_external_service(client, service, [ext_service],
                               port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_deactivate_activate_environment(admin_client, client):
+def test_extservice_deactivate_activate_environment(client):
 
     port = "3016"
 
@@ -259,10 +259,10 @@ def test_extservice_deactivate_activate_environment(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     env = env.deactivateservices()
     service = client.wait_success(service, 120)
@@ -271,7 +271,7 @@ def test_extservice_deactivate_activate_environment(admin_client, client):
     ext_service = client.wait_success(ext_service, 120)
     assert ext_service.state == "inactive"
 
-    wait_until_instances_get_stopped(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
 
     env = env.activateservices()
     service = client.wait_success(service, 120)
@@ -281,13 +281,13 @@ def test_extservice_deactivate_activate_environment(admin_client, client):
     assert ext_service.state == "active"
     time.sleep(restart_sleep_interval)
 
-    validate_external_service(admin_client, service, [ext_service],
+    validate_external_service(client, service, [ext_service],
                               port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_services_delete_service_add_service(admin_client, client):
+def test_extservice_services_delete_service_add_service(client):
 
     port = "3018"
 
@@ -295,16 +295,16 @@ def test_extservice_services_delete_service_add_service(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     # Delete Service
 
     service = client.wait_success(client.delete(service))
     assert service.state == "removed"
-    validate_remove_service_link(admin_client, service, ext_service)
+    validate_remove_service_link(client, service, ext_service)
 
     port1 = "30180"
 
@@ -326,15 +326,15 @@ def test_extservice_services_delete_service_add_service(admin_client, client):
     assert service1.state == "active"
 
     service1.addservicelink(serviceLink={"serviceId": ext_service.id})
-    validate_add_service_link(admin_client, service1, ext_service)
+    validate_add_service_link(client, service1, ext_service)
 
-    validate_external_service(admin_client, service1,
+    validate_external_service(client, service1,
                               [ext_service], port1, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_delete_and_add_ext_service(admin_client, client):
+def test_extservice_delete_and_add_ext_service(client):
 
     port = "3019"
 
@@ -342,16 +342,16 @@ def test_extservice_delete_and_add_ext_service(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     # Delete external service
 
     ext_service = client.wait_success(client.delete(ext_service))
     assert ext_service.state == "removed"
-    validate_remove_service_link(admin_client, service, ext_service)
+    validate_remove_service_link(client, service, ext_service)
 
     # Add another external service and link the service to this newly created
     # external service
@@ -378,15 +378,15 @@ def test_extservice_delete_and_add_ext_service(admin_client, client):
 
     service.addservicelink(serviceLink={"serviceId": ext_service1.id})
 
-    validate_add_service_link(admin_client, service, ext_service1)
+    validate_add_service_link(client, service, ext_service1)
 
-    validate_external_service(admin_client, service, [ext_service1], port,
+    validate_external_service(client, service, [ext_service1], port,
                               con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_services_stop_start_instance(admin_client, client,
+def test_extservice_services_stop_start_instance(client,
                                                  socat_containers):
 
     port = "3020"
@@ -395,9 +395,9 @@ def test_extservice_services_stop_start_instance(admin_client, client,
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
-    validate_external_service(admin_client, service,
+    validate_external_service(client, service,
                               [ext_service], port, con_list)
 
     container_name = get_container_name(env, service, 2)
@@ -406,18 +406,18 @@ def test_extservice_services_stop_start_instance(admin_client, client,
     service_instance = containers[0]
 
     # Stop service instance
-    stop_container_from_host(admin_client, service_instance)
+    stop_container_from_host(client, service_instance)
     service = client.wait_success(service)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     time.sleep(restart_sleep_interval)
 
-    validate_external_service(admin_client, service, [ext_service],
+    validate_external_service(client, service, [ext_service],
                               port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_services_restart_instance(admin_client, client):
+def test_extservice_services_restart_instance(client):
 
     port = "3021"
 
@@ -425,10 +425,10 @@ def test_extservice_services_restart_instance(admin_client, client):
 
     env, service, ext_service, con_list = \
         activate_environment_with_external_services(
-            admin_client, client, service_scale, port)
+            client, service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     container_name = get_container_name(env, service, 2)
     containers = client.list_container(name=container_name)
@@ -439,24 +439,24 @@ def test_extservice_services_restart_instance(admin_client, client):
     service_instance = client.wait_success(service_instance.restart(), 120)
     assert service_instance.state == 'running'
     time.sleep(restart_sleep_interval)
-    validate_external_service(admin_client, service,
+    validate_external_service(client, service,
                               [ext_service], port, con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_add_and_delete_ips(admin_client, client):
+def test_extservice_add_and_delete_ips(client):
 
     port = "3023"
 
     service_scale = 2
 
     env, service, ext_service, con_list = \
-        activate_environment_with_external_services(admin_client, client,
+        activate_environment_with_external_services(client,
                                                     service_scale, port)
 
     validate_external_service(
-        admin_client, service, [ext_service], port, con_list)
+        client, service, [ext_service], port, con_list)
 
     # Update external Service to add one more ip
 
@@ -471,7 +471,7 @@ def test_extservice_add_and_delete_ips(admin_client, client):
         ext_service, name=ext_service.name, externalIpAddresses=ips)
     ext_service = client.wait_success(ext_service, 120)
 
-    validate_external_service(admin_client, service, [ext_service], port,
+    validate_external_service(client, service, [ext_service], port,
                               con_list)
 
     # Update external Service to remove one of the existing ips
@@ -482,13 +482,13 @@ def test_extservice_add_and_delete_ips(admin_client, client):
         ext_service, name=ext_service.name, externalIpAddresses=ips)
     ext_service = client.wait_success(ext_service, 120)
 
-    validate_external_service(admin_client, service, [ext_service], port,
+    validate_external_service(client, service, [ext_service], port,
                               con_list)
     con_list.append(env)
     delete_all(client, con_list)
 
 
-def test_extservice_with_cname(admin_client, client):
+def test_extservice_with_cname(client):
 
     port = "3024"
     service_scale = 2
@@ -497,10 +497,10 @@ def test_extservice_with_cname(admin_client, client):
         client, service_scale, port, True)
 
     ext_service = activate_svc(client, ext_service)
-    link_svc(admin_client, service, [ext_service])
+    link_svc(client, service, [ext_service])
     service = activate_svc(client, service)
 
     validate_external_service_for_hostname(
-        admin_client, service, [ext_service], port)
+        client, service, [ext_service], port)
 
     delete_all(client, [env])

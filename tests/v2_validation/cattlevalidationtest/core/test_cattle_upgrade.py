@@ -28,7 +28,7 @@ if_post_upgrade_testing = pytest.mark.skipif(
     reason='All parameters needed for UPGRADE_TESTING is not set')
 
 
-def pre_upgrade(admin_client, client):
+def pre_upgrade(client):
 
     # Create certificate to be used in the yml files
     domain = dom_list[0]
@@ -36,13 +36,13 @@ def pre_upgrade(admin_client, client):
     # Create two stacks
     pre_upgrade_stack1 = pre_upgrade_stack_name + "-1"
     pre_upgrade_stack2 = pre_upgrade_stack_name + "-2"
-    create_stacks(admin_client, client, pre_upgrade_stack1, pre_upgrade_stack2,
+    create_stacks(client, pre_upgrade_stack1, pre_upgrade_stack2,
                   str(preportsuffixnum))
-    validate_stacks(admin_client, client, pre_upgrade_stack_name,
+    validate_stacks(client, pre_upgrade_stack_name,
                     preportsuffixnum, socat_containers)
 
 
-def create_stacks(admin_client, client, stack_name1, stack_name2,
+def create_stacks(client, stack_name1, stack_name2,
                   portsuffixnum):
 
     # Create pre-upgrade stack
@@ -52,7 +52,7 @@ def create_stacks(admin_client, client, stack_name1, stack_name2,
 
     print portsuffixnum
 
-    lb_image_setting = get_lb_image_version(admin_client, client)
+    lb_image_setting = get_lb_image_version(client)
     print lb_image_setting
 
     dc_config_file1 = "dc_first_stack.yml"
@@ -87,7 +87,7 @@ def create_stacks(admin_client, client, stack_name1, stack_name2,
                                           rc_config2)
 
 
-def validate_stacks(admin_client, client, stackname,
+def validate_stacks(client, stackname,
                     portsuffixnum, socat_containers):
 
     stack1 = stackname + "-1"
@@ -108,7 +108,7 @@ def validate_stacks(admin_client, client, stackname,
     assert lbservice.scale == 1
 
     mylbport = "300" + str(portsuffixnum)
-    validate_lb_service(admin_client, client, lbservice,
+    validate_lb_service(client, lbservice,
                         mylbport, [service1])
 
     # Validate health service and health LB Service
@@ -122,7 +122,7 @@ def validate_stacks(admin_client, client, stackname,
     stack, healthlbservice = get_env_service_by_name(client, stack1,
                                                      "healthlb")
     healthlbport = "200" + str(portsuffixnum)
-    healthlb_containers = get_service_container_list(admin_client,
+    healthlb_containers = get_service_container_list(client,
                                                      healthlbservice)
     for con in healthlb_containers:
         wait_for_condition(
@@ -139,7 +139,7 @@ def validate_stacks(admin_client, client, stackname,
     assert healthlbservice.scale == 1
     assert healthlbservice.healthState == "healthy"
 
-    validate_lb_service(admin_client, client, healthlbservice,
+    validate_lb_service(client, healthlbservice,
                         healthlbport, [healthservice])
 
     # Validate Global Health LB Service
@@ -147,13 +147,13 @@ def validate_stacks(admin_client, client, stackname,
                                                          "globalhealthservice")
     assert globalhealthservice['state'] == "active"
     assert globalhealthservice.healthState == "healthy"
-    verify_service_is_global(admin_client, client, globalhealthservice)
+    verify_service_is_global(client, globalhealthservice)
 
     stack, globalhealthlbservice = get_env_service_by_name(client, stack1,
                                                            "globalhealthlb")
     globallbport = "100" + str(portsuffixnum)
     globalhealthlb_containers = get_service_container_list(
-        admin_client, globalhealthlbservice)
+        client, globalhealthlbservice)
     for con in globalhealthlb_containers:
         wait_for_condition(
             client, con,
@@ -167,13 +167,13 @@ def validate_stacks(admin_client, client, stackname,
 
     assert globalhealthlbservice['state'] == "active"
     assert globalhealthlbservice.healthState == "healthy"
-    verify_service_is_global(admin_client, client,
+    verify_service_is_global(client,
                              globalhealthlbservice)
 
-    validate_lb_service(admin_client, client, globalhealthlbservice,
+    validate_lb_service(client, globalhealthlbservice,
                         globallbport, [globalhealthservice])
 
-    stack, service2 = get_env_service_by_name(admin_client, stack1, "service2")
+    stack, service2 = get_env_service_by_name(client, stack1, "service2")
     assert service2['state'] == "active"
     assert service2.scale == 2
 
@@ -192,43 +192,40 @@ def validate_stacks(admin_client, client, stackname,
     print test_ssl_client_con["port"]
     print test_ssl_client_con["host"]
     print test_ssl_client_con["container"]
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+    validate_lb_services_ssl(client, test_ssl_client_con,
                              stack, [service1, service2], ssllbservice,
                              port, ssl_port,
                              domain)
 
     # Validate DNS Service
     stack, servicewithexposedports = get_env_service_by_name(
-                                     admin_client, stack1,
-                                     "servicewithexposedports")
+        client, stack1, "servicewithexposedports")
     assert servicewithexposedports['state'] == "active"
     assert servicewithexposedports.scale == 1
     exposedport = "400" + str(portsuffixnum)
     validate_dns_service(
-        admin_client, servicewithexposedports, [service1, service2],
+        client, servicewithexposedports, [service1, service2],
         exposedport, "myalias")
 
     # Validate DNS of services within a stack using dig servicename
     validate_dns_service(
-        admin_client, servicewithexposedports, [healthservice],
+        client, servicewithexposedports, [healthservice],
         exposedport, "healthservice")
 
     # Validate External Service
     stack, extservicetohostname = get_env_service_by_name(
-                                    admin_client,
-                                    stack1,
-                                    "extservicetohostname")
+        client, stack1, "extservicetohostname")
     validate_external_service_for_hostname(
-        admin_client, servicewithexposedports,
+        client, servicewithexposedports,
         [extservicetohostname], exposedport)
 
     # Validate Service with Link
-    stack, servicewithlink = get_env_service_by_name(admin_client,
+    stack, servicewithlink = get_env_service_by_name(client,
                                                      stack1, "servicewithlink")
     assert servicewithlink['state'] == "active"
     assert servicewithlink.scale == 1
     servicelinkexposedport = "500" + str(portsuffixnum)
-    validate_linked_service(admin_client, servicewithlink,
+    validate_linked_service(client, servicewithlink,
                             [service2], servicelinkexposedport,
                             linkName="mylink")
 
@@ -241,7 +238,7 @@ def validate_stacks(admin_client, client, stackname,
     assert newstacklbservice.scale == 1
 
     newstacklbport = "600" + str(portsuffixnum)
-    validate_lb_service(admin_client, client, newstacklbservice,
+    validate_lb_service(client, newstacklbservice,
                         newstacklbport, [service2])
 
     # Validate Service with Link in Second Stack [The link is
@@ -252,52 +249,52 @@ def validate_stacks(admin_client, client, stackname,
     assert newstackservice1.scale == 1
 
     stack, newstackservicewithlink = get_env_service_by_name(
-            client, stack2, "newstackservicewithlink")
+        client, stack2, "newstackservicewithlink")
     assert newstackservicewithlink['state'] == "active"
     assert newstackservicewithlink.scale == 1
 
     newstacklinkedserviceport = "700" + str(portsuffixnum)
-    validate_linked_service(admin_client, newstackservicewithlink,
+    validate_linked_service(client, newstackservicewithlink,
                             [service1], newstacklinkedserviceport,
                             linkName="mynewstacklink")
 
     # Validate DNS of services across stack using dig servicename.stackname
     dnsname = "newstackservice1." + stack2
     validate_dns_service(
-        admin_client, servicewithexposedports, [newstackservice1],
+        client, servicewithexposedports, [newstackservice1],
         exposedport, dnsname)
 
     delete_all(client, [test_ssl_client_con["container"]])
     return
 
 
-def post_upgrade(admin_client, client):
+def post_upgrade(client):
 
     post_upgrade_stack1 = post_upgrade_stack_name+"-1"
     post_upgrade_stack2 = post_upgrade_stack_name+"-2"
     pre_upgrade_stack1 = pre_upgrade_stack_name + "-1"
     pre_upgrade_stack2 = pre_upgrade_stack_name + "-2"
     print "***Validate Pre Stacks in Post UPGRADE ****"
-    validate_stacks(admin_client, client, pre_upgrade_stack_name,
+    validate_stacks(client, pre_upgrade_stack_name,
                     preportsuffixnum, socat_containers)
     print "***Modify Pre Stacks in Post UPGRADE ****"
-    modify_preupgradestack_verify(admin_client, client,
+    modify_preupgradestack_verify(client,
                                   pre_upgrade_stack1, pre_upgrade_stack2)
 
     print "****Create new Stacks in Post UPGRADE ****"
-    create_stacks(admin_client, client, post_upgrade_stack1,
+    create_stacks(client, post_upgrade_stack1,
                   post_upgrade_stack2, postportsuffixnum)
 
     print "****Validate new Stacks in Post UPGRADE ****"
-    validate_stacks(admin_client, client, post_upgrade_stack_name,
+    validate_stacks(client, post_upgrade_stack_name,
                     postportsuffixnum, socat_containers)
 
 
-def modify_preupgradestack_verify(admin_client, client,
+def modify_preupgradestack_verify(client,
                                   pre_upgrade_stack1, pre_upgrade_stack2):
 
     # Increment service scale
-    stack, service1 = get_env_service_by_name(admin_client,
+    stack, service1 = get_env_service_by_name(client,
                                               pre_upgrade_stack1, "service1")
     service1 = client.update(service1, name=service1.name, scale=3)
     service1 = client.wait_success(service1, 300)
@@ -308,7 +305,7 @@ def modify_preupgradestack_verify(admin_client, client,
     stack, lbservice = get_env_service_by_name(client,
                                                pre_upgrade_stack1, "mylb")
     mylbport = "300" + str(preportsuffixnum)
-    validate_lb_service(admin_client, client, lbservice,
+    validate_lb_service(client, lbservice,
                         mylbport, [service1])
 
     # Increment LB scale and validate
@@ -316,17 +313,17 @@ def modify_preupgradestack_verify(admin_client, client,
     lbservice = client.wait_success(lbservice, 300)
     assert lbservice['state'] == "active"
     lbservice.scale == 2
-    validate_lb_service(admin_client, client, lbservice,
+    validate_lb_service(client, lbservice,
                         mylbport, [service1])
 
     # Validate DNS Service after incrementing service1
     stack, servicewithexposedports = get_env_service_by_name(
-        admin_client, pre_upgrade_stack1,
+        client, pre_upgrade_stack1,
         "servicewithexposedports")
     exposedport = "400" + str(preportsuffixnum)
 
     validate_dns_service(
-        admin_client, servicewithexposedports, [service1],
+        client, servicewithexposedports, [service1],
         exposedport, "service1")
 
     # Validate Service with Link in NewStack [The link is
@@ -337,12 +334,12 @@ def modify_preupgradestack_verify(admin_client, client,
     stack, newstackservicewithlink = get_env_service_by_name(
         client, pre_upgrade_stack2, "newstackservicewithlink")
     newstacklinkedserviceport = "700" + str(preportsuffixnum)
-    validate_linked_service(admin_client, newstackservicewithlink,
+    validate_linked_service(client, newstackservicewithlink,
                             [service1], newstacklinkedserviceport,
                             linkName="mynewstacklink")
 
     # Increment scale of service2
-    stack, service2 = get_env_service_by_name(admin_client,
+    stack, service2 = get_env_service_by_name(client,
                                               pre_upgrade_stack1, "service2")
     service2 = client.update(service2, name=service2.name, scale=3)
     service2 = client.wait_success(service2, 300)
@@ -351,7 +348,7 @@ def modify_preupgradestack_verify(admin_client, client,
 
     # Validate DNS service as service1 and service2 are incremented
     validate_dns_service(
-        admin_client, servicewithexposedports, [service1, service2],
+        client, servicewithexposedports, [service1, service2],
         exposedport, "myalias")
 
     # Validate LB Service in the second stack after incrementing the LB
@@ -367,7 +364,7 @@ def modify_preupgradestack_verify(admin_client, client,
     newstacklbservice.scale == 2
 
     newstacklbport = "600" + str(preportsuffixnum)
-    validate_lb_service(admin_client, client, newstacklbservice,
+    validate_lb_service(client, newstacklbservice,
                         newstacklbport, [service2])
 
     # Validate linked service in the second stack after
@@ -379,7 +376,7 @@ def modify_preupgradestack_verify(admin_client, client,
     assert newstackservicewithlink.scale == 1
 
     newstacklinkedserviceport = "700" + str(preportsuffixnum)
-    validate_linked_service(admin_client, newstackservicewithlink,
+    validate_linked_service(client, newstackservicewithlink,
                             [service1], newstacklinkedserviceport,
                             linkName="mynewstacklink")
 
@@ -388,31 +385,30 @@ def modify_preupgradestack_verify(admin_client, client,
 def test_pre_upgrade():
     client = \
         get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
-    admin_client = client
     create_socat_containers(client)
     print "***PRE UPGRADE TEST***"
-    pre_upgrade(admin_client, client)
+    pre_upgrade(client)
 
 
 @if_post_upgrade_testing
 def test_post_upgrade():
     client = \
         get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
-    admin_client = client
+    client = client
     print "***POST UPGRADE TEST***"
     create_socat_containers(client)
-    post_upgrade(admin_client, client)
+    post_upgrade(client)
 
 
-def get_lb_image_version(admin_client, client):
+def get_lb_image_version(client):
 
-    setting = admin_client.by_id_setting(
+    setting = client.by_id_setting(
         "lb.instance.image")
     default_lb_image_setting = setting.value
     return default_lb_image_setting
 
 
-def verify_service_is_global(admin_client, client, service):
+def verify_service_is_global(client, service):
 
     # This method verifies if the service is global
 
