@@ -11,7 +11,14 @@ def pytest_configure(config):
 
 def cleanup():
     log.info('Running cleanup')
-    rancher_client = client(admin_client())
+    if (ACCESS_KEY is not None and
+            SECRET_KEY is not None and
+            PROJECT_ID is not None):
+        rancher_client = \
+            get_client_for_auth_enabled_setup(
+                ACCESS_KEY, SECRET_KEY, PROJECT_ID)
+    else:
+        rancher_client = client(admin_client())
     instance_name_format = re.compile('test-[0-9]{1,6}')
     # For cleaning up environment and instances that get disassociated
     # from services where deleted
