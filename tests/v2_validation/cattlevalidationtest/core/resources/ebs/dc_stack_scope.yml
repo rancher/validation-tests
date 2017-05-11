@@ -1,0 +1,16 @@
+version: '2'
+services:
+  test1:
+    image: sangeetha/testclient
+    stdin_open: true
+    scale: 1
+    volumes:
+    - testvol:/testdata
+    ports:
+    - 7006:22/tcp
+volumes:
+  testvol:
+    driver: rancher-ebs
+    driver_opts:
+      size: '5'
+    external: false
