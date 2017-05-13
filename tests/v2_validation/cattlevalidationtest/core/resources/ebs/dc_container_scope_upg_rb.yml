@@ -8,9 +8,9 @@ services:
     volumes:
     - testvol:/testdata
     ports:
-    - 7007:22/tcp
+    - 7011:22/tcp
     labels:
-      test1: value1
+      test1: value2
 volumes:
   testvol:
     per_container: true
