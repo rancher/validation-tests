@@ -1,0 +1,11 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress22
+  annotations:
+    http.port: "106"
+    io.rancher.scheduler.global: "true"
+spec:
+  backend:
+    serviceName: k8test22 
+    servicePort: 80
