@@ -1511,3 +1511,26 @@ def test_ldap_create_new_env_with_readonly_member(admin_client):
                                      stackId=env.id,
                                      removed_null=True)
     assert len(service) == 1
+
+
+@if_test_ldap
+def test_ldap_list_identities(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+
+    identities = main_client.list_identity()
+
+    user_found = 0
+    authenticated_user = 0
+
+    for i in range(len(identities)):
+        if identities[i]['user'] is True:
+            user_found += 1
+            if identities[i]['externalIdType'] != 'rancher_id':
+                authenticated_user += 1
+
+    assert user_found == 2
+    assert authenticated_user == 1
