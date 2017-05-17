@@ -228,13 +228,13 @@ def test_k8s_env_delete(kube_hosts):
     get_response = execute_kubectl_cmds(
         "get rc "+name+" -o json --namespace="+namespace,
         expected_error=expected_error)
-
     # Verify pods are deleted
     expected_result = ['rc "'+name+'" not found']
     get_response = execute_kubectl_cmds(
         "get pod --selector=name="+name+" -o json --namespace="+namespace)
-
     pod = json.loads(get_response)
+    for p in pod["items"]:
+        waitfor_delete(name=p['metadata']['name'], namespace=namespace)
     assert len(pod["items"]) == 0
     teardown_ns(namespace)
 
@@ -604,7 +604,7 @@ def test_k8s_env_create_pod(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -629,7 +629,7 @@ def test_k8s_env_create_priv_pod(kube_hosts):
     assert pod['status']['phase'] == "Running"
     assert pod['spec']['containers'][0]['securityContext']['privileged']
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -653,7 +653,7 @@ def test_k8s_env_delete_pod(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -689,7 +689,7 @@ def test_k8s_env_edit_pod(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['name'] == "nginx"
     assert container['ready']
@@ -706,7 +706,7 @@ def test_k8s_env_edit_pod(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx:1.9.1"
+    assert "nginx:1.9.1" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginxv2"
@@ -733,7 +733,7 @@ def test_k8s_env_podspec_volume(kube_hosts):
     assert volume['name'] == pod['spec']['volumes'][0]['name']
     assert volume['mountPath'] == "/usr/share/nginx/html"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "husseingalal/podspec-vol"
+    assert "husseingalal/podspec-vol" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -762,7 +762,7 @@ def test_k8s_env_restartPolicy(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "alpine"
+    assert "alpine" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "alpine"
@@ -775,7 +775,7 @@ def test_k8s_env_restartPolicy(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Succeeded"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "alpine"
+    assert "alpine" in container['image']
     assert container['restartCount'] == 0
     assert not container['ready']
     assert container['name'] == "alpine"
@@ -847,7 +847,7 @@ def test_k8s_env_podspec_nodeSelector(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -888,7 +888,7 @@ def test_k8s_env_podspec_nodeName(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -914,7 +914,7 @@ def test_k8s_env_podspec_hostPID(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -942,7 +942,7 @@ def test_k8s_env_podspec_hostIPC(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "nginx"
+    assert "nginx" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -1182,7 +1182,7 @@ def test_k8s_env_podspec_hostnetwork(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "husseingalal/podspec-hostnet"
+    assert "husseingalal/podspec-hostnet" in container['image']
     assert container['ready']
     assert container['name'] == "nginx"
     teardown_ns(namespace)
@@ -1348,7 +1348,7 @@ def test_k8s_env_create_pod_with_private_registry_image(
     assert pod['status']['phase'] == "Running"
     assert pod['spec']['containers'][0]['securityContext']['privileged']
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == quay_image
+    assert quay_image in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "privateregpod"
