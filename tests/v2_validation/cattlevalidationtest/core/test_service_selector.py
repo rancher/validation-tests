@@ -4,7 +4,7 @@ shared_services = []
 
 
 @pytest.fixture(scope='session', autouse=True)
-def create_services_for_selectors(request, client, admin_client):
+def create_services_for_selectors(request, client):
     labels = [{"c1": "value1"}, {"c1": "value2"}, {"c2": "value1"},
               {"c2": "value2"}, {"c2": "value3"},
               {"c2": "value4", "c1": "value3"},
@@ -22,11 +22,10 @@ def create_services_for_selectors(request, client, admin_client):
 
     def fin():
         delete_all(client, shared_services)
-
     request.addfinalizer(fin)
 
 
-def env_with_service_selectorContainer(admin_client, client, label):
+def env_with_service_selectorContainer(client, label):
     launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
 
     # Create Environment
@@ -54,7 +53,7 @@ def env_with_service_selectorContainer(admin_client, client, label):
                                 )
     c = client.wait_success(c)
 
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].id == c.id
     return env, service, c
@@ -81,7 +80,7 @@ def create_env_with_svc_options(client, launch_config_svc,
     return env, service
 
 
-def test_selectorLink(admin_client, client):
+def test_selectorLink(client):
     port = "4000"
 
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
@@ -102,11 +101,11 @@ def test_selectorLink(admin_client, client):
     assert service.state == "active"
     linked_service = client.wait_success(linked_service, 300)
     assert linked_service.state == "active"
-    validate_linked_service(admin_client, service, [linked_service], port)
+    validate_linked_service(client, service, [linked_service], port)
     delete_all(client, [env])
 
 
-def test_selectorLink_lbservice(admin_client, client, socat_containers):
+def test_selectorLink_lbservice(client, socat_containers):
     port = "4001"
 
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
@@ -168,15 +167,15 @@ def test_selectorLink_lbservice(admin_client, client, socat_containers):
                                lbConfig=create_lb_config(port_rules))
     lb_service = client.wait_success(lb_service, 120)
 
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          [linked_service1, linked_service2],
                                          lb_service)
-    validate_lb_service(admin_client, client, lb_service, port,
+    validate_lb_service(client, lb_service, port,
                         [linked_service1, linked_service2])
     delete_all(client, [env])
 
 
-def test_selectorLink_dnsservice(admin_client, client):
+def test_selectorLink_dnsservice(client):
     port = "4002"
 
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
@@ -211,7 +210,7 @@ def test_selectorLink_dnsservice(admin_client, client):
                                     launchConfig=client_launch_config_svc,
                                     scale=1)
     service = client.wait_success(service)
-    link_svc(admin_client, service, [dns])
+    link_svc(client, service, [dns])
 
     service.activate()
     linked_service1.activate()
@@ -226,12 +225,12 @@ def test_selectorLink_dnsservice(admin_client, client):
     assert dns.state == "active"
 
     validate_dns_service(
-        admin_client, service, [linked_service1, linked_service2], port,
+        client, service, [linked_service1, linked_service2], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test__selectorLink_tolinkto_dnsservice(admin_client, client):
+def test__selectorLink_tolinkto_dnsservice(client):
     port = "4003"
 
     launch_config = {"imageUuid": WEB_IMAGE_UUID,
@@ -288,12 +287,12 @@ def test__selectorLink_tolinkto_dnsservice(admin_client, client):
     assert dns.state == "active"
 
     validate_dns_service(
-        admin_client, service, [linked_service1, linked_service2], port,
+        client, service, [linked_service1, linked_service2], port,
         dns.name)
     delete_all(client, [env])
 
 
-def test_selectorContainer_service_link(admin_client, client):
+def test_selectorContainer_service_link(client):
     port = "5000"
 
     labels = {}
@@ -301,7 +300,7 @@ def test_selectorContainer_service_link(admin_client, client):
     labels["value"] = "bar"
 
     env, consumed_service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
@@ -325,16 +324,16 @@ def test_selectorContainer_service_link(admin_client, client):
 
     assert service.state == "active"
     assert consumed_service.state == "active"
-    validate_add_service_link(admin_client, service, consumed_service)
+    validate_add_service_link(client, service, consumed_service)
 
     unmanaged_con = {}
     unmanaged_con[consumed_service.id] = [c]
-    validate_linked_service(admin_client, service, [consumed_service], port,
+    validate_linked_service(client, service, [consumed_service], port,
                             unmanaged_cons=unmanaged_con)
     delete_all(client, [env, c])
 
 
-def test_selectorContainer_dns(admin_client, client):
+def test_selectorContainer_dns(client):
 
     port = "4010"
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
@@ -415,12 +414,12 @@ def test_selectorContainer_dns(admin_client, client):
     unmanaged_con[consumed_service.id] = [c1]
     unmanaged_con[consumed_service1.id] = [c2]
     validate_dns_service(
-        admin_client, service, [consumed_service, consumed_service1], port,
+        client, service, [consumed_service, consumed_service1], port,
         dns.name,  unmanaged_cons=unmanaged_con)
     delete_all(client, [env, c1, c2])
 
 
-def test_selectorContainer_lb(admin_client, client, socat_containers):
+def test_selectorContainer_lb(client, socat_containers):
     port = "9011"
 
     service_scale = 2
@@ -523,17 +522,16 @@ def test_selectorContainer_lb(admin_client, client, socat_containers):
     unmanaged_con[service1.id] = [c1.externalId[:12]]
     unmanaged_con[service2.id] = [c2.externalId[:12]]
 
-    wait_for_lb_service_to_become_active(admin_client, client,
-                                         [service1, service2], lb_service,
-                                         unmanaged_con_count=2)
-    validate_lb_service(admin_client, client, lb_service, port,
+    wait_for_lb_service_to_become_active(client,
+                                         [service1, service2], lb_service)
+    validate_lb_service(client, lb_service, port,
                         [service1, service2], unmanaged_cons=unmanaged_con)
 
     delete_all(client, [env, c1, c2])
 
 
 def test_selectorContainer_no_image_with_lb(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     port = "9012"
 
     lb_scale = 1
@@ -619,7 +617,7 @@ def test_selectorContainer_no_image_with_lb(
                                lbConfig=create_lb_config(port_rules))
     lb_service = client.wait_success(lb_service, 120)
 
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          [service1, service2], lb_service)
 
     service3 = client.create_service(name=random_str(),
@@ -642,43 +640,42 @@ def test_selectorContainer_no_image_with_lb(
 
     unmanaged_con = {}
     unmanaged_con[service1.id] = get_container_names_list(
-        admin_client, [service3])
+        client, [service3])
     unmanaged_con[service2.id] = get_container_names_list(
-        admin_client, [service4])
-    wait_for_lb_service_to_become_active(admin_client, client,
-                                         [service1, service2], lb_service,
-                                         unmanaged_con_count=2)
+        client, [service4])
+    wait_for_lb_service_to_become_active(client,
+                                         [service1, service2], lb_service)
 
-    validate_lb_service(admin_client, client, lb_service, port,
+    validate_lb_service(client, lb_service, port,
                         [service1, service2], unmanaged_cons=unmanaged_con)
     delete_all(client, [env])
 
 
 def test_selectorContainer_for_service_reconciliation_on_stop(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     labels = {}
     labels["name"] = "testc2"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Stop 2 containers of the service
     assert service.scale > 1
-    containers = get_service_container_list(admin_client, service, managed=1)
+    containers = get_service_container_managed_list(client, service, managed=1)
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    stop_container_from_host(admin_client, container1)
+    stop_container_from_host(client, container1)
     container2 = containers[1]
-    stop_container_from_host(admin_client, container2)
+    stop_container_from_host(client, container2)
 
     service = wait_state(client, service, "active")
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
     container1 = client.reload(container1)
     container2 = client.reload(container2)
     assert container1.state == 'running'
@@ -687,16 +684,16 @@ def test_selectorContainer_for_service_reconciliation_on_stop(
 
 
 def test_selectorContainer_for_service_reconciliation_on_delete(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     labels = {}
     labels["name"] = "testc3"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Delete 2 containers of the service
-    containers = get_service_container_list(admin_client, service, managed=1)
+    containers = get_service_container_managed_list(client, service, managed=1)
     container1 = containers[0]
     container1 = client.wait_success(client.delete(container1))
     container2 = containers[1]
@@ -705,64 +702,64 @@ def test_selectorContainer_for_service_reconciliation_on_delete(
     assert container1.state == 'removed'
     assert container2.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, service)
-    check_container_in_service(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
+    check_container_in_service(client, service)
     delete_all(client, [env, c])
 
 
 def test_selectorContainer_for_container_stop(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     labels = {}
     labels["name"] = "testc4"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Stop the joined container
-    stop_container_from_host(admin_client, c)
+    stop_container_from_host(client, c)
     c = wait_for_condition(
-        admin_client, c,
+        client, c,
         lambda x: x.state == "stopped",
         lambda x: 'State is: ' + x.state)
 
-    wait_for_scale_to_adjust(admin_client, service)
-    check_container_in_service(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
+    check_container_in_service(client, service)
     assert c.state == 'stopped'
     delete_all(client, [env, c])
 
 
-def test_selectorContainer_for_container_delete(admin_client, client,
+def test_selectorContainer_for_container_delete(client,
                                                 socat_containers):
     labels = {}
     labels["name"] = "testc5"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Delete the joined container
     c1 = client.wait_success(client.delete(c))
     assert c1.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, service)
-    check_container_in_service(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
+    check_container_in_service(client, service)
     assert c1.state == 'removed'
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 0
     delete_all(client, [env, c])
 
 
 @pytest.mark.skipif(
     True, reason="Skip since there is no support for restore from v1.6.0")
-def test_selectorContainer_for_container_restore(admin_client, client,
+def test_selectorContainer_for_container_restore(client,
                                                  socat_containers):
     labels = {}
     labels["name"] = "testc6"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Delete the joined container
     c = client.wait_success(client.delete(c))
@@ -770,23 +767,23 @@ def test_selectorContainer_for_container_restore(admin_client, client,
     c = client.wait_success(c.restore())
     assert c.state == 'stopped'
 
-    wait_for_scale_to_adjust(admin_client, service)
-    check_container_in_service(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
+    check_container_in_service(client, service)
     assert c.state == 'stopped'
 
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     delete_all(client, [env, c])
 
 
-def test_selectorContainer_scale_up(admin_client, client, socat_containers):
+def test_selectorContainer_scale_up(client, socat_containers):
 
     labels = {}
     labels["name"] = "testc7"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Scale service
     service = client.update(service, name=service.name, scale=3)
@@ -794,22 +791,22 @@ def test_selectorContainer_scale_up(admin_client, client, socat_containers):
     assert service.state == "active"
     assert service.scale == 3
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
     # Make sure joined containers continue to be in "up" state
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].state == "running"
     delete_all(client, [env, c])
 
 
-def test_selectorContainer_scale_down(admin_client, client, socat_containers):
+def test_selectorContainer_scale_down(client, socat_containers):
     labels = {}
     labels["name"] = "testc8"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     # Scale service
     service = client.update(service, name=service.name, scale=1)
@@ -817,103 +814,103 @@ def test_selectorContainer_scale_down(admin_client, client, socat_containers):
     assert service.state == "active"
     assert service.scale == 1
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
     # Make sure joined containers continue to be in "up" state
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].state == "running"
     delete_all(client, [env, c])
 
 
 def test_selectorContainer_deactivate_activate(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     labels = {}
     labels["name"] = "testc9"
     labels["value"] = "bar"
 
     env, service, c = env_with_service_selectorContainer(
-        admin_client, client, labels)
+        client, labels)
 
     service = client.wait_success(service.deactivate())
-    wait_until_instances_get_stopped(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
 
     # Make sure joined containers continue to be in "up" state
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].state == "running"
 
     service = client.wait_success(service.activate())
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
     # Make sure joined containers continue to be in "up" state
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].state == "running"
     delete_all(client, [env, c])
 
 
-def test_selectorLink_in(admin_client, client):
+def test_selectorLink_in(client):
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
             client, launch_config_svc, 1, selectorLink="c1 in (value1,value2)")
     time.sleep(1)
-    validate_add_service_link(admin_client, service, shared_services[0])
-    validate_add_service_link(admin_client, service, shared_services[1])
+    validate_add_service_link(client, service, shared_services[0])
+    validate_add_service_link(client, service, shared_services[1])
     delete_all(client, [env])
 
 
-def test_selectorLink_notin(admin_client, client):
+def test_selectorLink_notin(client):
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
             client, launch_config_svc, 1, selectorLink="c1 notin (value1)")
     time.sleep(1)
-    validate_add_service_link(admin_client, service, shared_services[1])
+    validate_add_service_link(client, service, shared_services[1])
     delete_all(client, [env])
 
 
-def test_selectorLink_noteq(admin_client, client):
+def test_selectorLink_noteq(client):
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
             client, launch_config_svc, 1, selectorLink="c2 != value1")
     time.sleep(1)
-    validate_add_service_link(admin_client, service, shared_services[3])
-    validate_add_service_link(admin_client, service, shared_services[4])
+    validate_add_service_link(client, service, shared_services[3])
+    validate_add_service_link(client, service, shared_services[4])
     delete_all(client, [env])
 
 
-def test_selectorLink_name_no_value(admin_client, client):
+def test_selectorLink_name_no_value(client):
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
             client, launch_config_svc, 1, selectorLink="c2")
     time.sleep(1)
-    validate_add_service_link(admin_client, service, shared_services[2])
-    validate_add_service_link(admin_client, service, shared_services[3])
-    validate_add_service_link(admin_client, service, shared_services[4])
+    validate_add_service_link(client, service, shared_services[2])
+    validate_add_service_link(client, service, shared_services[3])
+    validate_add_service_link(client, service, shared_services[4])
     delete_all(client, [env])
 
 
-def test_selectorLink_multiple(admin_client, client):
+def test_selectorLink_multiple(client):
     launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
             client, launch_config_svc, 1, selectorLink="c2,c1 notin (value2)")
     time.sleep(1)
-    validate_add_service_link(admin_client, service, shared_services[5])
-    validate_add_service_link(admin_client, service, shared_services[6])
+    validate_add_service_link(client, service, shared_services[5])
+    validate_add_service_link(client, service, shared_services[6])
     delete_all(client, [env])
 
 
-def test_service_with_no_image(admin_client, client):
+def test_service_with_no_image(client):
     launch_config_svc = {"imageUuid": "docker:rancher/none"}
 
     env = create_env(client)
@@ -933,7 +930,7 @@ def test_service_with_no_image(admin_client, client):
     service = client.wait_success(service)
     assert service.state == "active"
 
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_managed_list(client, service)
     assert len(containers) == 0
 
     c = client.create_container(name=random_str(),
@@ -943,7 +940,7 @@ def test_service_with_no_image(admin_client, client):
                                 )
     c = client.wait_success(c)
 
-    containers = get_service_container_list(admin_client, service, managed=0)
+    containers = get_service_container_managed_list(client, service, managed=0)
     assert len(containers) == 1
     assert containers[0].id == c.id
     delete_all(client, [env, c])

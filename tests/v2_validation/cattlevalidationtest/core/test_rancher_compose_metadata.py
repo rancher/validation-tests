@@ -19,7 +19,7 @@ metadata_client_port = 999
 
 
 @pytest.fixture(scope='session', autouse=True)
-def create_metadata_client_service(request, client, admin_client):
+def create_metadata_client_service(request, client):
     env = create_env(client)
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
                      "ports": [str(metadata_client_port) + ":22/tcp"],
@@ -32,7 +32,7 @@ def create_metadata_client_service(request, client, admin_client):
     service = client.wait_success(service, 300)
     assert service.state == "active"
     metadata_client_service.extend(
-        get_service_container_list(admin_client, service))
+        get_service_container_list(client, service))
 
     def fin():
         delete_all(client, [service])
@@ -41,7 +41,7 @@ def create_metadata_client_service(request, client, admin_client):
 
 @if_compose_data_files
 def test_metadata_self_2016_07_29(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_1_2016_07_29.yml"
@@ -56,12 +56,12 @@ def test_metadata_self_2016_07_29(
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
 
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     port = 6002
     con_metadata = {}
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2016-07-29")
@@ -69,7 +69,7 @@ def test_metadata_self_2016_07_29(
 
     for con in service_containers:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/service", "2016-07-29")
         service_metadata = json.loads(metadata_str)
 
@@ -89,10 +89,10 @@ def test_metadata_self_2016_07_29(
         assert service_metadata["metadata"] == service.metadata
         assert service_metadata["uuid"] == service.uuid
 
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
 
         # Host related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/host", "2016-07-29")
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
@@ -102,7 +102,7 @@ def test_metadata_self_2016_07_29(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/stack", "2016-07-29")
         metadata = json.loads(metadata_str)
 
@@ -119,7 +119,7 @@ def test_metadata_self_2016_07_29(
 
         # Container related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/container", "2016-07-29")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
@@ -138,7 +138,7 @@ def test_metadata_self_2016_07_29(
 
 @if_compose_data_files
 def test_metadata_byname_2016_07_29(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_2_2016_07_29.yml"
@@ -151,11 +151,11 @@ def test_metadata_byname_2016_07_29(
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
-    service_containers = get_service_container_list(admin_client, service)
-    wait_for_metadata_propagation(admin_client)
+    service_containers = get_service_container_list(client, service)
+    wait_for_metadata_propagation(client)
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2016-07-29")
@@ -165,7 +165,7 @@ def test_metadata_byname_2016_07_29(
         len(client.list_host(kind='docker', removed_null=True))
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "test2120160729",
                                               "2016-07-29")
@@ -187,7 +187,7 @@ def test_metadata_byname_2016_07_29(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "stacks/" + env_name,
                                               "2016-07-29")
@@ -200,13 +200,13 @@ def test_metadata_byname_2016_07_29(
 
         # Container related metadata
         con = service_containers[0]
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2016-07-29")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -220,7 +220,7 @@ def test_metadata_byname_2016_07_29(
 
 @if_compose_data_files
 def test_metadata_self_2015_12_19(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_1n.yml"
@@ -234,12 +234,12 @@ def test_metadata_self_2015_12_19(
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
 
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     port = 6001
     con_metadata = {}
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2015-12-19")
@@ -247,7 +247,7 @@ def test_metadata_self_2015_12_19(
 
     for con in service_containers:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/service", "2015-12-19")
         service_metadata = json.loads(metadata_str)
 
@@ -265,10 +265,10 @@ def test_metadata_self_2015_12_19(
         assert service_metadata["metadata"] == service.metadata
         assert service_metadata["uuid"] == service.uuid
 
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
 
         # Host related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/host", "2015-12-19")
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
@@ -278,7 +278,7 @@ def test_metadata_self_2015_12_19(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/stack", "2015-12-19")
         metadata = json.loads(metadata_str)
 
@@ -295,7 +295,7 @@ def test_metadata_self_2015_12_19(
 
         # Container related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/container", "2015-12-19")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
@@ -314,7 +314,7 @@ def test_metadata_self_2015_12_19(
 
 @if_compose_data_files
 def test_metadata_byname_2015_12_19(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_2n.yml"
@@ -327,11 +327,11 @@ def test_metadata_byname_2015_12_19(
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
-    service_containers = get_service_container_list(admin_client, service)
-    wait_for_metadata_propagation(admin_client)
+    service_containers = get_service_container_list(client, service)
+    wait_for_metadata_propagation(client)
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2015-12-19")
@@ -341,7 +341,7 @@ def test_metadata_byname_2015_12_19(
         len(client.list_host(kind='docker', removed_null=True))
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "test2n",
                                               "2015-12-19")
@@ -363,7 +363,7 @@ def test_metadata_byname_2015_12_19(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "stacks/" + env_name,
                                               "2015-12-19")
@@ -376,13 +376,13 @@ def test_metadata_byname_2015_12_19(
 
         # Container related metadata
         con = service_containers[0]
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2015-12-19")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -396,7 +396,7 @@ def test_metadata_byname_2015_12_19(
 
 @if_compose_data_files
 def test_metadata_self_2015_07_25(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_1.yml"
@@ -409,8 +409,8 @@ def test_metadata_self_2015_07_25(
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
-    wait_for_metadata_propagation(admin_client)
-    service_containers = get_service_container_list(admin_client, service)
+    wait_for_metadata_propagation(client)
+    service_containers = get_service_container_list(client, service)
     port = 6000
     con_names = []
     for con in service_containers:
@@ -418,7 +418,7 @@ def test_metadata_self_2015_07_25(
 
     for con in service_containers:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/service", "2015-07-25")
         metadata = json.loads(metadata_str)
 
@@ -433,10 +433,10 @@ def test_metadata_self_2015_07_25(
         assert metadata["metadata"] == service.metadata
         assert metadata["uuid"] == service.uuid
 
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
 
         # Host related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/host", "2015-07-25")
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
@@ -446,7 +446,7 @@ def test_metadata_self_2015_07_25(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/stack", "2015-07-25")
         metadata = json.loads(metadata_str)
         assert metadata["environment_name"] == "Default"
@@ -456,7 +456,7 @@ def test_metadata_self_2015_07_25(
 
         # Container related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/container", "2015-07-25")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
@@ -475,7 +475,7 @@ def test_metadata_self_2015_07_25(
 
 @if_compose_data_files
 def test_metadata_byname_2015_07_25(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_2.yml"
@@ -488,17 +488,17 @@ def test_metadata_byname_2015_07_25(
     assert service.metadata["test1"]["name"] == "t1name"
     assert service.metadata["test1"]["value"] == "t1value"
     assert service.metadata["test2"]["name"] == [1, 2, 3, 4]
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     con_names = []
     for con in service_containers:
         con_names.append(con.name)
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "test2",
                                               "2015-07-25")
@@ -516,7 +516,7 @@ def test_metadata_byname_2015_07_25(
 
         # Stack related metadata
 
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "stacks/" + env_name,
                                               "2015-07-25")
@@ -528,13 +528,13 @@ def test_metadata_byname_2015_07_25(
 
         # Container related metadata
         con = service_containers[0]
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name,
                                               "2015-07-25")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -547,7 +547,7 @@ def test_metadata_byname_2015_07_25(
 
 
 @if_compose_data_files
-def test_metadata_update(admin_client, client, rancher_cli_container):
+def test_metadata_update(client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_3.yml"
@@ -564,9 +564,9 @@ def test_metadata_update(admin_client, client, rancher_cli_container):
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "test3")
         metadata = json.loads(metadata_str)
@@ -587,9 +587,9 @@ def test_metadata_update(admin_client, client, rancher_cli_container):
     assert service.metadata["test2"]["name"] == [1, 2, 5]
     assert service.metadata["test3"]["name"] == "t3name"
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "test3")
         metadata = json.loads(metadata_str)
@@ -599,7 +599,7 @@ def test_metadata_update(admin_client, client, rancher_cli_container):
 
 @if_compose_data_files
 def test_metadata_scaleup(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_4.yml"
@@ -608,12 +608,12 @@ def test_metadata_scaleup(
     # Create an environment using up
     env, service = create_stack_using_rancher_cli(
         client, env_name, "test4", METADATA_SUBDIR, dc_file, rc_file)
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     assert len(service_containers) == 2
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name)
         con_metadata[con.name] = json.loads(metadata_str)
@@ -622,7 +622,7 @@ def test_metadata_scaleup(
         len(client.list_host(kind='docker', removed_null=True))
 
     for con in metadata_client_service:
-        validate_service_container_list(admin_client, con, "test4",
+        validate_service_container_list(client, con, "test4",
                                         con_metadata)
 
     # Scale up service
@@ -632,25 +632,25 @@ def test_metadata_scaleup(
         "scale test4=3", "test4")
     service = client.wait_success(service, 60)
     assert service.state == "active"
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     assert len(service_containers) == 3
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name)
         con_metadata[con.name] = json.loads(metadata_str)
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
-        validate_service_container_list(admin_client, con, "test4",
+        validate_service_container_list(client, con, "test4",
                                         con_metadata)
     delete_all(client, [env])
 
 
 @if_compose_data_files
 def test_metadata_scaledown(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_5.yml"
@@ -660,12 +660,12 @@ def test_metadata_scaledown(
     env, service = create_stack_using_rancher_cli(
         client, env_name, "test5", METADATA_SUBDIR, dc_file, rc_file)
 
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     assert len(service_containers) == 2
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name)
         con_metadata[con.name] = json.loads(metadata_str)
@@ -674,7 +674,7 @@ def test_metadata_scaledown(
         len(client.list_host(kind='docker', removed_null=True))
 
     for con in metadata_client_service:
-        validate_service_container_list(admin_client, con, "test5",
+        validate_service_container_list(client, con, "test5",
                                         con_metadata)
 
     # Scale down service
@@ -685,24 +685,24 @@ def test_metadata_scaledown(
 
     service = client.wait_success(service, 60)
     assert service.state == "active"
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     assert len(service_containers) == 1
     con_metadata = {}
     for con in service_containers:
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "containers/" + con.name)
         con_metadata[con.name] = json.loads(metadata_str)
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
-        validate_service_container_list(admin_client, con, "test5",
+        validate_service_container_list(client, con, "test5",
                                         con_metadata)
     delete_all(client, [env])
 
 
 @if_compose_data_files
-def test_metadata_sidekick(admin_client, client, rancher_cli_container):
+def test_metadata_sidekick(client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_sk.yml"
@@ -712,7 +712,7 @@ def test_metadata_sidekick(admin_client, client, rancher_cli_container):
     env, service = create_stack_using_rancher_cli(
         client, env_name, "testsk", METADATA_SUBDIR, dc_file, rc_file)
 
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     con_names = []
     for con in service_containers:
         con_names.append(con.name)
@@ -722,10 +722,10 @@ def test_metadata_sidekick(admin_client, client, rancher_cli_container):
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "testsk")
         metadata = json.loads(metadata_str)
@@ -734,7 +734,7 @@ def test_metadata_sidekick(admin_client, client, rancher_cli_container):
 
 
 @if_compose_data_files
-def test_metadata_links(admin_client, client, rancher_cli_container):
+def test_metadata_links(client, rancher_cli_container):
 
     env_name1 = "testlink"
     dc_file = "dc_metadata_links_1.yml"
@@ -758,10 +758,10 @@ def test_metadata_links(admin_client, client, rancher_cli_container):
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "testl3")
         metadata = json.loads(metadata_str)
@@ -771,26 +771,25 @@ def test_metadata_links(admin_client, client, rancher_cli_container):
 
 
 @if_compose_data_files
-def test_metadata_hostnet(admin_client, client, rancher_cli_container):
+def test_metadata_hostnet(client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_hostnet.yml"
-    rc_file = "rc_metadata_sk.yml"
 
     # Create an environment using up
     env, service = create_stack_using_rancher_cli(
-        client, env_name, "testhostdns", METADATA_SUBDIR, dc_file, rc_file)
+        client, env_name, "testhostdns", METADATA_SUBDIR, dc_file)
 
-    service_containers = get_service_container_list(admin_client, service)
+    service_containers = get_service_container_list(client, service)
     assert len(service_containers) == service.scale
     port = 33
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in service_containers:
-        host = admin_client.by_id('host', con.hosts[0].id)
+        host = client.by_id('host', con.hosts[0].id)
 
         # Host related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con, port,
+        metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/host")
         metadata = json.loads(metadata_str)
         assert metadata["agent_ip"] == host.ipAddresses()[0].address
@@ -802,7 +801,7 @@ def test_metadata_hostnet(admin_client, client, rancher_cli_container):
 
 @if_compose_data_files
 def test_metadata_externalservice_ip(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_extservice_ip.yml"
@@ -812,10 +811,10 @@ def test_metadata_externalservice_ip(
     env, service = create_stack_using_rancher_cli(
         client, env_name, "testextip", METADATA_SUBDIR, dc_file, rc_file)
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "testextip")
         metadata = json.loads(metadata_str)
@@ -827,7 +826,7 @@ def test_metadata_externalservice_ip(
 
 @if_compose_data_files
 def test_metadata_externalservice_cname(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_extservice_cname.yml"
@@ -837,10 +836,10 @@ def test_metadata_externalservice_cname(
     env, service = create_stack_using_rancher_cli(
         client, env_name, "testextcname", METADATA_SUBDIR, dc_file, rc_file)
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "testextcname")
         metadata = json.loads(metadata_str)
@@ -851,7 +850,7 @@ def test_metadata_externalservice_cname(
 
 
 @if_compose_data_files
-def test_metadata_lb(admin_client, client, rancher_cli_container):
+def test_metadata_lb(client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_lb.yml"
@@ -866,10 +865,10 @@ def test_metadata_lb(admin_client, client, rancher_cli_container):
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "lb-1")
         metadata = json.loads(metadata_str)
@@ -881,7 +880,7 @@ def test_metadata_lb(admin_client, client, rancher_cli_container):
 
 @if_compose_data_files
 def test_metadata_lb_updatetarget(
-        admin_client, client, rancher_cli_container):
+        client, rancher_cli_container):
 
     env_name = random_str().replace("-", "")
     dc_file = "dc_metadata_lb_1.yml"
@@ -895,10 +894,10 @@ def test_metadata_lb_updatetarget(
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "lb-2")
         metadata = json.loads(metadata_str)
@@ -925,10 +924,10 @@ def test_metadata_lb_updatetarget(
     assert len(metadata_client_service) == \
         len(client.list_host(kind='docker', removed_null=True))
 
-    wait_for_metadata_propagation(admin_client)
+    wait_for_metadata_propagation(client)
     for con in metadata_client_service:
         # Service related metadata
-        metadata_str = fetch_rancher_metadata(admin_client, con,
+        metadata_str = fetch_rancher_metadata(client, con,
                                               metadata_client_port,
                                               "services/" + "lb-2")
         metadata = json.loads(metadata_str)
@@ -948,9 +947,9 @@ def get_env_service_by_name(client, env_name, service_name):
     return env[0], service[0]
 
 
-def fetch_rancher_metadata(admin_client, con, port, command, version=None):
+def fetch_rancher_metadata(client, con, port, command, version=None):
 
-    host = admin_client.by_id('host', con.hosts[0].id)
+    host = client.by_id('host', con.hosts[0].id)
     if version is None:
         version = "latest"
     rancher_metadata_cmd = \
@@ -969,9 +968,9 @@ def fetch_rancher_metadata(admin_client, con, port, command, version=None):
     return response[0]
 
 
-def validate_service_container_list(admin_client, con, serviceName,
+def validate_service_container_list(client, con, serviceName,
                                     con_metadata):
-    metadata_str = fetch_rancher_metadata(admin_client, con,
+    metadata_str = fetch_rancher_metadata(client, con,
                                           metadata_client_port,
                                           "services/"+serviceName)
     metadata = json.loads(metadata_str)

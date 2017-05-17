@@ -65,7 +65,7 @@ def test_cert_container(client, request):
     request.addfinalizer(remove_test_cert_client)
 
 
-def create_lb_services_ssl_with_cert(admin_client, client,
+def create_lb_services_ssl_with_cert(client,
                                      stack_name, service_names,
                                      lb_port, label,
                                      dc_yml_file, rc_yml_file,
@@ -77,7 +77,7 @@ def create_lb_services_ssl_with_cert(admin_client, client,
     dc_yml = readDataFile(SSLCERT_SUBDIR, dc_yml_file)
     rc_yml = readDataFile(SSLCERT_SUBDIR, rc_yml_file)
 
-    dc_yml = dc_yml.replace("$lbimage", get_lb_image_version(admin_client))
+    dc_yml = dc_yml.replace("$lbimage", get_lb_image_version(client))
     dc_yml = dc_yml.replace("$label", label)
     dc_yml = dc_yml.replace("$port", lb_port)
     dc_yml = dc_yml.replace("$volname", shared_vol_name)
@@ -106,8 +106,8 @@ def create_lb_services_ssl_with_cert(admin_client, client,
 
     lb_service = services[service_names[0]]
     target_services = [services[service_names[1]], services[service_names[2]]]
-    test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+    test_ssl_client_con = create_client_container_for_ssh(client_port)
+    validate_lb_services_ssl(client, test_ssl_client_con,
                              target_services, lb_service,
                              lb_port, default_domain, domains)
     return stack, target_services, lb_service, test_ssl_client_con
@@ -208,11 +208,11 @@ def cmd_for_cert_creation(domain_name):
     return cmd
 
 
-def validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+def validate_lb_services_ssl(client, test_ssl_client_con,
                              services, lb_service, ssl_port,
                              default_domain=None, domains=None):
 
-    wait_for_lb_service_to_become_active(admin_client, client,
+    wait_for_lb_service_to_become_active(client,
                                          services, lb_service)
     supported_domains = []
     if default_domain is not None:
@@ -221,19 +221,19 @@ def validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
         supported_domains.extend(domains)
 
     for domain in supported_domains:
-        validate_lb_service(admin_client, client,
+        validate_lb_service(client,
                             lb_service, ssl_port,
                             [services[0]],
                             "test1.com", "/service1.html", domain,
                             test_ssl_client_con)
-        validate_lb_service(admin_client, client,
+        validate_lb_service(client,
                             lb_service, ssl_port, [services[1]],
                             "test2.com", "/service2.html", domain,
                             test_ssl_client_con)
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_with_certs_and_default_cert(admin_client, client,
+def test_lb_ssl_with_certs_and_default_cert(client,
                                             socat_containers,
                                             rancher_cli_container,
                                             test_cert_container):
@@ -245,7 +245,7 @@ def test_lb_ssl_with_certs_and_default_cert(admin_client, client,
     stack_name = \
         random_str().replace("-", "") + "-withcertanddefaultcert"
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -257,14 +257,14 @@ def test_lb_ssl_with_certs_and_default_cert(admin_client, client,
     # cert/cert list should return certificate error
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
     delete_all(client, [env, test_ssl_client_con["container"]])
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
+def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(client,
                                                        socat_containers,
                                                        rancher_cli_container,
                                                        test_cert_container):
@@ -277,7 +277,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
     stack_name = \
         random_str().replace("-", "") + "-withcertanddefaultcert"
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -289,7 +289,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
     # cert/cert list should return certificate error
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -300,7 +300,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
     lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
     assert lb_service.scale == final_lb_scale
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+    validate_lb_services_ssl(client, test_ssl_client_con,
                              services, lb_service,
                              port, default_domain, domain_list)
 
@@ -308,7 +308,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
     # cert/cert list should return certificate error
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -317,7 +317,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_lb(admin_client, client,
 
 @if_rancher_nfs_enabled
 def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
-        admin_client, client, socat_containers,
+        client, socat_containers,
         rancher_cli_container,
         test_cert_container):
     default_domain = dom_list[0]
@@ -329,7 +329,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
     stack_name = \
         random_str().replace("-", "") + "-withcertanddefaultcert"
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -341,7 +341,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
     # cert/cert list should return certificate error
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -354,7 +354,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
     assert services[0].state == "active"
     assert services[0].scale == final_service_scale
 
-    validate_lb_services_ssl(admin_client, client, test_ssl_client_con,
+    validate_lb_services_ssl(client, test_ssl_client_con,
                              services, lb_service,
                              port, default_domain, domain_list)
 
@@ -362,7 +362,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
     # cert/cert list should return certificate error
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -370,7 +370,7 @@ def test_lb_ssl_with_certs_and_default_cert_scaleup_target(
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_with_default_cert_add(admin_client, client,
+def test_lb_ssl_with_default_cert_add(client,
                                       socat_containers,
                                       rancher_cli_container,
                                       test_cert_container):
@@ -384,7 +384,7 @@ def test_lb_ssl_with_default_cert_add(admin_client, client,
         random_str().replace("-", "") + "-withcertanddefaultcert-addcert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -392,7 +392,7 @@ def test_lb_ssl_with_default_cert_add(admin_client, client,
                                          "haproxycert_rc.yml",
                                          default_domain, domain_list)
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -401,7 +401,7 @@ def test_lb_ssl_with_default_cert_add(admin_client, client,
     time.sleep(int(cert_change_interval))
 
     # Should be able to access LB using the newly added cert
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", cert,
                         test_ssl_client_con)
@@ -409,7 +409,7 @@ def test_lb_ssl_with_default_cert_add(admin_client, client,
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_with_default_cert_delete(admin_client, client,
+def test_lb_ssl_with_default_cert_delete(client,
                                          socat_containers,
                                          rancher_cli_container,
                                          test_cert_container):
@@ -423,7 +423,7 @@ def test_lb_ssl_with_default_cert_delete(admin_client, client,
         random_str().replace("-", "") + "-withcertanddefaultcert-deletecert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -437,11 +437,11 @@ def test_lb_ssl_with_default_cert_delete(admin_client, client,
     time.sleep(int(cert_change_interval))
 
     # Existing certs should continue to work
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[0],
                         test_ssl_client_con)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[1],
                         test_ssl_client_con)
@@ -450,7 +450,7 @@ def test_lb_ssl_with_default_cert_delete(admin_client, client,
     # certificate error
 
     cert = dom_list[2]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -458,7 +458,7 @@ def test_lb_ssl_with_default_cert_delete(admin_client, client,
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_with_default_cert_edit(admin_client, client,
+def test_lb_ssl_with_default_cert_edit(client,
                                        socat_containers,
                                        rancher_cli_container,
                                        test_cert_container):
@@ -472,7 +472,7 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
         random_str().replace("-", "") + "-withcertanddefaultcert-editcert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -487,11 +487,11 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
     time.sleep(int(cert_change_interval))
 
     # Existing certs should continue to work
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[0],
                         test_ssl_client_con)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[1],
                         test_ssl_client_con)
@@ -500,7 +500,7 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
     # should succeed
 
     cert = dom_list[3]
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", cert,
                         test_ssl_client_con)
@@ -509,7 +509,7 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
     # should fail
 
     cert = dom_list[2]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -517,7 +517,7 @@ def test_lb_ssl_with_default_cert_edit(admin_client, client,
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_delete_default_cert(admin_client, client,
+def test_lb_ssl_delete_default_cert(client,
                                     socat_containers,
                                     rancher_cli_container,
                                     test_cert_container):
@@ -531,7 +531,7 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
         random_str().replace("-", "") + "-withcertanddefaultcert-deletecert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -545,11 +545,11 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
     time.sleep(int(cert_change_interval))
 
     # Existing certs should continue to work
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[1],
                         test_ssl_client_con)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[2],
                         test_ssl_client_con)
@@ -558,7 +558,7 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
     # certificate error (strict sni check)
 
     cert = dom_list[0]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         None, cert,
                         test_ssl_client_con=test_ssl_client_con,
                         strict_sni_check=True)
@@ -567,7 +567,7 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
     # cert list should return certificate error (strict sni check)
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         None, cert,
                         test_ssl_client_con=test_ssl_client_con,
                         strict_sni_check=True)
@@ -576,7 +576,7 @@ def test_lb_ssl_delete_default_cert(admin_client, client,
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_edit_default_cert(admin_client, client,
+def test_lb_ssl_edit_default_cert(client,
                                   socat_containers,
                                   rancher_cli_container,
                                   test_cert_container):
@@ -590,7 +590,7 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
         random_str().replace("-", "") + "-withcertanddefaultcert-editcert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -605,11 +605,11 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
     time.sleep(int(cert_change_interval))
 
     # Existing certs should continue to work
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[1],
                         test_ssl_client_con)
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", dom_list[2],
                         test_ssl_client_con)
@@ -618,7 +618,7 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
     # should succeed
 
     cert = dom_list[3]
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", cert,
                         test_ssl_client_con)
@@ -629,12 +629,12 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
     default_domain = dom_list[3]
 
     cert = dom_list[0]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
     cert = dom_list[4]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
 
@@ -642,7 +642,7 @@ def test_lb_ssl_edit_default_cert(admin_client, client,
 
 
 @if_rancher_nfs_enabled
-def test_lb_ssl_add_default_cert(admin_client, client,
+def test_lb_ssl_add_default_cert(client,
                                  socat_containers,
                                  rancher_cli_container,
                                  test_cert_container):
@@ -655,7 +655,7 @@ def test_lb_ssl_add_default_cert(admin_client, client,
         random_str().replace("-", "") + "-withcert-add-defaultcert"
 
     env, services, lb_service, test_ssl_client_con = \
-        create_lb_services_ssl_with_cert(admin_client, client,
+        create_lb_services_ssl_with_cert(client,
                                          stack_name,
                                          service_names_list,
                                          port, label,
@@ -667,13 +667,13 @@ def test_lb_ssl_add_default_cert(admin_client, client,
     # cert list should result in certificate error (strict sni check)
 
     cert = dom_list[0]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         None, cert,
                         test_ssl_client_con=test_ssl_client_con,
                         strict_sni_check=True)
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         None, cert,
                         test_ssl_client_con=test_ssl_client_con,
                         strict_sni_check=True)
@@ -685,7 +685,7 @@ def test_lb_ssl_add_default_cert(admin_client, client,
 
     # Attempting to access LB rules using the newly added default cert
     # should succeed
-    validate_lb_service(admin_client, client,
+    validate_lb_service(client,
                         lb_service, port, [services[0]],
                         "test1.com", "/service1.html", default_domain,
                         test_ssl_client_con)
@@ -695,7 +695,7 @@ def test_lb_ssl_add_default_cert(admin_client, client,
     # being presented to the user
 
     cert = dom_list[3]
-    validate_cert_error(admin_client, client, lb_service, port, cert,
+    validate_cert_error(client, lb_service, port, cert,
                         default_domain, cert,
                         test_ssl_client_con=test_ssl_client_con)
     delete_all(client, [env, test_ssl_client_con["container"]])

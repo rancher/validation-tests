@@ -23,8 +23,8 @@ shared_env = []
 
 
 @pytest.fixture(scope='session', autouse=True)
-def create_env_for_activate_deactivate(request, client, admin_client):
-    service, env = create_env_and_svc_activate(admin_client, client, 3, False)
+def create_env_for_activate_deactivate(request, client):
+    service, env = create_env_and_svc_activate(client, 3, False)
     shared_env.append({"service": service,
                        "env": env})
 
@@ -35,7 +35,7 @@ def create_env_for_activate_deactivate(request, client, admin_client):
     request.addfinalizer(fin)
 
 
-def deactivate_activate_service(admin_client, client, service):
+def deactivate_activate_service(client, service):
 
     # Deactivate service
     service = service.deactivate()
@@ -48,16 +48,16 @@ def deactivate_activate_service(admin_client, client, service):
     return service
 
 
-def create_env_and_svc_activate(admin_client, client, scale, check=True,
+def create_env_and_svc_activate(client, scale, check=True,
                                 retainIp=False):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale, check, retainIp)
+        client, launch_config, scale, check, retainIp)
     return service, env
 
 
 def create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale,
+        client, launch_config, scale,
         check=True, retainIp=False):
     start_time = time.time()
     service, env = create_env_and_svc(client, launch_config, scale, retainIp)
@@ -65,7 +65,7 @@ def create_env_and_svc_activate_launch_config(
     service = client.wait_success(service, 300)
     assert service.state == "active"
     if check:
-        check_container_in_service(admin_client, service)
+        check_container_in_service(client, service)
     time_taken = time.time() - start_time
     total_time[0] = total_time[0] + time_taken
     logger.info("time taken - " + str(time_taken))
@@ -73,7 +73,7 @@ def create_env_and_svc_activate_launch_config(
     return service, env
 
 
-def test_services_docker_options(admin_client, client, socat_containers):
+def test_services_docker_options(client, socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
 
@@ -136,9 +136,9 @@ def test_services_docker_options(admin_client, client, socat_containers):
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
 
     dns_name.append(RANCHER_DNS_SERVER)
     dns_search.append(env.name+"."+RANCHER_DNS_SEARCH)
@@ -176,7 +176,7 @@ def test_services_docker_options(admin_client, client, socat_containers):
     delete_all(client, [env])
 
 
-def test_services_docker_options_2(admin_client, client, socat_containers):
+def test_services_docker_options_2(client, socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
     cpu_shares = 400
@@ -259,9 +259,9 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
 
     for c in container_list:
         docker_client = get_docker_client(c.hosts[0])
@@ -310,7 +310,7 @@ def test_services_docker_options_2(admin_client, client, socat_containers):
     delete_all(client, [env])
 
 
-def test_services_port_and_link_options(admin_client, client,
+def test_services_port_and_link_options(client,
                                         socat_containers):
 
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
@@ -349,13 +349,13 @@ def test_services_port_and_link_options(admin_client, client,
     assert len(containers) == 1
     con = containers[0]
 
-    validate_exposed_port_and_container_link(admin_client, con, link_name,
+    validate_exposed_port_and_container_link(client, con, link_name,
                                              link_port, exposed_port)
 
     delete_all(client, [env, link_container])
 
 
-def test_services_multiple_expose_port(admin_client, client):
+def test_services_multiple_expose_port(client):
 
     public_port = range(2080, 2092)
     private_port = range(80, 92)
@@ -372,12 +372,12 @@ def test_services_multiple_expose_port(admin_client, client):
     env = env.activateservices()
     service = client.wait_success(service, 300)
 
-    validate_exposed_port(admin_client, service, public_port)
+    validate_exposed_port(client, service, public_port)
 
     delete_all(client, [env])
 
 
-def test_services_random_expose_port(admin_client, client):
+def test_services_random_expose_port(client):
 
     launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports": ["80/tcp", "81/tcp"]
@@ -396,7 +396,7 @@ def test_services_random_expose_port(admin_client, client):
     assert exposedPort2 in range(49153, 65535)
 
     print service.publicEndpoints
-    validate_exposed_port(admin_client, service, [exposedPort1, exposedPort2])
+    validate_exposed_port(client, service, [exposedPort1, exposedPort2])
 
     delete_all(client, [env])
 
@@ -409,7 +409,7 @@ def test_services_random_expose_port_exhaustrange(
     project = admin_client.list_project(uuid="adminProject")[0]
     project = admin_client.update(
         project, servicesPortRange={"startPort": 65500, "endPort": 65505})
-    project = wait_success(admin_client, project)
+    project = wait_success(client, project)
 
     launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports":
@@ -433,7 +433,7 @@ def test_services_random_expose_port_exhaustrange(
         exposedPorts.append(exposedPort)
         assert exposedPort in range(65500, 65506)
 
-    validate_exposed_port(admin_client, service, exposedPorts)
+    validate_exposed_port(client, service, exposedPorts)
 
     # Create a service that has 2 random exposed ports when there is only 1
     # free port available in the random port range
@@ -470,7 +470,7 @@ def test_services_random_expose_port_exhaustrange(
     # Delete the service that consumed 5 random ports
     delete_all(client, [service])
     wait_for_condition(
-        admin_client, service,
+        client, service,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
 
@@ -478,7 +478,7 @@ def test_services_random_expose_port_exhaustrange(
     # state
 
     wait_for_condition(
-        admin_client, service1,
+        client, service1,
         lambda x: x.state == "active",
         lambda x: 'State is: ' + x.state,
         120)
@@ -499,13 +499,12 @@ def test_services_random_expose_port_exhaustrange(
         exposedPorts.append(exposedPort)
         assert exposedPort in range(65500, 65506)
 
-    validate_exposed_port(admin_client, service1, exposedPorts)
+    validate_exposed_port(client, service1, exposedPorts)
 
     delete_all(client, [env])
 
 
-def test_environment_activate_deactivate_delete(admin_client,
-                                                client,
+def test_environment_activate_deactivate_delete(client,
                                                 socat_containers):
 
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
@@ -522,36 +521,36 @@ def test_environment_activate_deactivate_delete(admin_client,
 
     service1 = client.wait_success(service1, 300)
     assert service1.state == "active"
-    check_container_in_service(admin_client, service1)
+    check_container_in_service(client, service1)
 
     service2 = client.wait_success(service2, 300)
     assert service2.state == "active"
-    check_container_in_service(admin_client, service2)
+    check_container_in_service(client, service2)
 
     # Environment Deactivate Services
     env = env.deactivateservices()
 
-    wait_until_instances_get_stopped(admin_client, service1)
-    wait_until_instances_get_stopped(admin_client, service2)
+    wait_until_instances_get_stopped(client, service1)
+    wait_until_instances_get_stopped(client, service2)
 
     service1 = client.wait_success(service1, 300)
     assert service1.state == "inactive"
-    check_stopped_container_in_service(admin_client, service1)
+    check_stopped_container_in_service(client, service1)
 
     service2 = client.wait_success(service2, 300)
     assert service2.state == "inactive"
-    check_stopped_container_in_service(admin_client, service2)
+    check_stopped_container_in_service(client, service2)
 
     # Environment Activate Services
     env = env.activateservices()
 
     service1 = client.wait_success(service1, 300)
     assert service1.state == "active"
-    check_container_in_service(admin_client, service1)
+    check_container_in_service(client, service1)
 
     service2 = client.wait_success(service2, 300)
     assert service2.state == "active"
-    check_container_in_service(admin_client, service2)
+    check_container_in_service(client, service2)
 
     # Delete Environment
     env = client.wait_success(client.delete(env))
@@ -560,13 +559,13 @@ def test_environment_activate_deactivate_delete(admin_client,
     # Deleting service results in instances of the service to be "removed".
     # instance continues to be part of service , until the instance is purged.
 
-    check_for_deleted_service(admin_client, env, service1)
-    check_for_deleted_service(admin_client, env, service2)
+    check_for_deleted_service(client, env, service1)
+    check_for_deleted_service(client, env, service2)
 
     delete_all(client, [env])
 
 
-def test_service_activate_deactivate_delete(admin_client, client,
+def test_service_activate_deactivate_delete(client,
                                             socat_containers):
 
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
@@ -580,52 +579,52 @@ def test_service_activate_deactivate_delete(admin_client, client,
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
     # Deactivate Services
     service = service.deactivate()
     service = client.wait_success(service, 300)
     assert service.state == "inactive"
-    wait_until_instances_get_stopped(admin_client, service)
-    check_stopped_container_in_service(admin_client, service)
+    wait_until_instances_get_stopped(client, service)
+    check_stopped_container_in_service(client, service)
 
     # Activate Services
     service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
     # Delete Service
     service = client.wait_success(client.delete(service))
     assert service.state == "removed"
 
-    check_for_deleted_service(admin_client, env, service)
+    check_for_deleted_service(client, env, service)
 
     delete_all(client, [env])
 
 
 def test_service_activate_stop_instance(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     service = shared_env[0]["service"]
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
+    check_for_service_reconciliation_on_stop(client, service)
 
 
 def test_service_activate_delete_instance(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     service = shared_env[0]["service"]
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+    check_for_service_reconciliation_on_delete(client, service)
 
 
 def test_service_activate_purge_instance(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     service = shared_env[0]["service"]
 
     # Purge 2 instances
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     container1 = containers[0]
     container1 = client.wait_success(client.delete(container1))
     container1 = client.wait_success(container1.purge())
@@ -633,20 +632,20 @@ def test_service_activate_purge_instance(
     container2 = client.wait_success(client.delete(container2))
     container2 = client.wait_success(container2.purge())
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
 
 @pytest.mark.skipif(
     True, reason="Skip since there is no support for restore from v1.6.0")
 def test_service_activate_restore_instance(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     service = shared_env[0]["service"]
 
     # Restore 2 instances
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     container1 = containers[0]
     container1 = client.wait_success(client.delete(container1))
     container1 = client.wait_success(container1.restore())
@@ -657,118 +656,118 @@ def test_service_activate_restore_instance(
     assert container1.state == "stopped"
     assert container2.state == "stopped"
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
     delete_all(client, [container1, container2])
 
 
-def test_service_scale_up(admin_client, client, socat_containers):
-    check_service_scale(admin_client, client, socat_containers, 2, 4)
+def test_service_scale_up(client, socat_containers):
+    check_service_scale(client, socat_containers, 2, 4)
 
 
-def test_service_scale_down(admin_client, client, socat_containers):
-    check_service_scale(admin_client, client, socat_containers, 4, 2, 2)
+def test_service_scale_down(client, socat_containers):
+    check_service_scale(client, socat_containers, 4, 2, 2)
 
 
 def test_service_activate_stop_instance_scale_up(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [1])
+        client, socat_containers, 3, 4, [1])
 
 
 def test_service_activate_delete_instance_scale_up(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [1])
+        client, socat_containers, 3, 4, [1])
 
 
 def test_service_activate_stop_instance_scale_down(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [1], 3)
+        client, socat_containers, 4, 1, [1], 3)
 
 
 def test_service_activate_delete_instance_scale_down(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [1], 3)
+        client, socat_containers, 4, 1, [1], 3)
 
 
 def test_service_activate_stop_instance_scale_up_1(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [3])
+        client, socat_containers, 3, 4, [3])
 
 
 def test_service_activate_delete_instance_scale_up_1(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [3])
+        client, socat_containers, 3, 4, [3])
 
 
 def test_service_activate_stop_instance_scale_down_1(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [4], 3)
+        client, socat_containers, 4, 1, [4], 3)
 
 
 def test_service_activate_delete_instance_scale_down_1(
-        admin_client, client, socat_containers):
-    check_service_activate_delete_instance_scale(admin_client, client,
+        client, socat_containers):
+    check_service_activate_delete_instance_scale(client,
                                                  socat_containers,
                                                  4, 1, [4], 3)
 
 
 def test_service_activate_stop_instance_scale_up_2(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [1, 2, 3])
+        client, socat_containers, 3, 4, [1, 2, 3])
 
 
 def test_service_activate_delete_instance_scale_up_2(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [1, 2, 3])
+        client, socat_containers, 3, 4, [1, 2, 3])
 
 
 def test_service_activate_stop_instance_scale_down_2(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [1, 2, 3, 4], 3)
+        client, socat_containers, 4, 1, [1, 2, 3, 4], 3)
 
 
 def test_service_activate_delete_instance_scale_down_2(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [1, 2, 3, 4])
+        client, socat_containers, 4, 1, [1, 2, 3, 4])
 
 
 def test_service_activate_stop_instance_scale_up_3(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [2])
+        client, socat_containers, 3, 4, [2])
 
 
 def test_service_activate_delete_instance_scale_up_3(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 3, 4, [2])
+        client, socat_containers, 3, 4, [2])
 
 
 def test_service_activate_stop_instance_scale_down_3(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_stop_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [2], 3)
+        client, socat_containers, 4, 1, [2], 3)
 
 
 def test_service_activate_delete_instance_scale_down_3(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     check_service_activate_delete_instance_scale(
-        admin_client, client, socat_containers, 4, 1, [2], 3)
+        client, socat_containers, 4, 1, [2], 3)
 
 
-def test_services_hostname_override_1(admin_client, client, socat_containers):
+def test_services_hostname_override_1(client, socat_containers):
 
     host_name = "test"
     domain_name = "abc.com"
@@ -790,9 +789,9 @@ def test_services_hostname_override_1(admin_client, client, socat_containers):
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
     print container_list
     for c in container_list:
@@ -804,7 +803,7 @@ def test_services_hostname_override_1(admin_client, client, socat_containers):
     delete_all(client, [env])
 
 
-def test_services_hostname_override_2(admin_client, client, socat_containers):
+def test_services_hostname_override_2(client, socat_containers):
 
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "labels":
@@ -821,9 +820,9 @@ def test_services_hostname_override_2(admin_client, client, socat_containers):
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
     for c in container_list:
         docker_client = get_docker_client(c.hosts[0])
@@ -835,56 +834,56 @@ def test_services_hostname_override_2(admin_client, client, socat_containers):
 
 
 def test_service_reconcile_stop_instance_restart_policy_always(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "always"}}
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_always(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "always"}}
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_no(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "labels": {"io.rancher.container.start_once": True}
                      }
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_stop_instance_restart_policy_no(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "labels": {"io.rancher.container.start_once": True}}
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
+        client, launch_config, scale)
 
     # Stop 2 containers of the service
     assert service.scale > 1
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
-    stop_container_from_host(admin_client, container1)
+    stop_container_from_host(client, container1)
     container2 = containers[1]
-    stop_container_from_host(admin_client, container2)
+    stop_container_from_host(client, container2)
 
     service = wait_state(client, service, "active")
     time.sleep(30)
@@ -899,98 +898,98 @@ def test_service_reconcile_stop_instance_restart_policy_no(
 
 
 def test_service_reconcile_stop_instance_restart_policy_failure(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_failure(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_stop_instance_restart_policy_failure_count(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"maximumRetryCount": 5,
                                        "name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_stop(client, service)
     delete_all(client, [env])
 
 
 def test_service_reconcile_delete_instance_restart_policy_failure_count(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     launch_config = {"imageUuid": TEST_IMAGE_UUID,
                      "restartPolicy": {"maximumRetryCount": 5,
                                        "name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+        client, launch_config, scale)
+    check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
 
 
-def test_service_with_healthcheck(admin_client, client, socat_containers):
+def test_service_with_healthcheck(client, socat_containers):
     scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale)
+        client, scale)
     delete_all(client, [env])
 
 
-def test_service_with_healthcheck_none(admin_client, client, socat_containers):
+def test_service_with_healthcheck_none(client, socat_containers):
     scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, strategy="none")
+        client, scale, strategy="none")
     delete_all(client, [env])
 
 
 def test_service_with_healthcheck_recreate(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 10
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, strategy="recreate")
+        client, scale, strategy="recreate")
     delete_all(client, [env])
 
 
 def test_service_with_healthcheck_recreateOnQuorum(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 10
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, strategy="recreateOnQuorum", qcount=5)
+        client, scale, strategy="recreateOnQuorum", qcount=5)
     delete_all(client, [env])
 
 
 def test_service_with_healthcheck_container_unhealthy(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 2
     port = 9998
 
-    env, service = service_with_healthcheck_enabled(client, admin_client,
+    env, service = service_with_healthcheck_enabled(client,
                                                     scale, port)
 
     # Delete requestUrl from one of the containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con = container_list[1]
-    mark_container_unhealthy(admin_client, con, port)
+    mark_container_unhealthy(client, con, port)
 
     wait_for_condition(
         client, con,
@@ -1003,11 +1002,11 @@ def test_service_with_healthcheck_container_unhealthy(
         client, con,
         lambda x: x.state in ('removed', 'purged'),
         lambda x: 'State is: ' + x.healthState)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     con = client.reload(con)
     assert con.state in ('removed', 'purged')
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -1017,22 +1016,22 @@ def test_service_with_healthcheck_container_unhealthy(
 
 
 def test_service_with_healthcheck_container_unhealthy_retainip(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 2
     port = 799
 
-    env, service = service_with_healthcheck_enabled(client, admin_client,
+    env, service = service_with_healthcheck_enabled(client,
                                                     scale, port,
                                                     retainIp=True)
 
     # Delete requestUrl from one of the containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con = container_list[1]
     con_name = con.name
     external_id = con.externalId
     ipAddress = con.primaryIpAddress
-    mark_container_unhealthy(admin_client, con, port)
+    mark_container_unhealthy(client, con, port)
 
     wait_for_condition(
         client, con,
@@ -1045,11 +1044,11 @@ def test_service_with_healthcheck_container_unhealthy_retainip(
         client, con,
         lambda x: x.state in ('removed', 'purged'),
         lambda x: 'State is: ' + x.healthState)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     con = client.reload(con)
     assert con.state in ('removed', 'purged')
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -1059,8 +1058,8 @@ def test_service_with_healthcheck_container_unhealthy_retainip(
     # Make sure that the new container that was created has the same ip as the
     # Unhealthy container
 
-    containers = admin_client.list_container(name=con_name,
-                                             removed_null=True)
+    containers = client.list_container(name=con_name,
+                                       removed_null=True)
     assert len(containers) == 1
     container = containers[0]
     assert container.state == 'running'
@@ -1075,19 +1074,19 @@ def test_service_with_healthcheck_container_unhealthy_retainip(
 
 
 def test_service_with_healthcheck_none_container_unhealthy(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     port = 800
 
-    env, service = service_with_healthcheck_enabled(client, admin_client,
+    env, service = service_with_healthcheck_enabled(client,
                                                     scale, port,
                                                     strategy="none")
 
     # Delete requestUrl from one of the containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con1 = container_list[1]
-    mark_container_unhealthy(admin_client, con1, port)
+    mark_container_unhealthy(client, con1, port)
 
     # Validate that the container is marked unhealthy
     wait_for_condition(
@@ -1105,7 +1104,7 @@ def test_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "unhealthy"
     assert con1.state == "running"
 
-    mark_container_healthy(admin_client, container_list[1], port)
+    mark_container_healthy(client, container_list[1], port)
     # Make sure that the container gets marked healthy
 
     wait_for_condition(
@@ -1120,22 +1119,22 @@ def test_service_with_healthcheck_none_container_unhealthy(
 
 
 def test_service_with_healthcheck_none_container_unhealthy_delete(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     port = 801
 
-    env, service = service_with_healthcheck_enabled(client, admin_client,
+    env, service = service_with_healthcheck_enabled(client,
                                                     scale, port,
                                                     strategy="none")
 
     # Delete requestUrl from containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     unhealthy_containers = [container_list[0],
                             container_list[1]]
 
     for con in unhealthy_containers:
-        mark_container_unhealthy(admin_client, con, port)
+        mark_container_unhealthy(client, con, port)
 
     # Validate that the container is marked unhealthy
     for con in unhealthy_containers:
@@ -1161,11 +1160,11 @@ def test_service_with_healthcheck_none_container_unhealthy_delete(
         assert container.state == 'removed'
 
     # Validate that the service reconciles on deletion of unhealthy containers
-    wait_for_scale_to_adjust(admin_client, service)
-    check_container_in_service(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
+    check_container_in_service(client, service)
 
     # Validate that all containers of the service get to "healthy" state
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -1175,18 +1174,18 @@ def test_service_with_healthcheck_none_container_unhealthy_delete(
 
 
 def test_service_with_healthcheck_quorum_containers_unhealthy_1(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 2
     port = 802
 
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, port, strategy="recreateOnQuorum",
+        client, scale, port, strategy="recreateOnQuorum",
         qcount=1)
 
     # Make 1 container unhealthy , so there is 1 container that is healthy
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con1 = container_list[1]
-    mark_container_unhealthy(admin_client, con1, port)
+    mark_container_unhealthy(client, con1, port)
 
     # Validate that the container is marked unhealthy
     wait_for_condition(
@@ -1201,12 +1200,12 @@ def test_service_with_healthcheck_quorum_containers_unhealthy_1(
         client, con1,
         lambda x: x.state in ('removed', 'purged'),
         lambda x: 'State is: ' + x.healthState)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     con = client.reload(con1)
     assert con.state in ('removed', 'purged')
 
     # Validate that the service reconciles
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -1217,22 +1216,22 @@ def test_service_with_healthcheck_quorum_containers_unhealthy_1(
 
 @pytest.mark.skipif(True, reason="Known issue - #5411")
 def test_service_with_healthcheck_quorum_container_unhealthy_2(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     port = 803
 
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, port, strategy="recreateOnQuorum",
+        client, scale, port, strategy="recreateOnQuorum",
         qcount=2)
 
     # Make 2 containers unhealthy , so 1 container is healthy state
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
 
     unhealthy_containers = [container_list[1],
                             container_list[2]]
 
     for con in unhealthy_containers:
-        mark_container_unhealthy(admin_client, con, port)
+        mark_container_unhealthy(client, con, port)
 
     # Validate that the container is marked unhealthy
     for con in unhealthy_containers:
@@ -1255,14 +1254,14 @@ def test_service_with_healthcheck_quorum_container_unhealthy_2(
 
 
 def test_dns_service_with_healthcheck_none_container_unhealthy(
-        admin_client, client, socat_containers):
+        client, socat_containers):
 
     scale = 3
     port = 804
     cport = 805
 
     # Create HealthCheck enabled Service
-    env, service = service_with_healthcheck_enabled(client, admin_client,
+    env, service = service_with_healthcheck_enabled(client,
                                                     scale, port,
                                                     strategy="none")
     # Create Client Service for DNS access check
@@ -1280,13 +1279,13 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
     assert client_service.state == "active"
 
     # Check for DNS resolution
-    validate_linked_service(admin_client, client_service, [service], cport)
+    validate_linked_service(client, client_service, [service], cport)
 
     # Delete requestUrl from one of the containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con1 = container_list[1]
-    mark_container_unhealthy(admin_client, con1, port)
+    mark_container_unhealthy(client, con1, port)
 
     # Validate that the container is marked unhealthy
     wait_for_condition(
@@ -1297,7 +1296,7 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "unhealthy"
 
     # Check for DNS resolution
-    validate_linked_service(admin_client, client_service, [service],
+    validate_linked_service(client, client_service, [service],
                             cport, exclude_instance=con1)
 
     # Make sure that the container continues to be marked unhealthy
@@ -1308,7 +1307,7 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
     assert con1.healthState == "unhealthy"
     assert con1.state == "running"
 
-    mark_container_healthy(admin_client, container_list[1], port)
+    mark_container_healthy(client, container_list[1], port)
 
     # Make sure that the container gets marked healthy
 
@@ -1321,68 +1320,68 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
     assert con1.state == "running"
 
     # Check for DNS resolution
-    validate_linked_service(admin_client, client_service, [service], cport)
+    validate_linked_service(client, client_service, [service], cport)
 
     delete_all(client, [env])
 
 
-def test_service_health_check_scale_up(admin_client, client, socat_containers):
+def test_service_health_check_scale_up(client, socat_containers):
 
     scale = 1
     final_scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale)
+        client, scale)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
     service = client.wait_success(service, 300)
     assert service.state == "active"
     assert service.scale == final_scale
-    check_container_in_service(admin_client, service)
-    check_for_healthstate(client, admin_client, service)
+    check_container_in_service(client, service)
+    check_for_healthstate(client, service)
     delete_all(client, [env])
 
 
 def test_service_health_check_reconcile_on_stop(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale)
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
-    check_for_healthstate(client, admin_client, service)
+        client, scale)
+    check_for_service_reconciliation_on_stop(client, service)
+    check_for_healthstate(client, service)
     delete_all(client, [env])
 
 
 def test_service_health_check_reconcile_on_delete(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
-    check_for_healthstate(client, admin_client, service)
+        client, scale)
+    check_for_service_reconciliation_on_delete(client, service)
+    check_for_healthstate(client, service)
     delete_all(client, [env])
 
 
 def test_service_health_check_with_tcp(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 3
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, protocol="tcp")
+        client, scale, protocol="tcp")
     delete_all(client, [env])
 
 
 def test_service_with_healthcheck_container_tcp_unhealthy(
-        admin_client, client, socat_containers):
+        client, socat_containers):
     scale = 2
     port = 9997
 
     env, service = service_with_healthcheck_enabled(
-        client, admin_client, scale, port, protocol="tcp")
+        client, scale, port, protocol="tcp")
 
     # Stop ssh service from one of the containers to trigger health check
     # failure and service reconcile
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     con = container_list[1]
-    con_host = admin_client.by_id('host', con.hosts[0].id)
+    con_host = client.by_id('host', con.hosts[0].id)
     hostIpAddress = con_host.ipAddresses()[0].address
 
     ssh = paramiko.SSHClient()
@@ -1404,11 +1403,11 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
         client, con,
         lambda x: x.state in ('removed', 'purged'),
         lambda x: 'State is: ' + x.healthState)
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
     con = client.reload(con)
     assert con.state in ('removed', 'purged')
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,
@@ -1419,7 +1418,7 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
 
 @pytest.mark.skipif(True,
                     reason='Service names not editable from 1.6 release')
-def test_service_name_unique(admin_client, client):
+def test_service_name_unique(client):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
@@ -1437,7 +1436,7 @@ def test_service_name_unique(admin_client, client):
     delete_all(client, [env])
 
 
-def test_service_name_unique_create_after_delete(admin_client, client):
+def test_service_name_unique_create_after_delete(client):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
@@ -1452,7 +1451,7 @@ def test_service_name_unique_create_after_delete(admin_client, client):
     delete_all(client, [env])
 
 
-def test_service_name_unique_edit(admin_client, client):
+def test_service_name_unique_edit(client):
     launch_config = {"imageUuid": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
@@ -1472,7 +1471,7 @@ def test_service_name_unique_edit(admin_client, client):
     delete_all(client, [env])
 
 
-def test_service_retain_ip(admin_client, client):
+def test_service_retain_ip(client):
     launch_config = {"imageUuid": SSH_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 3, retainIp=True)
     service = service.activate()
@@ -1480,8 +1479,8 @@ def test_service_retain_ip(admin_client, client):
     assert service.state == "active"
 
     container_name = get_container_name(env, service, "1")
-    containers = admin_client.list_container(name=container_name,
-                                             removed_null=True)
+    containers = client.list_container(name=container_name,
+                                       removed_null=True)
     assert len(containers) == 1
     container = containers[0]
     ipAddress = container.primaryIpAddress
@@ -1489,11 +1488,11 @@ def test_service_retain_ip(admin_client, client):
 
     container = client.wait_success(client.delete(container))
     assert container.state == 'removed'
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
     container_name = get_container_name(env, service, 1)
-    containers = admin_client.list_container(name=container_name,
-                                             removed_null=True)
+    containers = client.list_container(name=container_name,
+                                       removed_null=True)
     assert len(containers) == 1
     container = containers[0]
     assert container.state == 'running'
@@ -1504,7 +1503,7 @@ def test_service_retain_ip(admin_client, client):
     assert externalId != new_externalId
 
 
-def test_services_rolling_strategy(admin_client, client,
+def test_services_rolling_strategy(client,
                                    socat_containers):
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
                      }
@@ -1512,7 +1511,7 @@ def test_services_rolling_strategy(admin_client, client,
 
     env = env.activateservices()
     service = client.wait_success(service, 300)
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 5
     for con in container_list:
         assert con.state == "running"
@@ -1526,8 +1525,8 @@ def test_services_rolling_strategy(admin_client, client,
         rollingRestartStrategy=rollingrestartstrategy))
 
     assert service.state == "active"
-    check_container_in_service(admin_client, service)
-    container_list = get_service_container_list(admin_client, service)
+    check_container_in_service(client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 5
     for con in container_list:
         assert con.state == "running"
@@ -1538,7 +1537,7 @@ def test_services_rolling_strategy(admin_client, client,
     delete_all(client, [env])
 
 
-def test_service_reconcile_on_stop_exposed_port(admin_client, client,
+def test_service_reconcile_on_stop_exposed_port(client,
                                                 socat_containers):
     port = "45"
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
@@ -1547,11 +1546,11 @@ def test_service_reconcile_on_stop_exposed_port(admin_client, client,
     env = env.activateservices()
     env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    check_for_service_reconciliation_on_stop(admin_client, client, service)
+    check_for_service_reconciliation_on_stop(client, service)
     delete_all(client, [env])
 
 
-def test_service_reconcile_on_restart_exposed_port(admin_client, client,
+def test_service_reconcile_on_restart_exposed_port(client,
                                                    socat_containers):
     port = "46"
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
@@ -1560,11 +1559,11 @@ def test_service_reconcile_on_restart_exposed_port(admin_client, client,
     env = env.activateservices()
     env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    check_for_service_reconciliation_on_restart(admin_client, client, service)
+    check_for_service_reconciliation_on_restart(client, service)
     delete_all(client, [env])
 
 
-def test_service_reconcile_on_delete_exposed_port(admin_client, client,
+def test_service_reconcile_on_delete_exposed_port(client,
                                                   socat_containers):
     port = "47"
     launch_config = {"imageUuid": SSH_IMAGE_UUID,
@@ -1573,37 +1572,37 @@ def test_service_reconcile_on_delete_exposed_port(admin_client, client,
     env = env.activateservices()
     env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    check_for_service_reconciliation_on_delete(admin_client, client, service)
+    check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
 
 
 @if_container_refactoring
-def test_global_service(admin_client, client):
+def test_global_service(client):
     min_scale = 2
     max_scale = 4
     increment = 2
     env, service = create_global_service(client, min_scale, max_scale,
                                          increment, host_label=None)
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == 2
     delete_all(client, [env])
 
 
-def check_service_scale(admin_client, client, socat_containers,
+def check_service_scale(client, socat_containers,
                         initial_scale, final_scale,
                         removed_instance_count=0):
 
-    service, env = create_env_and_svc_activate(admin_client, client,
+    service, env = create_env_and_svc_activate(client,
                                                initial_scale)
 
-    container_list = check_container_in_service(admin_client, service)
+    container_list = check_container_in_service(client, service)
     # Scale service
     service = client.update(service, name=service.name, scale=final_scale)
     service = client.wait_success(service, 300)
     assert service.state == "active"
     assert service.scale == final_scale
 
-    updated_container_list = check_container_in_service(admin_client, service)
+    updated_container_list = check_container_in_service(client, service)
     removed_container_list = []
 
     for con in container_list:
@@ -1617,20 +1616,20 @@ def check_service_scale(admin_client, client, socat_containers,
 
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale:
-        check_container_removed_from_service(admin_client, service,
+        check_container_removed_from_service(client, service,
                                              removed_container_list)
     delete_all(client, [env])
 
 
-def check_service_activate_stop_instance_scale(admin_client, client,
+def check_service_activate_stop_instance_scale(client,
                                                socat_containers,
                                                initial_scale, final_scale,
                                                stop_instance_index,
                                                removed_instance_count=0):
 
-    service, env = create_env_and_svc_activate(admin_client, client,
+    service, env = create_env_and_svc_activate(client,
                                                initial_scale)
-    container_list = check_container_in_service(admin_client, service)
+    container_list = check_container_in_service(client, service)
     # Stop instance
     for i in stop_instance_index:
         container_name = get_container_name(env, service, str(i))
@@ -1638,7 +1637,7 @@ def check_service_activate_stop_instance_scale(admin_client, client,
                                            include="hosts")
         assert len(containers) == 1
         container = containers[0]
-        stop_container_from_host(admin_client, container)
+        stop_container_from_host(client, container)
 
     service = wait_state(client, service, "active")
 
@@ -1650,7 +1649,7 @@ def check_service_activate_stop_instance_scale(admin_client, client,
     assert service.scale == final_scale
     logger.info("Scaled service - " + str(final_scale))
 
-    updated_container_list = check_container_in_service(admin_client, service)
+    updated_container_list = check_container_in_service(client, service)
     removed_container_list = []
 
     for con in container_list:
@@ -1664,18 +1663,18 @@ def check_service_activate_stop_instance_scale(admin_client, client,
 
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale and removed_instance_count > 0:
-        check_container_removed_from_service(admin_client, service,
+        check_container_removed_from_service(client, service,
                                              removed_container_list)
     delete_all(client, [env])
 
 
-def check_service_activate_delete_instance_scale(admin_client, client,
+def check_service_activate_delete_instance_scale(client,
                                                  socat_containers,
                                                  initial_scale, final_scale,
                                                  delete_instance_index,
                                                  removed_instance_count=0):
 
-    service, env = create_env_and_svc_activate(admin_client, client,
+    service, env = create_env_and_svc_activate(client,
                                                initial_scale)
 
     # Delete instance
@@ -1699,12 +1698,12 @@ def check_service_activate_delete_instance_scale(admin_client, client,
     assert service.scale == final_scale
     logger.info("Scaled service - " + str(final_scale))
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
     """
     # Check for destroyed containers in case of scale down
     if final_scale < initial_scale and removed_instance_count > 0:
         if removed_instance_count is not None:
-            check_container_removed_from_service(admin_client, service,
+            check_container_removed_from_service(client, service,
                                                  removed_instance_count)
     """
     delete_all(client, [env])
@@ -1721,15 +1720,15 @@ def _validate_add_service_link(service, client, scale):
         lambda x: 'State is: ' + x.state)
 
 
-def check_stopped_container_in_service(admin_client, service):
+def check_stopped_container_in_service(client, service):
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
 
     assert len(container_list) == service.scale
 
     for container in container_list:
         assert container.state == "stopped"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=container.externalId,
             include="hosts",
             removed_null=True)
@@ -1739,19 +1738,19 @@ def check_stopped_container_in_service(admin_client, service):
         assert inspect["State"]["Running"] is False
 
 
-def check_container_removed_from_service(admin_client, service,
+def check_container_removed_from_service(client, service,
                                          removed_container_list):
-    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = client.list_serviceExposeMap(serviceId=service.id)
     assert len(instance_maps) == service.scale
 
     for container in removed_container_list:
         wait_for_condition(
-            admin_client, container,
+            client, container,
             lambda x: x.state == "removed" or x.state == "purged",
             lambda x: 'State is: ' + x.state)
         if container.state == "removed":
-            containers = admin_client.list_container(name=container.name,
-                                                     include="hosts")
+            containers = client.list_container(name=container.name,
+                                               include="hosts")
             assert len(containers) == 1
             docker_client = get_docker_client(containers[0].hosts[0])
             inspect = docker_client.inspect_container(container.externalId)
@@ -1760,52 +1759,52 @@ def check_container_removed_from_service(admin_client, service,
             assert inspect["State"]["Running"] is False
 
 
-def check_for_deleted_service(admin_client, env, service):
+def check_for_deleted_service(client, env, service):
 
-    service_maps = admin_client.list_serviceExposeMap(serviceId=service.id)
+    service_maps = client.list_serviceExposeMap(serviceId=service.id)
 
     for service_map in service_maps:
         wait_for_condition(
-            admin_client, service_map,
+            client, service_map,
             lambda x: x.state == "removed",
             lambda x: 'State is: ' + x.state)
-        container = admin_client.by_id('container', service_map.instanceId)
+        container = client.by_id('container', service_map.instanceId)
         wait_for_condition(
-            admin_client, container,
+            client, container,
             lambda x: x.state == "purged",
             lambda x: 'State is: ' + x.state,
             timeout=600)
         logger.info("Checked for purged container - " + container.name)
 
 
-def check_service_map(admin_client, service, instance, state):
-    instance_service_map = admin_client.\
+def check_service_map(client, service, instance, state):
+    instance_service_map = client.\
         list_serviceExposeMap(serviceId=service.id, instanceId=instance.id)
     assert len(instance_service_map) == 1
     assert instance_service_map[0].state == state
 
 
-def check_for_service_reconciliation_on_stop(admin_client, client, service,
+def check_for_service_reconciliation_on_stop(client, service,
                                              stopFromRancher=False,
                                              shouldRestart=True):
     # Stop 2 containers of the service
     assert service.scale > 1
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
     container2 = containers[1]
     if not stopFromRancher:
-        stop_container_from_host(admin_client, container1)
-        stop_container_from_host(admin_client, container2)
+        stop_container_from_host(client, container1)
+        stop_container_from_host(client, container2)
     else:
         client.wait_success(container1.stop(), 120)
         client.wait_success(container2.stop(), 120)
     service = wait_state(client, service, "active")
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
     container1 = client.reload(container1)
     container2 = client.reload(container2)
     if shouldRestart:
@@ -1816,10 +1815,10 @@ def check_for_service_reconciliation_on_stop(admin_client, client, service,
         assert container2.state == 'stopped'
 
 
-def check_for_service_reconciliation_on_restart(admin_client, client, service):
+def check_for_service_reconciliation_on_restart(client, service):
     # Stop 2 containers of the service
     assert service.scale > 1
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     assert len(containers) == service.scale
     assert service.scale > 1
     container1 = containers[0]
@@ -1829,18 +1828,18 @@ def check_for_service_reconciliation_on_restart(admin_client, client, service):
 
     service = wait_state(client, service, "active")
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
     container1 = client.reload(container1)
     container2 = client.reload(container2)
     assert container1.state == 'running'
     assert container2.state == 'running'
 
 
-def check_for_service_reconciliation_on_delete(admin_client, client, service):
+def check_for_service_reconciliation_on_delete(client, service):
     # Delete 2 containers of the service
-    containers = get_service_container_list(admin_client, service)
+    containers = get_service_container_list(client, service)
     container1 = containers[0]
     container1 = client.wait_success(client.delete(container1))
     container2 = containers[1]
@@ -1849,12 +1848,12 @@ def check_for_service_reconciliation_on_delete(admin_client, client, service):
     assert container1.state == 'removed'
     assert container2.state == 'removed'
 
-    wait_for_scale_to_adjust(admin_client, service)
+    wait_for_scale_to_adjust(client, service)
 
-    check_container_in_service(admin_client, service)
+    check_container_in_service(client, service)
 
 
-def service_with_healthcheck_enabled(client, admin_client, scale, port=None,
+def service_with_healthcheck_enabled(client, scale, port=None,
                                      protocol="http", labels=None,
                                      strategy=None, qcount=None,
                                      retainIp=False):
@@ -1882,8 +1881,8 @@ def service_with_healthcheck_enabled(client, admin_client, scale, port=None,
     if labels is not None:
         launch_config["labels"] = labels
     service, env = create_env_and_svc_activate_launch_config(
-        admin_client, client, launch_config, scale, retainIp=retainIp)
-    container_list = get_service_container_list(admin_client, service)
+        client, launch_config, scale, retainIp=retainIp)
+    container_list = get_service_container_list(client, service)
     assert \
         len(container_list) == get_service_instance_count(client, service)
     for con in container_list:
@@ -1894,8 +1893,8 @@ def service_with_healthcheck_enabled(client, admin_client, scale, port=None,
     return env, service
 
 
-def check_for_healthstate(client, admin_client, service):
-    container_list = get_service_container_list(admin_client, service)
+def check_for_healthstate(client, service):
+    container_list = get_service_container_list(client, service)
     for con in container_list:
         wait_for_condition(
             client, con,

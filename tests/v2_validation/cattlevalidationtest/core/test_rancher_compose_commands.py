@@ -11,7 +11,7 @@ if_compose_data_files = pytest.mark.skipif(
 
 
 @if_compose_data_files
-def test_rancher_compose_create_service(admin_client, client,
+def test_rancher_compose_create_service(client,
                                         rancher_compose_container):
     # This method tests the rancher compose create and up commands
 
@@ -31,9 +31,9 @@ def test_rancher_compose_create_service(admin_client, client,
     assert service.scale == 3
     assert service.name == "test1"
 
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -42,7 +42,7 @@ def test_rancher_compose_create_service(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_start_stop(admin_client, client,
+def test_rancher_compose_start_stop(client,
                                     rancher_compose_container):
 
     # This method tests the rancher compose start and stop commands
@@ -59,9 +59,9 @@ def test_rancher_compose_start_stop(admin_client, client,
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -77,7 +77,7 @@ def test_rancher_compose_start_stop(admin_client, client,
     # Confirm service is inactive and the containers are stopped
     assert service.state == "inactive"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
 
     # Check for containers being stopped
@@ -91,9 +91,9 @@ def test_rancher_compose_start_stop(admin_client, client,
     # Confirm service is active and the containers are running
     service = client.wait_success(service, 300)
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -102,7 +102,7 @@ def test_rancher_compose_start_stop(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_start_down(admin_client, client,
+def test_rancher_compose_start_down(client,
                                     rancher_compose_container):
 
     # This method tests the rancher compose start and down commands
@@ -117,9 +117,9 @@ def test_rancher_compose_start_down(admin_client, client,
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -134,22 +134,22 @@ def test_rancher_compose_start_down(admin_client, client,
 
     # Confirm service is inactive and the containers are stopped
     assert service.state == "inactive"
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     # Check for containers being stopped
     for container in container_list:
         assert container.state == "stopped"
 
-    launch_rancher_compose_from_file(
-          client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
-          "start -d", "Started", "rc1.yml")
+    launch_rancher_compose_from_file(client, RCCOMMANDS_SUBDIR,
+                                     "dc1.yml", env_name,
+                                     "start -d", "Started", "rc1.yml")
 
     # Confirm service is active and the containers are running
     service = client.wait_success(service, 300)
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -158,7 +158,7 @@ def test_rancher_compose_start_down(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_service_restart(admin_client, client,
+def test_rancher_compose_service_restart(client,
                                          rancher_compose_container):
     # This method tests the rancher compose restart command
     env_name = random_str().replace("-", "")
@@ -175,16 +175,16 @@ def test_rancher_compose_service_restart(admin_client, client,
     service2 = client.wait_success(service2, 300)
     assert service1.state == "active"
     assert service2.state == "active"
-    check_config_for_service(admin_client, service1, {"test1": "value1"}, 1)
-    check_config_for_service(admin_client, service2, {"test2": "value2"}, 1)
+    check_config_for_service(client, service1, {"test1": "value1"}, 1)
+    check_config_for_service(client, service2, {"test2": "value2"}, 1)
 
-    container_list1 = get_service_container_list(admin_client, service1)
+    container_list1 = get_service_container_list(client, service1)
     assert len(container_list1) == 4
     for container in container_list1:
         assert container.state == "running"
         assert container.startCount == 1
 
-    container_list2 = get_service_container_list(admin_client, service2)
+    container_list2 = get_service_container_list(client, service2)
     assert len(container_list2) == 4
     for con in container_list2:
         assert con.state == "running"
@@ -201,16 +201,16 @@ def test_rancher_compose_service_restart(admin_client, client,
     service2 = client.wait_success(service2, 300)
     assert service1.state == "active"
     assert service2.state == "active"
-    check_config_for_service(admin_client, service1, {"test1": "value1"}, 1)
-    check_config_for_service(admin_client, service2, {"test2": "value2"}, 1)
+    check_config_for_service(client, service1, {"test1": "value1"}, 1)
+    check_config_for_service(client, service2, {"test2": "value2"}, 1)
 
-    container_list1 = get_service_container_list(admin_client, service1)
+    container_list1 = get_service_container_list(client, service1)
     assert len(container_list1) == 4
     for container in container_list1:
         assert container.state == "running"
         assert container.startCount == 2
 
-    container_list2 = get_service_container_list(admin_client, service2)
+    container_list2 = get_service_container_list(client, service2)
     assert len(container_list2) == 4
     for container in container_list2:
         assert container.state == "running"
@@ -220,8 +220,7 @@ def test_rancher_compose_service_restart(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_service_restart_bat_inter(admin_client,
-                                                   client,
+def test_rancher_compose_service_restart_bat_inter(client,
                                                    rancher_compose_container):
     # This method tests restart command with batchsize and inteval options
     env_name = random_str().replace("-", "")
@@ -238,16 +237,16 @@ def test_rancher_compose_service_restart_bat_inter(admin_client,
     service2 = client.wait_success(service2, 300)
     assert service1.state == "active"
     assert service2.state == "active"
-    check_config_for_service(admin_client, service1, {"test1": "value1"}, 1)
-    check_config_for_service(admin_client, service2, {"test2": "value2"}, 1)
+    check_config_for_service(client, service1, {"test1": "value1"}, 1)
+    check_config_for_service(client, service2, {"test2": "value2"}, 1)
 
-    container_list1 = get_service_container_list(admin_client, service1)
+    container_list1 = get_service_container_list(client, service1)
     assert len(container_list1) == 4
     for container in container_list1:
         assert container.state == "running"
         assert container.startCount == 1
 
-    container_list2 = get_service_container_list(admin_client, service2)
+    container_list2 = get_service_container_list(client, service2)
     assert len(container_list2) == 4
     for con in container_list2:
         assert con.state == "running"
@@ -264,16 +263,16 @@ def test_rancher_compose_service_restart_bat_inter(admin_client,
     service2 = client.wait_success(service2, 300)
     assert service1.state == "active"
     assert service2.state == "active"
-    check_config_for_service(admin_client, service1, {"test1": "value1"}, 1)
-    check_config_for_service(admin_client, service2, {"test2": "value2"}, 1)
+    check_config_for_service(client, service1, {"test1": "value1"}, 1)
+    check_config_for_service(client, service2, {"test2": "value2"}, 1)
 
-    container_list1 = get_service_container_list(admin_client, service1)
+    container_list1 = get_service_container_list(client, service1)
     assert len(container_list1) == 4
     for container in container_list1:
         assert container.state == "running"
         assert container.startCount == 2
 
-    container_list2 = get_service_container_list(admin_client, service2)
+    container_list2 = get_service_container_list(client, service2)
     assert len(container_list2) == 4
     for container in container_list2:
         assert container.state == "running"
@@ -283,7 +282,7 @@ def test_rancher_compose_service_restart_bat_inter(admin_client,
 
 
 @if_compose_data_files
-def test_rancher_compose_services_delete(admin_client, client,
+def test_rancher_compose_services_delete(client,
                                          rancher_compose_container):
     # This method tests the delete command
     env_name = random_str().replace("-", "")
@@ -296,9 +295,9 @@ def test_rancher_compose_services_delete(admin_client, client,
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -307,18 +306,15 @@ def test_rancher_compose_services_delete(admin_client, client,
         client, RCCOMMANDS_SUBDIR, "dc1.yml", env_name,
         "rm -f", "Deleting", "rc1.yml")
 
-    # Confirm service is active and the containers are running
+    # Confirm service is removed
     service = client.wait_success(service, 300)
     assert service.state == "removed"
-
-    container_list = get_service_container_list(admin_client, service)
-    assert len(container_list) == 0
 
     delete_all(client, [env])
 
 
 @if_compose_data_files
-def test_rancher_compose_services_scale(admin_client, client,
+def test_rancher_compose_services_scale(client,
                                         rancher_compose_container):
     # This method tests the scale command
     env_name = random_str().replace("-", "")
@@ -331,9 +327,9 @@ def test_rancher_compose_services_scale(admin_client, client,
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
-    check_config_for_service(admin_client, service, {"test1": "value1"}, 1)
+    check_config_for_service(client, service, {"test1": "value1"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
         assert container.state == "running"
@@ -347,7 +343,7 @@ def test_rancher_compose_services_scale(admin_client, client,
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     # Check if the number of containers are incremented correctly
     assert len(container_list) == 4
     for container in container_list:
@@ -362,7 +358,7 @@ def test_rancher_compose_services_scale(admin_client, client,
     service = client.wait_success(service, 300)
     assert service.state == "active"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     # Check if the number of containers are decremented correctly
     assert len(container_list) == 3
     for container in container_list:
@@ -372,7 +368,7 @@ def test_rancher_compose_services_scale(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_services_security(admin_client, client,
+def test_rancher_compose_services_security(client,
                                            rancher_compose_container,
                                            socat_containers):
     # This method tests the options in security tab in the UI
@@ -387,11 +383,11 @@ def test_rancher_compose_services_security(admin_client, client,
     # Confirm service is active and the containers are running
     assert service.state == "active"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for con in container_list:
         assert con.state == "running"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
@@ -412,7 +408,7 @@ def test_rancher_compose_services_security(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_services_log_driver(admin_client, client,
+def test_rancher_compose_services_log_driver(client,
                                              rancher_compose_container,
                                              socat_containers):
     # This test case fails bcos of bug #4773
@@ -428,11 +424,11 @@ def test_rancher_compose_services_log_driver(admin_client, client,
     # Confirm service is active and the containers are running
     assert service.state == "active"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for con in container_list:
         assert con.state == "running"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
@@ -446,7 +442,7 @@ def test_rancher_compose_services_log_driver(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_services_network(admin_client, client,
+def test_rancher_compose_services_network(client,
                                           rancher_compose_container,
                                           socat_containers):
     # This method tests the options in Network tab in the UI
@@ -462,20 +458,20 @@ def test_rancher_compose_services_network(admin_client, client,
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
-    check_config_for_service(admin_client, service,
+    check_config_for_service(client, service,
                              {"testrc": "RANCHER_COMPOSE"}, 1)
-    check_config_for_service(admin_client, service,
+    check_config_for_service(client, service,
                              {"io.rancher.container.requested_ip":
                               "209.243.140.21"}, 1)
-    check_config_for_service(admin_client, service,
+    check_config_for_service(client, service,
                              {"io.rancher.container.hostname_override":
                                  "container_name"}, 1)
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 2
     for con in container_list:
         assert con.state == "running"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
@@ -496,7 +492,7 @@ def test_rancher_compose_services_network(admin_client, client,
 
 
 @if_compose_data_files
-def test_rancher_compose_services_volume(admin_client, client,
+def test_rancher_compose_services_volume(client,
                                          rancher_compose_container,
                                          socat_containers):
 
@@ -511,11 +507,11 @@ def test_rancher_compose_services_volume(admin_client, client,
     # Confirm service is active and the containers are running
     assert service.state == "active"
 
-    container_list = get_service_container_list(admin_client, service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == 2
     for con in container_list:
         assert con.state == "running"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
             removed_null=True)

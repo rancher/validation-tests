@@ -1,7 +1,7 @@
 from common_fixtures import *  # NOQA
 
 
-def test_webhook_scaleup(admin_client, client):
+def test_webhook_scaleup(client):
 
     # This method tests the service scale up using webhook token
 
@@ -49,7 +49,7 @@ def test_webhook_scaleup(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_beyond_max(admin_client, client):
+def test_webhook_scaleup_beyond_max(client):
 
     # This method tests the service scale up beyond the maximum allowed scale
 
@@ -109,7 +109,7 @@ def test_webhook_scaleup_beyond_max(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_beyond_max_1(admin_client, client):
+def test_webhook_scaleup_beyond_max_1(client):
 
     # This method tests the service scale cannot got up beyond the max scale
     # when the initial request to scale up itself is beyond the max scale
@@ -177,7 +177,7 @@ def test_webhook_scaleup_beyond_max_1(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaledown(admin_client, client):
+def test_webhook_scaledown(client):
 
     # This method tests the service scale down using webhook token
 
@@ -223,7 +223,7 @@ def test_webhook_scaledown(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaledown_below_min(admin_client, client):
+def test_webhook_scaledown_below_min(client):
 
     # This method tests the service scale down below the minimum allowed scale
 
@@ -286,7 +286,7 @@ def test_webhook_scaledown_below_min(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaledown_below_min_1(admin_client, client):
+def test_webhook_scaledown_below_min_1(client):
 
     # This method tests the service scale cannot go down below the min scale
     # when the initial request to scale down itself is below the min scale
@@ -357,7 +357,7 @@ def test_webhook_scaledown_below_min_1(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_invalid_scale_action(admin_client, client):
+def test_webhook_invalid_scale_action(client):
 
     # This method tests the use of invalid scale action
 
@@ -391,7 +391,7 @@ def test_webhook_invalid_scale_action(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_invalid_service_id(admin_client, client):
+def test_webhook_invalid_service_id(client):
 
     # This method tests the use of invalid service id
 
@@ -424,7 +424,7 @@ def test_webhook_invalid_service_id(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_zero_amount(admin_client, client):
+def test_webhook_scaleup_invalid_zero_amount(client):
 
     # This method tests the scale amount of zero
 
@@ -458,7 +458,7 @@ def test_webhook_scaleup_invalid_zero_amount(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_negative_amount(admin_client, client):
+def test_webhook_scaleup_invalid_negative_amount(client):
 
     # This method tests the negative value for scale amount
 
@@ -493,7 +493,7 @@ def test_webhook_scaleup_invalid_negative_amount(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_zero_min(admin_client, client):
+def test_webhook_scaleup_invalid_zero_min(client):
 
     # This method tests the zero value for min scale
 
@@ -529,7 +529,7 @@ def test_webhook_scaleup_invalid_zero_min(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_negative_min(admin_client, client):
+def test_webhook_scaleup_invalid_negative_min(client):
 
     # This method tests the negative value for min scale
 
@@ -564,7 +564,7 @@ def test_webhook_scaleup_invalid_negative_min(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_zero_max(admin_client, client):
+def test_webhook_scaleup_invalid_zero_max(client):
 
     # This method tests the zero value for max scale
 
@@ -600,7 +600,7 @@ def test_webhook_scaleup_invalid_zero_max(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_scaleup_invalid_negative_max(admin_client, client):
+def test_webhook_scaleup_invalid_negative_max(client):
 
     # This method tests the negative value for max scale
 
@@ -635,7 +635,7 @@ def test_webhook_scaleup_invalid_negative_max(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_duplicatename(admin_client, client):
+def test_webhook_duplicatename(client):
 
     # This method tests that a duplicate webhook cannot be generated
 
@@ -684,7 +684,7 @@ def test_webhook_duplicatename(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_external_service(admin_client, client):
+def test_webhook_external_service(client):
 
     # This method tests that an external service cannot be
     # scaled up/down using webhook
@@ -726,7 +726,7 @@ def test_webhook_external_service(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_global_service(admin_client, client):
+def test_webhook_global_service(client):
 
     # This method tests that a global service cannot be
     # scaled up/down using webhook
@@ -764,7 +764,7 @@ def test_webhook_global_service(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_service_no_image(admin_client, client):
+def test_webhook_service_no_image(client):
 
     # This method tests that a service with no image
     # cannot be scaled up/down using webhook
@@ -812,7 +812,7 @@ def test_webhook_service_no_image(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_missing_projectid(admin_client, client):
+def test_webhook_missing_projectid(client):
 
     # This method tests that executing a webhook with missing
     # project id gives an error message
@@ -871,7 +871,7 @@ def test_webhook_missing_projectid(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_invalid_projectid(admin_client, client):
+def test_webhook_invalid_projectid(client):
 
     # This method tests that executing a webhook with an invalid
     # project id gives an error message
@@ -941,7 +941,7 @@ def test_webhook_invalid_projectid(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_invalid_token(admin_client, client):
+def test_webhook_invalid_token(client):
 
     # This method tests that executing a webhook with an
     # invalid token gives an error message
@@ -1011,7 +1011,7 @@ def test_webhook_invalid_token(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_execute_deleted_webhook(admin_client, client):
+def test_webhook_execute_deleted_webhook(client):
 
     # This method tests that executing a deleted webhook gives
     # the appropriate error message
@@ -1073,7 +1073,7 @@ def test_webhook_execute_deleted_webhook(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_invalid_driver(admin_client, client):
+def test_webhook_invalid_driver(client):
 
     # This method tests the use of invalid  driver
 
@@ -1107,7 +1107,7 @@ def test_webhook_invalid_driver(admin_client, client):
     delete_all(client, [env])
 
 
-def test_webhook_list_single_webhook(admin_client, client):
+def test_webhook_list_single_webhook(client):
 
     # This method test lists a single webhook
 
@@ -1143,16 +1143,7 @@ def test_webhook_list_single_webhook(admin_client, client):
     print "Id is " + repr(webhook_id)
 
     # List the webhook by id and ensure we get the correct response
-    url = base_url().split("v2-beta")[0] + \
-        "v1-webhooks/receivers/" + webhook_id + "/?projectId=" \
-        + env.accountId
-    print "List URL is " + url
-    headers = {"Content-Type": "application/json",
-               "Accept": "application/json"}
-    r = requests.get(url, headers=headers)
-    assert r.status_code == 200
-    resp = json.loads(r.content)
-
+    resp = list_webhook(env.accountId, webhook_id=webhook_id)
     assert resp["name"] == "listsinglewebhooktest"
     assert resp["state"] == "active"
     assert resp["driver"] == "scaleService"

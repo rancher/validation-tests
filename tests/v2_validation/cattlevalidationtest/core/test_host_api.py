@@ -37,7 +37,7 @@ def test_host_api_garbage_token(client):
     assert 'Handshake status 401' in str(excinfo.value)
 
 
-def test_host_api_hoststats(client, admin_client):
+def test_host_api_hoststats(client):
     hosts = client.list_host(kind='docker', removed_null=True)
     assert len(hosts) > 0
 
@@ -48,7 +48,7 @@ def test_host_api_hoststats(client, admin_client):
     assert result is not None
     assert result.startswith('[')
 
-    project = admin_client.list_project(uuid="adminProject")[0]
+    project = client.list_project(uuid="adminProject")[0]
     stats = project.hostStats()
     conn = ws.create_connection(stats.url + '?token=' + stats.token)
     result = conn.recv()
