@@ -3,8 +3,8 @@ import jinja2
 import os
 
 if_upgrade_testing = pytest.mark.skipif(
-    os.environ.get("UPRGADE_TESTING") != "true",
-    reason='UPRGADE_TESTING is not true')
+    os.environ.get("UPGRADE_TESTING") != "true",
+    reason='UPGRADE_TESTING is not true')
 
 pre_upgrade_namespace = ""
 post_upgrade_namespace = ""
