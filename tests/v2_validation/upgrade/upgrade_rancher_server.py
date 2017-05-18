@@ -4,6 +4,7 @@ import time
 import paramiko
 import os
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ def main():
     parser.add_argument('-o', help='timeout duration for rancher server to be ready', default=90)
     args = parser.parse_args()
     logger.info(args)
+    logger.setLevel(logging.INFO)
     upgrade(args.t, args.s, args.u, args.i, args.o)
 
 def upgrade(target, servernode, username, keypath, timeout):
@@ -146,4 +148,5 @@ def upgrade(target, servernode, username, keypath, timeout):
     ssh.close()
 
 if __name__ == '__main__':
+    logging.info("Starting upgrade tool...")
     main()
