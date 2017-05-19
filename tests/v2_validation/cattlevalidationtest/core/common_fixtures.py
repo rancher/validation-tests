@@ -294,8 +294,7 @@ def admin_client():
         admin_client = _admin_client()
         assert admin_client.valid()
     set_haproxy_image(admin_client)
-    if (ACCESS_KEY is None or SECRET_KEY is None):
-        set_host_url(admin_client)
+    set_host_url(admin_client)
     return admin_client
 
 
@@ -4033,7 +4032,8 @@ def get_client_for_auth_enabled_setup(access_key, secret_key, project_id=None):
         client = from_env(url=cattle_url(),
                           cache=False,
                           access_key=access_key,
-                          secret_key=secret_key)
+                          secret_key=secret_key,
+                          headers={'Accepts': 'application/json'})
         client.reload_schema()
     assert client.valid()
     return client
