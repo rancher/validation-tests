@@ -106,7 +106,12 @@ def test_dup_name(client, hosttemplate):
     }
     hosttemplate(create_args)
 
-    ht1 = client.create_hostTemplate(**create_args)
+    ht1 = None
+    try:
+        ht1 = client.create_hostTemplate(**create_args)
+    except:
+        pass
+
     try:
         assert ht1 is None
     finally:
