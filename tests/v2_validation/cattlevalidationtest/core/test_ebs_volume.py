@@ -12,8 +12,12 @@ def test_environment_ebs_volume_on_same_host(client, super_client):
     # All the container should land on the same host
     assert check_for_ebs_driver(client)
     volume_name = "ebs_" + random_str()
-    volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
-                                   "name": volume_name, "driverOpts": {"size": "1"}})
+    volume = client.create_volume({
+        "type": "volume",
+        "driver": "rancher-ebs",
+        "name": volume_name,
+        "driverOpts": {"size": "1"}
+    })
     launch_config = {"volumeDriver": "rancher-ebs",
                      "dataVolumes": [volume_name + ":/test"],
                      "networkMode": "managed",
@@ -47,8 +51,12 @@ def test_environment_ebs_volume_read_write_data(client, super_client):
     assert check_for_ebs_driver(client)
     volume_name = "ebs_" + random_str()
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
-    volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
-                                   "name": volume_name, "driverOpts": {"size": "1"}})
+    volume = client.create_volume({
+        "type": "volume",
+        "driver": "rancher-ebs",
+        "name": volume_name,
+        "driverOpts": {"size": "1"}
+    })
     path = "/test"
     port = "1000"
     launch_config = {"volumeDriver": "rancher-ebs",
@@ -107,7 +115,8 @@ def test_environment_ebs_volume_read_write_data(client, super_client):
 
 @if_test_ebs
 def test_ebs_volume_move_same_host(client, super_client):
-    # Launch a service with scale 1 using the volume1. Write data to the volume.
+    # Launch a service with scale 1 using the volume1.
+    # Write data to the volume.
     # Delete the service and re-launch a new one on the same host
     # using the same volume. Data should be persisted.
     assert check_for_ebs_driver(client)
@@ -115,8 +124,12 @@ def test_ebs_volume_move_same_host(client, super_client):
     path = "/test"
     port = "1000"
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
-    volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
-                                   "name": volume_name, "driverOpts": {"size": "1"}})
+    volume = client.create_volume({
+        "type": "volume",
+        "driver": "rancher-ebs",
+        "name": volume_name,
+        "driverOpts": {"size": "1"}
+    })
     launch_config = {"volumeDriver": "rancher-ebs",
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -173,7 +186,8 @@ def test_ebs_volume_move_same_host(client, super_client):
 
 @if_test_ebs
 def test_ebs_volume_move_diff_hosts(client, super_client):
-    # Launch a service with scale 1 using the volume1. Write data to the volume.
+    # Launch a service with scale 1 using the volume1.
+    # Write data to the volume.
     # Delete the service and re-launch a new one on the a different host
     # using the same volume. Data should be persisted.
     # this test requires host a and host b are in the same AZ
@@ -182,8 +196,12 @@ def test_ebs_volume_move_diff_hosts(client, super_client):
     hosts = client.list_host(kind='docker', removed_null=True, state="active")
     path = "/test"
     port = "1001"
-    volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
-                                   "name": volume_name, "driverOpts": {"size": "1"}})
+    volume = client.create_volume({
+        "type": "volume",
+        "driver": "rancher-ebs",
+        "name": volume_name,
+        "driverOpts": {"size": "1"}
+    })
 
     launch_config = {"volumeDriver": "rancher-ebs",
                      "dataVolumes": [volume_name + ":" + path],
