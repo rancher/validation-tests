@@ -1,0 +1,9 @@
+test1:
+  restart: always
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true
+  labels:
+    test1: value1
+  ports:
+  - 9000:80/tcp

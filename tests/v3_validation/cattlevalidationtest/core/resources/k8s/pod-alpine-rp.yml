@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: alpine
+  labels:
+    app: alpine
+spec:
+  restartPolicy: Never
+  containers:
+  - name: alpine
+    image: alpine
+    command: ["sleep", "15"]
+    ports:
+    - containerPort: 80

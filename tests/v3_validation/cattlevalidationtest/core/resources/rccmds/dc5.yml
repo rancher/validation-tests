@@ -1,0 +1,9 @@
+test5:
+  labels:
+    io.rancher.container.pull_image: always
+  tty: true
+  log_opt: {}
+  image: ubuntu:14.04.3
+  volumes:
+  - testvol:/home
+  volume_driver: local

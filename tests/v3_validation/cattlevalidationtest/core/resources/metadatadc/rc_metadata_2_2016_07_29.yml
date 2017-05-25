@@ -1,0 +1,8 @@
+test2120160729:
+  scale: 2
+  metadata:
+    test1:
+      name: t1name
+      value: t1value
+    test2:
+      name: [1,2,3,4]

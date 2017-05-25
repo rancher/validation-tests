@@ -1,0 +1,5 @@
+rtest10:
+  labels:
+    rtest10: value10
+  tty: true
+  image: ubuntu:14.04.3

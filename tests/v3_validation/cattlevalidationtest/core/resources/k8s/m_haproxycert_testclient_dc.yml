@@ -1,0 +1,13 @@
+version: '2'
+volumes:
+  mytestcerts-test-504715:
+    external: true
+    driver: rancher-nfs
+services:
+  testclient:
+    scale: 1
+    image: sangeetha/testclient
+    volumes:
+    - mytestcerts:/certs
+    ports:
+    - 7890:22/tcp

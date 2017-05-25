@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: dns-nginx-namedport
+spec:
+  replicas: 1
+  selector:
+    name: dns-nginx-namedport
+  template:
+    metadata:
+      labels:
+        name: dns-nginx-namedport
+    spec:
+      containers:
+        - name: dns-nginx-namedport
+          image: sangeetha/testnewhostrouting:latest
+          ports:
+            - containerPort: 80
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-nginx-namedport
+spec:
+  clusterIP: 10.43.149.242
+  ports:
+  - name: tcpport
+    port: 9999
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: dns-nginx-namedport
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

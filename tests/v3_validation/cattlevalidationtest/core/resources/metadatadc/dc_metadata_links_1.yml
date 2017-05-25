@@ -1,0 +1,4 @@
+testl1:
+  tty: true
+  image: ubuntu:14.04.3
+  stdin_open: true

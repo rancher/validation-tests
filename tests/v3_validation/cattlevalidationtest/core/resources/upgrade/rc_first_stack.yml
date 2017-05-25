@@ -1,0 +1,129 @@
+version: '2'
+services:
+  servicewithexposedports:
+    scale: 1
+    start_on_create: true
+  service2:
+    scale: 2
+    start_on_create: true
+  ssllb:
+    scale: 1
+    start_on_create: true
+    lb_config:
+      certs: []
+      default_cert: test1certificate
+      port_rules:
+      - hostname: www.abc1.com
+        path: /service1.html
+        protocol: https
+        service: service1
+        source_port: 40$portsuffixnum
+        target_port: 80
+      - hostname: www.abc2.com
+        path: /service2.html
+        protocol: https
+        service: service2
+        source_port: 40$portsuffixnum
+        target_port: 80
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      interval: 2000
+      strategy: recreate
+  service1:
+    scale: 2
+    start_on_create: true
+  globalhealthservice:
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 80
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/name.html" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  healthservice:
+    scale: 1
+    start_on_create: true
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 80
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      request_line: GET "/name.html" "HTTP/1.0"
+      reinitializing_timeout: 60000
+  servicewithlink:
+    scale: 1
+    start_on_create: true
+  myalias:
+    start_on_create: true
+  healthlb:
+    scale: 1
+    start_on_create: true
+    lb_config:
+      certs: []
+      port_rules:
+      - priority: 1
+        protocol: http
+        service: healthservice
+        source_port: 200$portsuffixnum
+        target_port: 80
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      interval: 2000
+      strategy: recreate
+  mylb:
+    scale: 1
+    start_on_create: true
+    lb_config:
+      certs: []
+      port_rules:
+      - priority: 1
+        protocol: http
+        service: service1
+        source_port: 300$portsuffixnum
+        target_port: 80
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      interval: 2000
+      strategy: recreate
+  globalhealthlb:
+    start_on_create: true
+    lb_config:
+      certs: []
+      port_rules:
+      - priority: 1
+        protocol: http
+        service: globalhealthservice
+        source_port: 100$portsuffixnum
+        target_port: 80
+    health_check:
+      healthy_threshold: 2
+      response_timeout: 2000
+      port: 42
+      unhealthy_threshold: 3
+      interval: 2000
+      strategy: recreate
+  myextservice:
+    external_ips:
+    - 10.42.144.76
+    start_on_create: true
+  extservicetohostname:
+    hostname: www.google.com
+    start_on_create: true
+
+

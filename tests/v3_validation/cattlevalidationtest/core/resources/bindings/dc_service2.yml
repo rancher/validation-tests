@@ -1,0 +1,9 @@
+test1:
+  restart: always
+  tty: true
+  image: sangeetha/testclient
+  stdin_open: true
+  labels:
+    test1: ${test1_val}
+  ports:
+  - ${exposed_port}:80/tcp

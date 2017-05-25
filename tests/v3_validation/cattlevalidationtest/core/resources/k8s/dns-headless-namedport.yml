@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: dns-headless-namedport
+spec:
+  replicas: 1
+  selector:
+    name: dns-headless-namedport
+  template:
+    metadata:
+      labels:
+        name: dns-headless-namedport
+    spec:
+      containers:
+        - name: dns-headless-namedport
+          image: sangeetha/testnewhostrouting:latest
+          ports:
+            - containerPort: 80
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-headless-namedport
+spec:
+  clusterIP: None
+  ports:
+  - name: tcpport
+    port: 9999
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: dns-headless-namedport
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

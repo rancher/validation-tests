@@ -1,0 +1,5 @@
+test1:
+  restart: always
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true
