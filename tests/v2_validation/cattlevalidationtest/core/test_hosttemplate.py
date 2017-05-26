@@ -263,6 +263,58 @@ def test_create_host(client, hosttemplate, host):
     conf = machine.config(client, host0)
     digitalocean_config = host_create_args["digitaloceanConfig"]
 
+    assert "digitalocean" == host0.driver
+    assert digitalocean_config["image"] == conf["Driver"]["Image"]
+    assert digitalocean_config["region"] == conf["Driver"]["Region"]
+    assert digitalocean_config["size"] == conf["Driver"]["Size"]
+    assert host_create_args["hostname"] == conf["Driver"]["MachineName"]
+
+    cnt_name = random_str()
+    cnt_create_args = {
+        "stdinOpen": True,
+        "tty": True,
+        "requestedHostId": host0.id,
+        "imageUuid": "docker:alpine",
+        "name": cnt_name,
+        "command": ["sh"]
+    }
+    cnt0 = client.wait_success(client.create_container(cnt_create_args))
+    assert 'running' == cnt0.state
+    assert host0.id == cnt0.hostId
+
+
+@if_machine_digocean
+def test_create_host_ht_only(client, hosttemplate, host):
+    ht_create_args = {
+        "name": "test-do-ht1",
+        "driver": "digitalocean",
+        "secretValues": {
+            "digitaloceanConfig": {
+                "accessToken": access_token
+            }
+        },
+        "publicValues": {
+            "digitaloceanConfig": {
+                "image": "ubuntu-17-04-x64",
+                "region": "sfo2",
+                "size": "1gb"
+            }
+        }
+    }
+    ht0 = hosttemplate(ht_create_args)
+
+    host_name = random_str()
+    host_create_args = {
+        "hostname": host_name,
+        "hostTemplateId": ht0.id,
+    }
+
+    host0 = host(host_create_args)
+
+    conf = machine.config(client, host0)
+    digitalocean_config = ht_create_args["publicValues"]["digitaloceanConfig"]
+
+    assert "digitalocean" == host0.driver
     assert digitalocean_config["image"] == conf["Driver"]["Image"]
     assert digitalocean_config["region"] == conf["Driver"]["Region"]
     assert digitalocean_config["size"] == conf["Driver"]["Size"]
@@ -321,10 +373,79 @@ def test_create_host_aws(client, hosttemplate, host):
     conf = machine.config(client, host0)
     amazonec2_config = host_create_args["amazonec2Config"]
 
+    assert "amazonec2" == host0.driver
     assert amazonec2_config["ami"] == conf["Driver"]["AMI"]
     assert amazonec2_config["instanceType"] == conf["Driver"]["InstanceType"]
     assert amazonec2_config["region"] == conf["Driver"]["Region"]
-    assert amazonec2_config["rootSize"] == conf["Driver"]["RootSize"]
+    assert amazonec2_config["rootSize"] == str(conf["Driver"]["RootSize"])
+    assert amazonec2_config["sshUser"] == conf["Driver"]["SSHUser"]
+    assert amazonec2_config["subnetId"] == conf["Driver"]["SubnetId"]
+    assert amazonec2_config["volumeType"] == conf["Driver"]["VolumeType"]
+    assert amazonec2_config["vpcId"] == conf["Driver"]["VpcId"]
+    assert amazonec2_config["zone"] == conf["Driver"]["Zone"]
+
+    assert host_create_args["hostname"] == conf["Driver"]["MachineName"]
+
+    cnt_name = random_str()
+    cnt_create_args = {
+        "stdinOpen": True,
+        "tty": True,
+        "requestedHostId": host0.id,
+        "imageUuid": "docker:alpine",
+        "name": cnt_name,
+        "command": ["sh"]
+    }
+    cnt0 = client.wait_success(client.create_container(cnt_create_args))
+    assert 'running' == cnt0.state
+    assert host0.id == cnt0.hostId
+
+
+@if_machine_amazon
+def test_create_host_aws_ht_only(client, hosttemplate, host):
+    ht_create_args = {
+        "name": "test-aws-ht1",
+        "driver": "amazonec2",
+        "secretValues": {
+            "amazonec2Config": {
+                "accessKey": access_key,
+                "secretKey": secret_key
+            }
+        },
+        "publicValues": {
+            "amazonec2Config": {
+                "ami": "ami-7caa341c",
+                "instanceType": "t2.micro",
+                "region": "us-west-2",
+                "rootSize": "16",
+                "securityGroup": [
+                    "rancher-machine",
+                ],
+                "sshUser": "rancher",
+                "subnetId": "subnet-e9fcc78d",
+                "volumeType": "gp2",
+                "vpcId": "vpc-08d7c46c",
+                "zone": "a"
+            }
+        }
+    }
+    ht0 = hosttemplate(ht_create_args)
+
+    host_name = random_str()
+    host_create_args = {
+        "hostname": host_name,
+        "hostTemplateId": ht0.id,
+    }
+
+    host0 = host(host_create_args)
+
+    conf = machine.config(client, host0)
+    amazonec2_config = ht_create_args["publicValues"]["amazonec2Config"]
+
+    assert "amazonec2" == host0.driver
+    assert amazonec2_config["ami"] == conf["Driver"]["AMI"]
+    assert amazonec2_config["instanceType"] == conf["Driver"]["InstanceType"]
+    assert amazonec2_config["region"] == conf["Driver"]["Region"]
+    assert amazonec2_config["rootSize"] == str(conf["Driver"]["RootSize"])
     assert amazonec2_config["sshUser"] == conf["Driver"]["SSHUser"]
     assert amazonec2_config["subnetId"] == conf["Driver"]["SubnetId"]
     assert amazonec2_config["volumeType"] == conf["Driver"]["VolumeType"]
