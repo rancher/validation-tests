@@ -93,6 +93,83 @@ def test_create_delete_aws(client, hosttemplate):
     hosttemplate(create_args)
 
 
+@if_machine_amazon
+@if_machine_digocean
+def test_single_provider(client, hosttemplate):
+    create_args = [{
+        "name": random_str(),
+        "secretValues": {
+            "amazonec2Config": {
+                "accessKey": access_key,
+                "secretKey": secret_key
+            },
+            "digitaloceanConfig": {
+                "accessToken": access_token
+            }
+        }
+    }, {
+        "name": random_str(),
+        "secretValues": {
+            "digitaloceanConfig": {
+                "accessToken": access_token
+            }
+        },
+        "publicValues": {
+            "amazonec2Config": {
+                "ami": "ami-7caa341c",
+                "instanceType": "t2.micro",
+                "region": "us-west-2",
+                "rootSize": "16",
+                "securityGroup": [
+                    "rancher-machine",
+                ],
+                "sshUser": "rancher",
+                "subnetId": "subnet-e9fcc78d",
+                "volumeType": "gp2",
+                "vpcId": "vpc-08d7c46c",
+                "zone": "a"
+            }
+        }
+    }, {
+        "name": random_str(),
+        "secretValues": {
+            "digitaloceanConfig": {
+                "accessToken": access_token
+            }
+        },
+        "publicValues": {
+            "digitaloceanConfig": {
+                "image": "ubuntu-17-04-x64",
+                "region": "sfo2",
+                "size": "1gb"
+            },
+            "amazonec2Config": {
+                "ami": "ami-7caa341c",
+                "instanceType": "t2.micro",
+                "region": "us-west-2",
+                "rootSize": "16",
+                "securityGroup": [
+                    "rancher-machine",
+                ],
+                "sshUser": "rancher",
+                "subnetId": "subnet-e9fcc78d",
+                "volumeType": "gp2",
+                "vpcId": "vpc-08d7c46c",
+                "zone": "a"
+            }
+        }
+    }]
+
+    hts = []
+    for ht_args in create_args:
+        try:
+            hts.append(hosttemplate(ht_args))
+        except:
+            pass
+
+    assert [] == hts
+
+
 @if_machine_digocean
 def test_dup_name(client, hosttemplate):
     create_args = {
