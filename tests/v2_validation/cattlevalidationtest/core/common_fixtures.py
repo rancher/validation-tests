@@ -3255,7 +3255,7 @@ def rancher_cli_container(admin_client, client, request):
     assert len(hosts) > 0
     host = hosts[0]
     port = rancher_cli_con["port"]
-    c = client.create_container(name="rancher-cli-client",
+    c = client.create_container(name="rancher-cli-client-" + random_str(),
                                 networkMode=MANAGED_NETWORK,
                                 imageUuid="docker:sangeetha/testclient",
                                 ports=[port+":22/tcp"],
