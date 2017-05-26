@@ -65,7 +65,7 @@ def hosttemplate(client, request):
 
 
 @if_machine_digocean
-def test_create_delete_do(client, hosttemplate):
+def test_create_delete_do(hosttemplate):
     create_args = {
         "name": "test-do-ht1",
         "driver": "digitalocean",
@@ -79,7 +79,7 @@ def test_create_delete_do(client, hosttemplate):
 
 
 @if_machine_amazon
-def test_create_delete_aws(client, hosttemplate):
+def test_create_delete_aws(hosttemplate):
     create_args = {
         "name": "test-aws-ht1",
         "driver": "amazonec2",
@@ -95,7 +95,7 @@ def test_create_delete_aws(client, hosttemplate):
 
 @if_machine_amazon
 @if_machine_digocean
-def test_single_provider(client, hosttemplate):
+def test_single_provider_only(hosttemplate):
     create_args = [{
         "name": random_str(),
         "secretValues": {
@@ -171,7 +171,7 @@ def test_single_provider(client, hosttemplate):
 
 
 @if_machine_digocean
-def test_dup_name(client, hosttemplate):
+def test_unique_name(client, hosttemplate):
     create_args = {
         "name": "test-do-ht1",
         "driver": "digitalocean",
@@ -263,7 +263,7 @@ def host(client, request):
 
 @if_machine_amazon
 @if_machine_digocean
-def test_create_host_wrong_provider(client, hosttemplate, host):
+def test_create_host_wrong_provider(hosttemplate, host):
     create_args = {
         "name": "test-aws-ht1",
         "driver": "amazonec2",
@@ -293,7 +293,7 @@ def test_create_host_wrong_provider(client, hosttemplate, host):
 
 
 @if_machine_digocean
-def test_create_host_nonexistent_hosttemplate(client, hosttemplate, host):
+def test_create_host_nonexistent_hosttemplate(host):
     host_name = random_str()
     hosttemplate_id = random_str()
     host_create_args = {
