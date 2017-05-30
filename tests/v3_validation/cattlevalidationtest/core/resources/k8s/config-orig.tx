@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    api-version: v1
+    insecure-skip-tls-verify: true
+    server: "$server/r/projects/$pid/kubernetes"
+  name: $environment
+contexts:
+- context:
+    cluster: $environment
+    user: $environment
+  name: $environment
+current-context: $environment
+users:
+- name: $environment
+  user:
+    username: $username
+    password: $password

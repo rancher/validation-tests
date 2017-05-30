@@ -1,0 +1,17 @@
+lb-1:
+  ports:
+  - 100:80
+  tty: true
+  image: rancher/load-balancer-service
+  links:
+  - web1:web1
+  - web2:web2
+  stdin_open: true
+web1:
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true
+web2:
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true

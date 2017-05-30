@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: testlbnginx
+spec:
+  replicas: 2
+  selector:
+    name: testlbnginx
+  template:
+    metadata:
+      labels:
+        name: testlbnginx
+    spec:
+      containers:
+        - name: testlbnginx
+          image: sangeetha/testnewhostrouting
+          ports:
+            - containerPort: 80
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: lbtestlbnginx
+  labels:
+    name: testlbnginx
+    type: ui
+spec:
+  ports:
+  - port: 8000
+    targetPort: 80
+  selector:
+    name: testlbnginx
+  type: LoadBalancerkind: Service
+

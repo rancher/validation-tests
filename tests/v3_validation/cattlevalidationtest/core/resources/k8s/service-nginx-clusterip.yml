@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    name: nginx
+  template:
+    metadata:
+      labels:
+        name: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: husseingalal/nginx-curl
+          ports:
+            - containerPort: 80
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clusterip-nginx
+  labels:
+    name: clusterip-nginx
+spec:
+  sessionAffinity: ClientIP
+  type: ClusterIP
+  clusterIP: 10.43.0.50
+  ports:
+  - port: 8000
+    targetPort: 80
+  selector:
+    name: nginx

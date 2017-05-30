@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginxv2
+  labels:
+    app: nginxv2
+spec:
+  containers:
+  - name: nginxv2
+    image: nginx:1.9.1
+    ports:
+    - containerPort: 80

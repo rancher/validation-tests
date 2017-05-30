@@ -1,0 +1,7 @@
+test4:
+  restart: always
+  tty: true
+  image: sangeetha/testclient
+  stdin_open: true
+  labels:
+    test1: value1

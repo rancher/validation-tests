@@ -1,0 +1,9 @@
+test120160729:
+  ports:
+  - 6002:22/tcp
+  restart: always
+  tty: true
+  image: sangeetha/testclient
+  stdin_open: true
+  labels:
+    test1: value1

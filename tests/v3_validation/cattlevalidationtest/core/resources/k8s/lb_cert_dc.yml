@@ -1,0 +1,25 @@
+version: '2'
+volumes:
+  mytestcerts:
+    external: true
+    driver: rancher-nfs
+services:
+  lb-withselectorlinks:
+    image: rancher/lb-service-haproxy:v0.7.1
+    volumes:
+    - mytestcerts-test-728395:/certs
+    ports:
+    - 5662:5662/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin
+      io.rancher.lb_service.cert_dir: /certs/mycerts
+      io.rancher.lb_service.default_cert_dir: /certs/default.com
+      io.rancher.container.create_agent: 'true'
+  s1:
+    image: sangeetha/testnewhostrouting:latest
+    labels:
+      test9: value1
+  s2:
+    image: sangeetha/testnewhostrouting:latest
+    labels:
+      test9: value2

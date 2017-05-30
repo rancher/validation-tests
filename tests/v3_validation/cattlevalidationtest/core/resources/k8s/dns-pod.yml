@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-pod-nginx
+  labels:
+    app: dns-pod-nginx
+spec:
+  containers:
+  - name: dns-pod-nginx
+    image: sangeetha/testnewhostrouting:latest
+    ports:
+    - containerPort: 80

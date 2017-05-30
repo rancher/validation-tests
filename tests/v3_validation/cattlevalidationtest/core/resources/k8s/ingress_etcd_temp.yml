@@ -1,0 +1,12 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+ name: ingress2
+ annotations:
+   http.port: "9002"
+
+spec:
+  backend:
+    serviceName: k8test2-new
+    servicePort: 80
+

@@ -1,0 +1,43 @@
+kind: List
+apiVersion: v1
+items:
+- kind: ReplicationController
+  apiVersion: v1
+  metadata:
+    labels:
+      app: kubernetes-dashboard
+      version: v1.1.0-beta1
+    name: kubernetes-dashboard
+  spec:
+    replicas: 1
+    selector:
+      app: kubernetes-dashboard
+    template:
+      metadata:
+        labels:
+          app: kubernetes-dashboard
+      spec:
+        containers:
+        - name: kubernetes-dashboard
+          image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.1.0-beta1
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 9090
+            protocol: TCP
+          args:
+          # - --apiserver-host=https://10.43.0.1:443
+- kind: Service
+  apiVersion: v1
+  metadata:
+    labels:
+      app: kubernetes-dashboard
+      kubernetes.io/cluster-service: "true"
+    name: kubernetes-dashboard
+  spec:
+    type: NodePort
+    ports:
+    - port: 30803
+      targetPort: 9090
+      nodePort: 30803
+    selector:
+      app: kubernetes-dashboard

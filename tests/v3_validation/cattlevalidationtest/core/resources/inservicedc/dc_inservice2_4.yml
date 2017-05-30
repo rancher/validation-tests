@@ -1,0 +1,22 @@
+sk2:
+  restart: always
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true
+  labels:
+    testsk2: value2
+sk1:
+  restart: always
+  tty: true
+  image: sangeetha/testlbsd
+  stdin_open: true
+  labels:
+    testsk1: value2
+test1:
+  restart: always
+  labels:
+    io.rancher.sidekicks: sk1,sk2
+    test1: value1
+  tty: true
+  image: sangeetha/testlbsd
+  stdin_open: true

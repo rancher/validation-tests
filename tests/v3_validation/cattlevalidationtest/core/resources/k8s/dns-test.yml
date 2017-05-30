@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-test-pod
+  labels:
+    app: dns-test-pod
+spec:
+  containers:
+  - name: dns-test-pod
+    image: sangeetha/testclient
+    ports:
+    - containerPort: 80

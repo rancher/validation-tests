@@ -1,0 +1,11 @@
+version: '2'
+services:
+  test1:
+    image: sangeetha/testnewhostrouting
+    stdin_open: true
+    tty: true
+    ports:
+    - 42:80/tcp
+    labels:
+      test1: value2
+      io.rancher.scheduler.global: 'true'
