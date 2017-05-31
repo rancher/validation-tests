@@ -235,7 +235,6 @@ def test_k8s_env_delete(kube_hosts):
     pod = json.loads(get_response)
     for p in pod["items"]:
         waitfor_delete(name=p['metadata']['name'], namespace=namespace)
-    assert len(pod["items"]) == 0
     teardown_ns(namespace)
 
 
