@@ -335,19 +335,6 @@ def delete_volume_after_service_deletes(client, volume_driver):
     delete_volume(client, volume)
 
 
-def delete_volume(client, volume):
-    volume = wait_for_condition(
-        client, volume,
-        lambda x: x.state == 'detached',
-        lambda x: 'State is: ' + x.state,
-        timeout=600)
-    assert volume.state == "detached"
-    volume = client.wait_success(client.delete(volume))
-    assert volume.state == "removed"
-    volume = client.wait_success(volume.purge())
-    assert volume.state == "purged"
-
-
 def check_for_nfs_driver(client):
     nfs_driver = False
     env = client.list_stack(name="nfs")

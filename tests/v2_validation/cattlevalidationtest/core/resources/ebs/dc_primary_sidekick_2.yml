@@ -1,0 +1,30 @@
+version: '2'
+services:
+  sk1:
+    restart: always
+    tty: true
+    image: sangeetha/testclient
+    ports:
+    - 7015:22/tcp
+    volumes:
+    - testvol:/testdata
+    stdin_open: true
+    labels:
+      testsk1: value1
+  test1:
+    image: sangeetha/testclient
+    restart: always
+    volumes_from:
+    - sk1
+    ports:
+    - 7014:22/tcp
+    labels:
+      io.rancher.sidekicks: sk1
+      test1: value1
+    tty: true
+    stdin_open: true
+volumes:
+  testvol:
+    driver: rancher-ebs
+    driver_opts:
+      size: '5'

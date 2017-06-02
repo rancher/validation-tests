@@ -19,6 +19,9 @@ logger.setLevel(logging.DEBUG)
 
 FIELD_SEPARATOR = "-"
 
+INSERVICE_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                'resources/inservicedc')
+
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
 
@@ -3351,7 +3354,8 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
     if rancher_compose is not None:
         rancher_compose = readDataFile(subdir, rancher_compose)
     cli_response = execute_rancher_cli(client, env_name, command,
-                                       docker_compose, rancher_compose)
+                                       docker_compose, rancher_compose,
+                                       timeout=150)
     print "Obtained Response: " + str(cli_response)
     print "Expected Response: " + str(expected_response)
     found = False
@@ -3963,7 +3967,10 @@ def get_container_host(admin_client, con):
 
 
 def write_data(con, port, dir, file, content):
-    hostIpAddress = con.dockerHostIp
+    hostdata = con['hosts']
+    for data in hostdata:
+        ipaddr = data['agentIpAddress']
+    hostIpAddress = ipaddr
 
     ssh = paramiko.SSHClient()
     ssh = paramiko.SSHClient()
@@ -3982,7 +3989,10 @@ def write_data(con, port, dir, file, content):
 
 
 def read_data(con, port, dir, file):
-    hostIpAddress = con.dockerHostIp
+    hostdata = con['hosts']
+    for data in hostdata:
+        ipaddr = data['agentIpAddress']
+    hostIpAddress = ipaddr
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -4053,3 +4063,62 @@ def get_client_for_auth_enabled_setup(access_key, secret_key, project_id=None):
         client.reload_schema()
     assert client.valid()
     return client
+
+
+def upgrade_stack(client, stack_name, service, docker_compose,
+                  rancher_compose=None, upgrade_option=None,
+                  directory=None):
+
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    upgrade_cmd = "up --upgrade -d "
+    if upgrade_option is not None:
+        upgrade_cmd += upgrade_option
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        upgrade_cmd, "Upgrading",
+        docker_compose, rancher_compose)
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    return service
+
+
+def confirm_upgrade_stack(client, stack_name, service, docker_compose,
+                          directory=None):
+
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        "up --confirm-upgrade -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service
+
+
+def rollback_upgrade_stack(client, stack_name, service, docker_compose,
+                           directory=None):
+
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        "up --rollback -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service
+
+
+def delete_volume(client, volume):
+    volume = wait_for_condition(
+        client, volume,
+        lambda x: x.state == 'detached',
+        lambda x: 'State is: ' + x.state,
+        timeout=600)
+    assert volume.state == "detached"
+    volume = client.wait_success(client.delete(volume))
+    assert volume.state == "removed"
+    volume = client.wait_success(volume.purge())
+    assert volume.state == "purged"
