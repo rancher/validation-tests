@@ -55,9 +55,10 @@ def services_with_shared_vol(client, volume_driver):
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
-    container_list = get_service_container_list(service)
+    container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
-    assert container_list[0].dockerHostIp != container_list[1].dockerHostIp
+    assert get_container_host_ip(container_list[0]) != \
+        get_container_host_ip(container_list[1])
 
     volumes = client.list_volume(removed_null=True,
                                  name=volume_name)
@@ -109,7 +110,8 @@ def services_with_shared_vol_scaleup(client, volume_driver):
     print volumes
     assert len(volumes) == 1
     assert volumes[0].state == "active"
-    assert container_list[0].dockerHostIp != container_list[1].dockerHostIp
+    assert get_container_host_ip(container_list[0]) != \
+        get_container_host_ip(container_list[1])
 
     filename = "test"
     content = random_str()
@@ -302,12 +304,12 @@ def delete_volume_after_service_deletes(client, volume_driver):
 
     # After deleting one of the services that uses the volumes , volume state
     # should still be active and we should not be allowed to delete the volume
-    delete_all(client, [service])
     container_list = get_service_container_list(client, service)
+    delete_all(client, [service])
     for container in container_list:
         wait_for_condition(
             client, container,
-            lambda x: x.state == 'purged',
+            lambda x: x.state == 'removed',
             lambda x: 'State is: ' + x.state)
         volume = client.reload(volume)
 
@@ -325,12 +327,12 @@ def delete_volume_after_service_deletes(client, volume_driver):
     # After deleting all the services that uses the volumes , volume state
     # should be detached and we should be allowed to delete the volume
 
-    delete_all(client, [service1])
     container_list = get_service_container_list(client, service1)
+    delete_all(client, [service1])
     for container in container_list:
         wait_for_condition(
             client, container,
-            lambda x: x.state == 'purged',
+            lambda x: x.state == 'removed',
             lambda x: 'State is: ' + x.state)
     delete_volume(client, volume)
 
