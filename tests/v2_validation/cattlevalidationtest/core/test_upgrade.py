@@ -79,7 +79,7 @@ def validate_stack(input_config):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert container['image'] == "husseingalal/nginx-curl"
+    assert "husseingalal/nginx-curl" in container['image']
     assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
@@ -93,7 +93,7 @@ def validate_stack(input_config):
     assert rc["spec"]["replicas"] == 2
     assert rc["spec"]["selector"]["name"] == "nginx"
     container = rc["spec"]["template"]["spec"]["containers"][0]
-    assert container["image"] == "sangeetha/testnewhostrouting"
+    assert "sangeetha/testnewhostrouting" in container["image"]
     assert container["name"] == "nginx"
     waitfor_pods(
         selector="type=rc", namespace=namespace, number=1)
@@ -108,7 +108,7 @@ def validate_stack(input_config):
         assert pod["metadata"]["labels"]["name"] == "nginx"
         assert pod["metadata"]["namespace"] == namespace
         container = pod["spec"]["containers"][0]
-        assert container["image"] == "sangeetha/testnewhostrouting"
+        assert "sangeetha/testnewhostrouting" in container["image"]
         assert container["name"] == "nginx"
         assert pod["status"]["phase"] == "Running"
 
@@ -209,7 +209,7 @@ def modify_stack(input_config):
     assert rc["spec"]["replicas"] == 3
     assert rc["spec"]["selector"]["name"] == "nginx"
     container = rc["spec"]["template"]["spec"]["containers"][0]
-    assert container["image"] == "sangeetha/testnewhostrouting"
+    assert "sangeetha/testnewhostrouting" in container["image"]
     assert container["name"] == "nginx"
     waitfor_pods(
         selector="type=rc", namespace=namespace, number=3)
@@ -222,7 +222,7 @@ def modify_stack(input_config):
         assert pod["metadata"]["labels"]["name"] == "nginx"
         assert pod["metadata"]["namespace"] == namespace
         container = pod["spec"]["containers"][0]
-        assert container["image"] == "sangeetha/testnewhostrouting"
+        assert "sangeetha/testnewhostrouting" in container["image"]
         assert container["name"] == "nginx"
         assert pod["status"]["phase"] == "Running"
 
