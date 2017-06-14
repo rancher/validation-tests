@@ -1,0 +1,8 @@
+version: '2'
+services:
+  rtest6:
+    labels:
+      rtest6: value6
+    scale: 2
+    tty: true
+    image: ubuntu:14.04.3
