@@ -3966,11 +3966,15 @@ def get_container_host(admin_client, con):
     return containers[0].hosts[0]
 
 
-def write_data(con, port, dir, file, content):
+def get_container_host_ip(con):
     hostdata = con['hosts']
     for data in hostdata:
         ipaddr = data['agentIpAddress']
-    hostIpAddress = ipaddr
+    return ipaddr
+
+
+def write_data(con, port, dir, file, content):
+    hostIpAddress = get_container_host_ip(con)
 
     ssh = paramiko.SSHClient()
     ssh = paramiko.SSHClient()
@@ -3989,10 +3993,7 @@ def write_data(con, port, dir, file, content):
 
 
 def read_data(con, port, dir, file):
-    hostdata = con['hosts']
-    for data in hostdata:
-        ipaddr = data['agentIpAddress']
-    hostIpAddress = ipaddr
+    hostIpAddress = get_container_host_ip(con)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
