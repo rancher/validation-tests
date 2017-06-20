@@ -1,23 +1,19 @@
 from common_fixtures import *  # NOQA
 from requests.auth import AuthBase
+from cattle import ApiError, ClientApiError
 
 
-if_test_ad = pytest.mark.skipif(not os.environ.get('API_AUTH_AD_SERVER'),
-                                reason='API_AUTH_AD_SERVER is not set')
+if_test_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
+                                  reason='API_AUTH_LDAP_SERVER is not set')
 
 if_do_key = pytest.mark.skipif(
     not os.environ.get('DIGITALOCEAN_KEY'),
     reason="Digital Ocean key is not set")
 
-if_ldap_port = pytest.mark.skipif(
-    os.environ.get('LDAP_PORT') != 'True',
-    reason="LDAP_PORT is not True")
-
-ADMIN_AD_CLIENT = None
-ADMIN_TOKEN = None
+ADMIN_LDAP_CLIENT = None
 
 
-class AdAuth(AuthBase):
+class LdapAuth(AuthBase):
     def __init__(self, jwt, prj_id=None):
         # setup any auth-related data here
         self.jwt = jwt
@@ -32,30 +28,30 @@ class AdAuth(AuthBase):
 
 
 @pytest.fixture(scope='session', autouse=True)
-def ad_client(admin_client):
+def ldap_client(admin_client):
     key = admin_client.create_apiKey()
     admin_client.wait_success(key)
-    ad_client = from_env(url=cattle_url(),
-                         access_key=key.publicValue,
-                         secret_key=key.secretValue)
-    global ADMIN_AD_CLIENT
-    ADMIN_AD_CLIENT = ad_client
+    ldap_client = from_env(url=cattle_url(),
+                           access_key=key.publicValue,
+                           secret_key=key.secretValue)
+    global ADMIN_LDAP_CLIENT
+    ADMIN_LDAP_CLIENT = ldap_client
 
 
-def create_ad_client(username=None,
-                     password=None,
-                     project_id=None):
+def create_ldap_client(username=None,
+                       password=None,
+                       project_id=None):
 
     client = from_env(url=cattle_url(),
-                      access_key=ADMIN_AD_CLIENT._access_key,
-                      secret_key=ADMIN_AD_CLIENT._secret_key)
+                      access_key=ADMIN_LDAP_CLIENT._access_key,
+                      secret_key=ADMIN_LDAP_CLIENT._secret_key)
     client.delete_by_id = delete_by_id
     assert client.valid()
     jwt = get_authed_token(username=username, password=password)['jwt']
     client._access_key = None
     client._secret_key = None
 
-    client._auth = AdAuth(jwt, prj_id=project_id)
+    client._auth = LdapAuth(jwt, prj_id=project_id)
     client.reload_schema()
     assert client.valid()
 
@@ -89,60 +85,33 @@ def delete_ldap_token(id, cookies):
 
 def load_config():
     config = {
-        'server': os.environ.get('API_AUTH_AD_SERVER'),
-        'domain': os.environ.get('API_AUTH_AD_SEARCH_BASE'),
-        'loginDomain': os.environ.get('API_AUTH_AD_LOGIN_DOMAIN'),
-        'port': int(os.environ.get('API_AUTH_AD_PORT')),
-        'serviceAccountPassword': os.environ.get('API_AUTH_AD_'
+        'accessMode': 'unrestricted',
+        'server': os.environ.get('API_AUTH_LDAP_SERVER'),
+        'domain': os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+        'port': os.environ.get('API_AUTH_LDAP_PORT'),
+        'serviceAccountPassword': os.environ.get('API_AUTH_LDAP_'
                                                  'SERVICE_ACCOUNT_PASSWORD'),
-        'serviceAccountUsername': os.environ.get('API_AUTH_AD_'
+        'serviceAccountUsername': os.environ.get('API_AUTH_LDAP_'
                                                  'SERVICE_ACCOUNT_USERNAME'),
-        'groupNameField': os.environ.get('SCHEMA_AD_GROUP_NAME_FIELD'),
-        'groupObjectClass': os.environ.get('SCHEMA_AD_GROUP_OBJECT_CLASS'),
-        'groupSearchField': os.environ.get('SCHEMA_AD_GROUP_SEARCH_FIELD'),
-        'groupDNField': os.environ.get('SCHEMA_AD_GROUP_DN_FIELD'),
+        'groupNameField': os.environ.get('SCHEMA_LDAP_GROUP_NAME_FIELD'),
+        'groupObjectClass': os.environ.get('SCHEMA_LDAP_GROUP_OBJECT_CLASS'),
+        'groupSearchField': os.environ.get('SCHEMA_LDAP_GROUP_SEARCH_FIELD'),
+        'groupDNField': os.environ.get('SCHEMA_LDAP_GROUP_DN_FIELD'),
         'groupMemberMappingAttribute': "memberUid",
-        'groupMemberUserAttribute': os.environ.get('SCHEMA_AD_GROUP_'
+        'groupMemberUserAttribute': os.environ.get('SCHEMA_LDAP_GROUP_'
                                                    'MEMBER_USER_ATTRIBUTE'),
-        'groupSearchDomain': os.environ.get('API_AUTH_AD_GROUP_SEARCH_BASE'),
+        'loginDomain': None,
+        'enabled': True,
         'tls': False,
-        'userDisabledBitMask': int(os.environ.get('SCHEMA_AD_USER_DISABLED'
-                                                  '_STATUS_BITMASK')),
+        'userDisabledBitMask': os.environ.get('SCHEMA_LDAP_USER_DISABLED'
+                                              '_STATUS_BITMASK'),
         'userEnabledAttribute': None,
-        'userLoginField': os.environ.get('SCHEMA_AD_USER_LOGIN_FIELD'),
-        'userNameField': os.environ.get('SCHEMA_AD_USER_NAME_FIELD'),
-        'userObjectClass': os.environ.get('SCHEMA_AD_USER_OBJECT_CLASS'),
-        'userSearchField': os.environ.get('SCHEMA_AD_USER_SEARCH_FIELD'),
+        'userLoginField': os.environ.get('SCHEMA_LDAP_USER_LOGIN_FIELD'),
+        'userNameField': os.environ.get('SCHEMA_LDAP_USER_NAME_FIELD'),
+        'userObjectClass': os.environ.get('SCHEMA_LDAP_USER_OBJECT_CLASS'),
+        'userSearchField': os.environ.get('SCHEMA_LDAP_USER_SEARCH_FIELD'),
         'userMemberAttribute': "memberOf"
-    }
 
-    ldap_port = os.environ.get('LDAP_PORT')
-    if ldap_port == 'True':
-        data = {
-            "accessMode": "unrestricted",
-            "allowedIdentities": [],
-            "enabled": True,
-            "provider": "ldapconfig",
-            "ldapconfig": config,
-            "githubConfig": {},
-            "shibbolethConfig": {},
-            "type": "config"
-        }
-    else:
-        config['accessMode'] = 'unrestricted'
-        config['enabled'] = True
-        return config
-
-    return data
-
-
-def load_test_api_config(auth_config):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    config = {
-        "authConfig": auth_config,
-        "code": ldap_main_user + ":" + ldap_main_pass,
-        "type": "testAuthConfig"
     }
     return config
 
@@ -156,101 +125,63 @@ def idToMember(identity, role):
 
 
 @pytest.fixture(scope='session', autouse=True)
-def turn_on_off_ad_auth(admin_client, request):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+def turn_on_off_ldap_auth(admin_client, request):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
-    # Disable AD Authentication
+    # Disable LDAP Authentication
     config = load_config()
     config['enabled'] = False
+    admin_client.create_openldapconfig(config)
 
-    ldap_port = os.environ.get('LDAP_PORT')
-    if ldap_port == 'True':
-        auth_url = cattle_url()[:-7] + 'v1-auth/config'
-        r = requests.post(auth_url, data=json.dumps(config))
-        assert r.ok
-    else:
-        admin_client.create_ldapconfig(config)
+    # Get main user token and client
+    client = create_ldap_client(username=ldap_main_user,
+                                password=ldap_main_pass)
 
     token = get_authed_token(username=ldap_main_user,
                              password=ldap_main_pass)
     user = token['userIdentity']
-    global ADMIN_TOKEN
-    ADMIN_TOKEN = token
 
-    # Enable AD Authentication
+    # Enable LDAP Authentication
     allowed_identities = []
     allowed_identities.append(user)
     config['enabled'] = True
     config['allowedIdentities'] = allowed_identities
-
-    if ldap_port == 'True':
-        auth_url = cattle_url()[:-7] + 'v1-auth/config'
-        r = requests.post(auth_url, data=json.dumps(config))
-        assert r.ok
-    else:
-        admin_client.create_ldapconfig(config)
+    admin_client.create_openldapconfig(config)
 
     def fin():
         config = load_config()
         config['enabled'] = None
-        access_key = ADMIN_AD_CLIENT._access_key
-        secret_key = ADMIN_AD_CLIENT._secret_key
-        ldap_port = os.environ.get('LDAP_PORT')
-        if ldap_port == 'True':
-            auth_url = cattle_url()[:-7] + 'v1-auth/config'
-            r = requests.post(auth_url, data=json.dumps(config),
-                              auth=(access_key, secret_key))
-            assert r.ok
-        else:
-            client = create_ad_client(username=ldap_main_user,
-                                      password=ldap_main_pass)
-            client.create_ldapconfig(config)
+        client.create_ldapconfig(config)
     request.addfinalizer(fin)
 
 
-def reconfigure_ad(admin_client, domain, groupSearchDomain):
-    # Use testlogin api
-    ldap_port = os.environ.get('LDAP_PORT')
-    if ldap_port == 'True':
-        auth_config = load_config()
-        auth_config['ldapconfig']['domain'] = domain
-        auth_config['ldapconfig']['groupSearchDomain'] = groupSearchDomain
-        test_config = load_test_api_config(auth_config)
-        access_key = ADMIN_AD_CLIENT._access_key
-        secret_key = ADMIN_AD_CLIENT._secret_key
-        auth_url = cattle_url()[:-7] + 'v1-auth/testlogin'
-        r = requests.post(auth_url, data=json.dumps(test_config),
-                          auth=(access_key, secret_key))
-        assert r.ok
-        config = load_config()
-        config['ldapconfig']['domain'] = domain
-        config['ldapconfig']['groupSearchDomain'] = groupSearchDomain
-        auth_url = cattle_url()[:-7] + 'v1-auth/config'
-        r = requests.post(auth_url, data=json.dumps(config),
-                          auth=(access_key, secret_key))
-        assert r.ok
-        return
-
+def reconfigure_ldap(admin_client, domain, groupSearchDomain):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
     config = load_config()
+    client = create_ldap_client(username=ldap_main_user,
+                                password=ldap_main_pass)
+    token = get_authed_token(username=ldap_main_user,
+                             password=ldap_main_pass)
     config['enabled'] = None
-    admin_client.create_ldapconfig(config)
-    user = ADMIN_TOKEN['userIdentity']
+    client.create_ldapconfig(config)
+
+    user = token['userIdentity']
     allowed_identities = []
     allowed_identities.append(user)
     config['enabled'] = True
     config['allowedIdentities'] = allowed_identities
     config['domain'] = domain
     config['groupSearchDomain'] = groupSearchDomain
-    admin_client.create_ldapconfig(config)
-    return admin_client
+    admin_client.create_openldapconfig(config)
 
 
 # 1
-@if_test_ad
-def test_allow_any_ad_user(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_allow_any_ldap_user(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
     token = get_authed_token(username=ldap_user2,
                              password=ldap_pass2)
@@ -260,10 +191,10 @@ def test_allow_any_ad_user(admin_client):
     assert schemas.status_code == 200
 
 
-@if_test_ad
-def test_ad_delete_token_on_logout(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_delete_token_on_logout(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
     token = get_authed_token(username=ldap_user2,
                              password=ldap_pass2)
@@ -279,10 +210,10 @@ def test_ad_delete_token_on_logout(admin_client):
 
 
 # 4
-@if_test_ad
-def test_ad_user_with_new_env(admin_client):
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+@if_test_ldap
+def test_ldap_user_with_new_env(admin_client):
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
     # test creation of new env with new valid user
     token = get_authed_token(username=ldap_user3,
                              password=ldap_pass3)
@@ -291,8 +222,8 @@ def test_ad_user_with_new_env(admin_client):
     schemas = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert schemas.status_code == 200
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     projects = u3_client.list_project()
     found = False
     for p in projects:
@@ -303,16 +234,16 @@ def test_ad_user_with_new_env(admin_client):
 
 
 # 5
-@if_test_ad
-def test_ad_create_new_env(admin_client):
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+@if_test_ldap
+def test_ldap_create_new_env(admin_client):
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -337,26 +268,26 @@ def test_ad_create_new_env(admin_client):
 
 
 # 6
-@if_test_ad
-def test_ad_create_new_env_add_member(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+@if_test_ldap
+def test_ldap_create_new_env_add_member(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -406,38 +337,38 @@ def test_ad_create_new_env_add_member(admin_client):
 
 
 # 7
-@if_test_ad
-def test_ad_create_new_env_add_owner(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_add_owner(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    ldap_user4 = os.environ.get('AD_USER4')
-    ldap_pass4 = os.environ.get('AD_PASS4')
+    ldap_user4 = os.environ.get('LDAP_USER4')
+    ldap_pass4 = os.environ.get('LDAP_PASS4')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
-    u4_client = create_ad_client(username=ldap_user4,
-                                 password=ldap_pass4)
+    u4_client = create_ldap_client(username=ldap_user4,
+                                   password=ldap_pass4)
     u4_identity = None
     for obj in u4_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u4_identity = obj
             break
 
@@ -496,21 +427,21 @@ def test_ad_create_new_env_add_owner(admin_client):
 
 
 # 8
-@if_test_ad
-def test_ad_create_new_env_add_group_member(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+@if_test_ldap
+def test_ldap_create_new_env_add_group_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    group = os.environ.get('AD_GROUP')
+    group = os.environ.get('LDAP_GROUP')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
@@ -532,8 +463,8 @@ def test_ad_create_new_env_add_group_member(admin_client):
     project = main_client.by_id('project', project.id)
     project.setmembers(members=new_members)
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
 
     projects = u2_client.list_project()
     found = False
@@ -550,21 +481,21 @@ def test_ad_create_new_env_add_group_member(admin_client):
 
 
 # 9
-@if_test_ad
-def test_ad_create_new_env_add_group_owner(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+@if_test_ldap
+def test_ldap_create_new_env_add_group_owner(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    group = os.environ.get('AD_GROUP')
+    group = os.environ.get('LDAP_GROUP')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
@@ -592,8 +523,8 @@ def test_ad_create_new_env_add_group_owner(admin_client):
     assert project_member['role'] == 'owner'
 
     # Make sure user2 has the privileges to edit the env
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     projects = u2_client.list_project()
     found = False
     for p in projects:
@@ -605,56 +536,80 @@ def test_ad_create_new_env_add_group_owner(admin_client):
     project.setmembers(members=new_members)
 
 
-@if_test_ad
-def test_ad_group_search_domain(admin_client, request):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    group = os.environ.get('AD_GROUP')
-    group_search_domain = os.environ.get('API_AUTH_AD_GROUP_SEARCH_BASE')
-    narrow_domain = os.environ.get('API_AUTH_AD_NARROW_SEARCH_BASE')
+@if_test_ldap
+def test_ldap_group_search_domain(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    group = os.environ.get('LDAP_GROUP')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
-    # Narrow down domain to OU=Domain Controllers,
-    # and don't set group_search_domain so that group search fails
-    reconfigure_ad(main_client, narrow_domain, '')
+    # Narrow down domain to OU=dev, so that group search fails
+    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+        dc=internal', '')
     assert len(main_client.list_identity(name=group)) == 0
 
     # Set groupSearchDomain so group search works
-    reconfigure_ad(main_client, narrow_domain, group_search_domain)
+    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+        dc=internal', 'ou=groups,dc=us-west-2,dc=compute,dc=internal')
     assert len(main_client.list_identity(name=group)) == 1
     assert main_client.list_identity(name=group)[0]['login'] == group
 
-    def fin():
-            reconfigure_ad(main_client,
-                           os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    # Set domain back to original value
+    reconfigure_ldap(admin_client,
+                     os.environ.get('API_AUTH_LDAP_SEARCH_BASE'), '')
 
-    request.addfinalizer(fin)
+    # Two groups with same name 'caringQA' are added under separate OUs
+    # OU=groups has 'caringQA' and so does OU=groupsDuplicate
+    duplicate_name_group = 'caringQA'
+
+    # Set groupSearchDomain such that caringQA from only OU=groups is returned
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     'ou=groups,dc=us-west-2,dc=compute,dc=internal')
+    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    assert len(groups_searched) == 1
+    assert groups_searched[0]['externalId'] == \
+        'cn=caringQA,ou=groups,dc=us-west-2,dc=compute,dc=internal'
+
+    # Set groupSearchDomain such that
+    # caringQA from only OU=groupsDuplicate is returned
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     'ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal')
+    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    assert len(groups_searched) == 1
+    assert groups_searched[0]['externalId'] == \
+        'cn=caringQA,ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal'
+
+    # Unset groupSearchDomain, so both groups get searched
+    # and settings are restored for remanining tests
+    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                     '')
+    assert len(main_client.list_identity(name=duplicate_name_group)) == 2
 
 
 # 10
-@if_test_ad
-def test_ad_create_new_env_change_owner_to_member(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_change_owner_to_member(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -701,27 +656,27 @@ def test_ad_create_new_env_change_owner_to_member(admin_client):
 
 
 # 11
-@if_test_ad
-def test_ad_create_new_env_change_member_to_owner(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_change_member_to_owner(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -776,27 +731,27 @@ def test_ad_create_new_env_change_member_to_owner(admin_client):
 
 
 # 12
-@if_test_ad
-def test_ad_create_new_env_remove_existing_owner(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_remove_existing_owner(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -841,31 +796,34 @@ def test_ad_create_new_env_remove_existing_owner(admin_client):
             found = False
     assert found
 
-    assert u3_client.by_id('project', project.id) is None
+    with pytest.raises(ApiError) as excinfo:
+        u3_client.by_id('project', project.id)
+
+    assert "Not Found" in str(excinfo.value)
 
 
 # 13
-@if_test_ad
-def test_ad_create_new_env_remove_existing_member(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_remove_existing_member(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -910,31 +868,34 @@ def test_ad_create_new_env_remove_existing_member(admin_client):
             found = False
     assert found
 
-    assert u3_client.by_id('project', project.id) is None
+    with pytest.raises(ApiError) as excinfo:
+        u3_client.by_id('project', project.id)
+
+    assert "Not Found" in str(excinfo.value)
 
 
 # 14,15
-@if_test_ad
-def test_ad_deactivate_activate_env(admin_client):
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_deactivate_activate_env(admin_client):
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -987,39 +948,39 @@ def test_ad_deactivate_activate_env(admin_client):
 
     # Activate environment back
     dec_project.activate()
-    act_project = u2_client.by_id('project', dec_project.id)
+    act_project = u2_client.by_id('project', project.id)
     assert act_project['state'] == 'active'
 
-    assert u3_client.by_id('project', dec_project.id) is not None
+    assert u3_client.by_id('project', project.id) is not None
 
 
 # 16
-@if_test_ad
-def test_ad_remove_deactivated_env(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+@if_test_ldap
+def test_ldap_remove_deactivated_env(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    ldap_user3 = os.environ.get('AD_USER3')
-    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user3 = os.environ.get('LDAP_USER3')
+    ldap_pass3 = os.environ.get('LDAP_PASS3')
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
-    u3_client = create_ad_client(username=ldap_user3,
-                                 password=ldap_pass3)
+    u3_client = create_ldap_client(username=ldap_user3,
+                                   password=ldap_pass3)
     u3_identity = None
     for obj in u3_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
 
@@ -1073,26 +1034,30 @@ def test_ad_remove_deactivated_env(admin_client):
     # Remove environment
     main_client.delete(dec_project)
     time.sleep(5)
-    project = main_client.by_id('project', dec_project.id)
+    project = main_client.by_id('project', project.id)
     assert project.state == 'purged' or project.state == 'removed'
 
     # Users can't access the environment anymore
+    with pytest.raises(ApiError) as excinfo:
+        u2_client.by_id('project', project.id)
 
-    assert u2_client.by_id('project', project.id) is None
+    assert "Not Found" in str(excinfo.value)
 
-    assert u3_client.by_id('project', project.id) is None
+    with pytest.raises(ApiError) as excinfo:
+        u3_client.by_id('project', project.id)
+    assert "Not Found" in str(excinfo.value)
 
 
 # 17,18
-@if_test_ad
-def test_ad_activate_deactivate_account(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_activate_deactivate_account(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     u2_token = get_authed_token(username=ldap_user2,
                                 password=ldap_pass2)
@@ -1119,15 +1084,15 @@ def test_ad_activate_deactivate_account(admin_client):
 
 
 # 19
-@if_test_ad
-def test_ad_purge_account(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER4')
-    ldap_pass2 = os.environ.get('AD_PASS4')
+@if_test_ldap
+def test_ldap_purge_account(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER4')
+    ldap_pass2 = os.environ.get('LDAP_PASS4')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     u2_token = get_authed_token(username=ldap_user2,
                                 password=ldap_pass2)
@@ -1155,27 +1120,27 @@ def test_ad_purge_account(admin_client):
 
 
 # 23,24,25,26,27
-@if_test_ad
-def test_ad_member_permissions(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_member_permissions(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
@@ -1216,15 +1181,15 @@ def test_ad_member_permissions(admin_client):
 
 
 # 28
-@if_test_ad
-def test_ad_change_user_to_admin(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_change_user_to_admin(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     # Purge user2 account first
     u2_token = get_authed_token(username=ldap_user2,
@@ -1244,13 +1209,13 @@ def test_ad_change_user_to_admin(admin_client):
     # Test with user
     u2_token = get_authed_token(username=ldap_user2,
                                 password=ldap_pass2)
-    cookies = dict(token=u2_token['jwt'])
-    no_admin = requests.get(cattle_url()[:-7] +
-                            'v2-beta/settings/settings.public',
-                            cookies=cookies)
-    assert not no_admin.ok
-
     u2_name = u2_token['userIdentity']['name']
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+
+    with pytest.raises(ClientApiError) as excinfo:
+        u2_client.list_ldapconfig()
+    assert "is not a valid type" in str(excinfo.value)
 
     # change account from user to admin
     u2_account = main_client.list_account(name=u2_name)[0]
@@ -1258,11 +1223,10 @@ def test_ad_change_user_to_admin(admin_client):
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='admin')
 
-    admin = requests.get(cattle_url()[:-7] +
-                         'v2-beta/settings/settings.public',
-                         cookies=cookies)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
+    assert u2_client.list_ldapconfig() is not None
 
-    assert admin.ok
     # change account from admin to user
     u2_account = main_client.list_account(name=u2_name)[0]
     u2_account = main_client.by_id("account", u2_account.id)
@@ -1271,15 +1235,15 @@ def test_ad_change_user_to_admin(admin_client):
 
 
 # 29
-@if_test_ad
-def test_ad_admin_list_all_env(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_admin_list_all_env(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     # Purge user2 account first
     u2_token = get_authed_token(username=ldap_user2,
@@ -1327,27 +1291,27 @@ def test_ad_admin_list_all_env(admin_client):
 
 
 # 30
-@if_test_ad
+@if_test_ldap
 @if_do_key
-def test_ad_member_add_host(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+def test_ldap_member_add_host(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
@@ -1361,9 +1325,9 @@ def test_ad_member_add_host(admin_client):
     assert main_client.by_id('project', project.id) is not None
     assert u2_client.by_id('project', project.id) is not None
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2,
-                                 project_id=project.id)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=project.id)
     # Add new host
     host_list = \
         add_digital_ocean_hosts(
@@ -1371,11 +1335,10 @@ def test_ad_member_add_host(admin_client):
     assert len(host_list) == 1
 
     # Remove host
-    host = u2_client.list_host()[0]
+    host = host_list[0]
     deactivated_host = host.deactivate()
     u2_client.wait_success(deactivated_host)
 
-    deactivated_host = u2_client.list_host()[0]
     deactivated_host.remove()
 
     all_hosts = u2_client.list_host()
@@ -1385,27 +1348,27 @@ def test_ad_member_add_host(admin_client):
 
 
 # 31
-@if_test_ad
+@if_test_ldap
 @if_do_key
-def test_ad_create_new_env_with_restricted_member(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+def test_ldap_create_new_env_with_restricted_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
@@ -1417,9 +1380,9 @@ def test_ad_create_new_env_with_restricted_member(admin_client):
         idToMember(u2_identity, 'restricted')
     ])
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2,
-                                 project_id=default_prj_id)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=default_prj_id)
     # Add new host
     with pytest.raises(AttributeError) as excinfo:
         host_list = \
@@ -1431,27 +1394,26 @@ def test_ad_create_new_env_with_restricted_member(admin_client):
 
 
 # 32
-@if_test_ad
-@if_do_key
-def test_ad_create_service_with_restricted_member(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_service_with_restricted_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
@@ -1463,13 +1425,13 @@ def test_ad_create_service_with_restricted_member(admin_client):
         idToMember(u2_identity, 'restricted')
     ])
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass,
-                                   project_id=default_prj_id)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass,
+                                     project_id=default_prj_id)
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2,
-                                 project_id=default_prj_id)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
+                                   project_id=default_prj_id)
     # Add new host
     hosts = u2_client.list_host(
                 kind='docker', removed_null=True, state="active")
@@ -1485,27 +1447,26 @@ def test_ad_create_service_with_restricted_member(admin_client):
 
 
 # 33,34
-@if_test_ad
-@if_do_key
-def test_ad_create_new_env_with_readonly_member(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
-    ldap_user2 = os.environ.get('AD_USER2')
-    ldap_pass2 = os.environ.get('AD_PASS2')
+@if_test_ldap
+def test_ldap_create_new_env_with_readonly_member(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
     main_identity = None
     for obj in main_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2)
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2)
     u2_identity = None
     for obj in u2_client.list_identity():
-        if obj.externalIdType == 'ldap_user':
+        if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
@@ -1517,13 +1478,13 @@ def test_ad_create_new_env_with_readonly_member(admin_client):
         idToMember(u2_identity, 'readonly')
     ])
 
-    u2_client = create_ad_client(username=ldap_user2,
-                                 password=ldap_pass2,
-                                 project_id=default_prj_id)
-
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass,
+    u2_client = create_ldap_client(username=ldap_user2,
+                                   password=ldap_pass2,
                                    project_id=default_prj_id)
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass,
+                                     project_id=default_prj_id)
     # Add new host
     with pytest.raises(AttributeError) as excinfo:
         host_list = \
@@ -1552,13 +1513,13 @@ def test_ad_create_new_env_with_readonly_member(admin_client):
     assert len(service) == 1
 
 
-@if_test_ad
-def test_ad_list_identities(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+@if_test_ldap
+def test_ldap_list_identities(admin_client):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
-    main_client = create_ad_client(username=ldap_main_user,
-                                   password=ldap_main_pass)
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
 
     identities = main_client.list_identity()
 
@@ -1575,13 +1536,13 @@ def test_ad_list_identities(admin_client):
     assert authenticated_user == 1
 
 
-@if_test_ad
-@if_ldap_port
+@if_test_ldap
 def test_secret_setting(admin_client):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
     client = create_ad_client(username=ldap_main_user,
                               password=ldap_main_pass)
-    secret = client.by_id_setting('api.auth.ldap.service.account.password')
+    password_setting = 'api.auth.ldap.openldap.service.account.password'
+    secret = client.by_id_setting(password_setting)
     assert secret.value is None
