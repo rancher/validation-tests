@@ -874,10 +874,11 @@ def get_service_container_list(client, service, managed=None):
     assert len(services) == 1
     container = []
     for instance in services[0].instances:
-        containers = client.list_container(externalId=instance.externalId,
-                                           include="hosts")
-        assert len(containers) == 1
-        container.append(containers[0])
+        if instance.state != "error":
+            containers = client.list_container(externalId=instance.externalId,
+                                               include="hosts")
+            assert len(containers) == 1
+            container.append(containers[0])
     return container
 
 

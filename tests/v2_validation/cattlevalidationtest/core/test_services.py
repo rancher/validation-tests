@@ -1,5 +1,7 @@
 from common_fixtures import *  # NOQA
 from cattle import ApiError
+from test_services_lb_balancer import create_environment_with_balancer_services
+
 
 TEST_SERVICE_OPT_IMAGE = 'ibuildthecloud/helloworld'
 TEST_SERVICE_OPT_IMAGE_LATEST = TEST_SERVICE_OPT_IMAGE + ':latest'
@@ -1574,6 +1576,33 @@ def test_service_reconcile_on_delete_exposed_port(client,
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     check_for_service_reconciliation_on_delete(client, service)
     delete_all(client, [env])
+
+
+def test_insvc_upgrade_start_first(client, socat_containers):
+    service_scale = 1
+    lb_scale = 1
+    port = "7890"
+    # Create a target service for LB service
+    env, service, lb_service = \
+        create_environment_with_balancer_services(
+            client, service_scale, lb_scale, port)
+    validate_lb_service(client, lb_service, port, [service])
+    # Upgrade the target service to invalid imageuuid so that service is
+    # stuck in upgrading state
+    inServiceStrategy = {}
+    inServiceStrategy["launchConfig"] = {"imageUuid": WEB_IMAGE_UUID + "abc",
+                                         'labels': {'foo': "bar"}}
+    inServiceStrategy["batchSize"] = 3,
+    inServiceStrategy["intervalMillis"] = 100,
+    inServiceStrategy["startFirst"] = True
+    service = service.upgrade_action(inServiceStrategy=inServiceStrategy)
+    assert service.state == "upgrading"
+
+    # Assert that the service is stuck in "upgrading" state
+    # because of invalid image id
+    time.sleep(10)
+    assert service.state == "upgrading"
+    validate_lb_service(client, lb_service, port, [service])
 
 
 @if_container_refactoring

@@ -1256,7 +1256,6 @@ def test_k8s_ingress_22(kube_hosts):
         host_dict = items['status']
         ip = host_dict['addresses'][0]['address']
         hostips.append(ip)
-        
     # Get Ingress IPs
     lb_ips = []
     ingress_response = execute_kubectl_cmds(
