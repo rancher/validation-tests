@@ -1,0 +1,19 @@
+version: '2'
+services:
+  rtest8-one:
+    restart: always
+    tty: true
+    scale: 2
+    image: ubuntu:14.04.2
+    stdin_open: true
+    labels:
+      rtest8-one: value8-one
+  rtest8-two:
+    restart: always
+    tty: true
+    scale: 2
+    image: ubuntu:14.04.2
+    stdin_open: true
+    labels:
+      rtest8-two: value8-two
+  

@@ -10,6 +10,8 @@ RCCOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  'resources/rccmds')
 RCV2COMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                    'resources/rccmds/v2')
+RCLIV2COMMANDS_SUBDIR = os.path.join(os.path.dirname(
+    os.path.realpath(__file__)), 'resources/ranchercli/v2')
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +22,261 @@ if_compose_data_files = pytest.mark.skipif(
 
 def test_cli_create_service(client, rancher_cli_container):
 
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_service(client,
+                       compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_create_service(client, rancher_cli_container):
+
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_service(client,
+                       compose_directory, rancher_cli_container, v2=True)
+
+
+def test_cli_create_stop_start_service(client,
+                                       rancher_cli_container):
+
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_stop_start_service(client,
+                                  compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_create_stop_start_service(client,
+                                          rancher_cli_container):
+
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_stop_start_service(client,
+                                  compose_directory,
+                                  rancher_cli_container, v2=True)
+
+
+def test_cli_create_activate_deactivate_service(client,
+                                                rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_activate_deactivate_service(client,
+                                           compose_directory,
+                                           rancher_cli_container)
+
+
+def test_cli_v2_create_activate_deactivate_service(client,
+                                                   rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_activate_deactivate_service(client,
+                                           compose_directory,
+                                           rancher_cli_container, v2=True)
+
+
+def test_cli_create_restart_service(client,
+                                    rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_restart_service(client,
+                               compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_create_restart_service(client,
+                                       rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_restart_service(client,
+                               compose_directory,
+                               rancher_cli_container, v2=True)
+
+
+def test_cli_create_restart_service_batch_interval(client,
+                                                   rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_restart_service_batch_interval(client,
+                                              compose_directory,
+                                              rancher_cli_container)
+
+
+def test_cli_v2_create_restart_service_batch_interval(client,
+                                                      rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_restart_service_batch_interval(client,
+                                              compose_directory,
+                                              rancher_cli_container, v2=True)
+
+
+def test_cli_delete_service(client,
+                            rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_delete_service(client,
+                       compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_delete_service(client,
+                               rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_delete_service(client,
+                       compose_directory,
+                       rancher_cli_container, v2=True)
+
+
+def test_cli_delete_stack(client,
+                          rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_delete_stack(client,
+                     compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_delete_stack(client,
+                             rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_delete_stack(client, compose_directory,
+                     rancher_cli_container, v2=True)
+
+
+def test_cli_show_services(client, rancher_cli_container):
+
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_show_services(client, compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_show_services(client, rancher_cli_container):
+
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_show_services(client, compose_directory,
+                      rancher_cli_container, v2=True)
+
+
+def test_cli_show_containers(client,
+                             rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_show_containers(client,
+                        compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_show_containers(client, rancher_cli_container):
+
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_show_containers(client, compose_directory,
+                        rancher_cli_container, v2=True)
+
+
+def test_cli_increment_scale(client,
+                             rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_increment_scale(client,
+                        compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_increment_scale(client,
+                                rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_increment_scale(client, compose_directory,
+                        rancher_cli_container, v2=True)
+
+
+def test_cli_decrement_scale(client, rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_decrement_scale(client,
+                        compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_decrement_scale(client,
+                                rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_decrement_scale(client,
+                        compose_directory, rancher_cli_container, v2=True)
+
+
+def test_cli_inspect_service(client,
+                             rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_inspect_service(client,
+                        compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_inspect_service(client,
+                                rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_inspect_service(client,
+                        compose_directory,
+                        rancher_cli_container, v2=True)
+
+
+def test_cli_inspect_container(client,
+                               rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_inspect_container(client,
+                          compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_inspect_container(client, rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_inspect_container(client, compose_directory,
+                          rancher_cli_container, v2=True)
+
+
+def test_cli_create_restart_containers_of_service(client,
+                                                  rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_restart_containers_of_service(client,
+                                             compose_directory,
+                                             rancher_cli_container)
+
+
+def test_cli_v2_create_restart_containers_of_service(client,
+                                                     rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_restart_containers_of_service(client,
+                                             compose_directory,
+                                             rancher_cli_container, v2=True)
+
+
+def test_cli_inspect_stack(client, rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_inspect_stack(client, compose_directory,
+                      rancher_cli_container)
+
+
+def test_cli_v2_inspect_stack(client, rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_inspect_stack(client, compose_directory,
+                      rancher_cli_container, v2=True)
+
+
+def test_cli_volume_create_remove(client, rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_volume_create_remove(client,
+                             compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_volume_create_remove(client, rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_volume_create_remove(client, compose_directory,
+                             rancher_cli_container, v2=True)
+
+
+def test_cli_inspect_volume(client,
+                            rancher_cli_container):
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_inspect_volume(client, compose_directory,
+                       rancher_cli_container)
+
+
+def test_cli_v2_inspect_volume(client, rancher_cli_container):
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_inspect_volume(client, compose_directory,
+                       rancher_cli_container, v2=True)
+
+
+def cli_create_service(client, compose_directory,
+                       rancher_cli_container, v2=None):
+
     # This method tests creation of a service
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc1.yml", "rc1.yml")
+
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc1.yml", "rc1.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc1.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest1")
 
@@ -44,15 +295,20 @@ def test_cli_create_service(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_create_stop_start_service(client,
-                                       rancher_cli_container):
+def cli_create_stop_start_service(client, compose_directory,
+                                  rancher_cli_container, v2=None):
 
     # This method tests starting and stopping a service
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc2.yml", "rc2.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc2.yml", "rc2.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc2.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest2")
 
@@ -97,14 +353,20 @@ def test_cli_create_stop_start_service(client,
     delete_all(client, [stack])
 
 
-def test_cli_create_activate_deactivate_service(client,
-                                                rancher_cli_container):
+def cli_create_activate_deactivate_service(client,
+                                           compose_directory,
+                                           rancher_cli_container, v2=None):
 
     # This method tests activate and deactivate commands
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc3.yml", "rc3.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc3.yml", "rc3.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc3.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest3")
 
@@ -148,16 +410,21 @@ def test_cli_create_activate_deactivate_service(client,
     delete_all(client, [stack])
 
 
-def test_cli_create_restart_service(client,
-                                    rancher_cli_container):
+def cli_create_restart_service(client, compose_directory,
+                               rancher_cli_container, v2=None):
 
     # This method restarts a service for a given stack
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc4.yml", "rc4.yml")
 
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc4.yml", "rc4.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc4.yml")
     stack, service = get_env_service_by_name(client, stack_name, "rtest4")
 
     # Confirm service is active and the containers are running
@@ -188,16 +455,21 @@ def test_cli_create_restart_service(client,
     delete_all(client, [stack])
 
 
-def test_cli_create_restart_service_batch_interval(client,
-                                                   rancher_cli_container):
+def cli_create_restart_service_batch_interval(client,
+                                              compose_directory,
+                                              rancher_cli_container, v2=None):
 
     # This method restarts the service given batch-size and interval
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc5.yml", "rc5.yml")
-
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc5.yml", "rc5.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc5.yml")
     stack, service = get_env_service_by_name(client, stack_name, "rtest5")
 
     # Confirm service is active and the containers are running
@@ -261,14 +533,19 @@ def test_cli_restart_container(client, rancher_cli_container):
     delete_all(client, container)
 
 
-def test_cli_delete_service(client,
-                            rancher_cli_container):
+def cli_delete_service(client, compose_directory,
+                       rancher_cli_container, v2=None):
 
     # This method deletes a service belonging to a stack
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc6.yml", "rc6.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc6.yml", "rc6.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc6.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest6")
 
@@ -326,15 +603,21 @@ def test_cli_delete_container(client, rancher_cli_container):
     delete_all(client, container)
 
 
-def test_cli_delete_stack(client,
-                          rancher_cli_container):
+def cli_delete_stack(client,
+                     compose_directory,
+                     rancher_cli_container, v2=None):
 
     # This method deletes a stack
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc7.yml", "rc7.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc7.yml", "rc7.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc7.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest7")
 
@@ -357,14 +640,20 @@ def test_cli_delete_stack(client,
     delete_all(client, [stack])
 
 
-def test_cli_show_services(client, rancher_cli_container):
+def cli_show_services(client, compose_directory,
+                      rancher_cli_container, v2=None):
 
     # This method tests displaying the services through "ps -a"
-
+    print compose_directory
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc8.yml", "rc8.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc8.yml", "rc8.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc8.yml")
 
     stack, service1 = get_env_service_by_name(client, stack_name, "rtest8-one")
     stack, service2 = get_env_service_by_name(client, stack_name, "rtest8-two")
@@ -397,14 +686,20 @@ def test_cli_show_services(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_show_containers(client, rancher_cli_container):
+def cli_show_containers(client, compose_directory,
+                        rancher_cli_container, v2=None):
 
     # This method tests displaying the containers through "ps -c"
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc9.yml", "rc9.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc9.yml", "rc9.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc9.yml")
 
     stack, service1 = get_env_service_by_name(client, stack_name, "rtest9")
 
@@ -450,14 +745,20 @@ def test_cli_env_list(client, rancher_cli_container):
     assert found
 
 
-def test_cli_increment_scale(client, rancher_cli_container):
+def cli_increment_scale(client, compose_directory,
+                        rancher_cli_container, v2=None):
 
     # This method tests incrementing the scale of a service
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc10.yml", "rc10.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc10.yml", "rc10.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc10.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest10")
 
@@ -488,14 +789,21 @@ def test_cli_increment_scale(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_decrement_scale(client, rancher_cli_container):
+def cli_decrement_scale(client,
+                        compose_directory,
+                        rancher_cli_container, v2=None):
 
     # This method tests decrementing the scale of a service
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc11.yml", "rc11.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc11.yml", "rc11.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc11.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest11")
 
@@ -526,13 +834,14 @@ def test_cli_decrement_scale(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_inspect_service(client, rancher_cli_container):
+def cli_inspect_service(client, compose_directory,
+                        rancher_cli_container, v2=None):
 
     # This method tests inspecting a service
 
     stack_name = random_str().replace("-", "")
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
+        client, compose_directory, stack_name,
         "up -d", "Creating stack", "dc12.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest12")
@@ -570,13 +879,14 @@ def test_cli_inspect_service(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_inspect_container(client, rancher_cli_container):
+def cli_inspect_container(client, compose_directory,
+                          rancher_cli_container, v2=None):
 
     # This method tests inspecting a container
 
     stack_name = random_str().replace("-", "")
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
+        client, compose_directory, stack_name,
         "up -d", "Creating stack", "dc13.yml")
 
     stack, service1 = get_env_service_by_name(client, stack_name, "rtest13")
@@ -603,15 +913,20 @@ def test_cli_inspect_container(client, rancher_cli_container):
     delete_all(client, [stack])
 
 
-def test_cli_create_restart_containers_of_service(client,
-                                                  rancher_cli_container):
+def cli_create_restart_containers_of_service(client, compose_directory,
+                                             rancher_cli_container, v2=None):
 
     # This method restarts containers of a service
 
     stack_name = random_str().replace("-", "")
-    launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc14.yml", "rc14.yml")
+    if v2 is None:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc14.yml", "rc14.yml")
+    else:
+        launch_rancher_cli_from_file(
+            client, compose_directory, stack_name,
+            "up -d", "Creating stack", "dc14.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest14")
 
@@ -638,13 +953,14 @@ def test_cli_create_restart_containers_of_service(client,
     delete_all(client, [stack])
 
 
-def test_cli_inspect_stack(client, rancher_cli_container):
+def cli_inspect_stack(client, compose_directory,
+                      rancher_cli_container, v2=None):
 
     # This method tests inspecting a stack
 
     stack_name = random_str().replace("-", "")
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
+        client, compose_directory, stack_name,
         "up -d", "Creating stack", "dc15.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest15")
@@ -784,7 +1100,8 @@ def test_cli_volume_list(client, rancher_cli_container):
     assert found
 
 
-def test_cli_volume_create_remove(client, rancher_cli_container):
+def cli_volume_create_remove(client, compose_directory,
+                             rancher_cli_container, v2=None):
 
     # This method tests creating and deleting a volume
 
@@ -803,7 +1120,7 @@ def test_cli_volume_create_remove(client, rancher_cli_container):
     # Create a service which uses the created volume test_vol
     stack_name = random_str().replace("-", "")
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
+        client, compose_directory, stack_name,
         "up -d", "Creating stack", "dc16.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest16")
@@ -851,7 +1168,8 @@ def test_cli_volume_create_remove(client, rancher_cli_container):
         assert False
 
 
-def test_cli_inspect_volume(client, rancher_cli_container):
+def cli_inspect_volume(client, compose_directory,
+                       rancher_cli_container, v2=None):
 
     # This method tests inspecting volumes
 
@@ -870,7 +1188,7 @@ def test_cli_inspect_volume(client, rancher_cli_container):
     # Create a service which uses test_insp_vol volume
     stack_name = random_str().replace("-", "")
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
+        client, compose_directory, stack_name,
         "up -d", "Creating stack", "dc17.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "rtest17")
@@ -884,9 +1202,9 @@ def test_cli_inspect_volume(client, rancher_cli_container):
     inspect_volume_command = "inspect " + vol_name
     cli_inspect_response = execute_rancher_cli(client, stack_name,
                                                inspect_volume_command)
+    time.sleep(35)
     print "Inspect volume response"
     print cli_inspect_response
-    time.sleep(5)
     for line in cli_inspect_response:
         cli_response_item = line
     print cli_response_item

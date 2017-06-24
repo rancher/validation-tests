@@ -1,0 +1,8 @@
+version: '2'
+services:
+  rtest9:
+    labels:
+      rtest9: value9
+    tty: true
+    scale: 2
+    image: ubuntu:14.04.3
