@@ -3,6 +3,9 @@ from common_fixtures import *  # NOQA
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+STRESS_LB_PORT_RULE_COUNT = os.environ.get(
+    'STRESS_LB_PORT_RULE_COUNT', "20")
+
 
 def test_lbservice_host_routing_1(client, socat_containers):
 
@@ -1680,4 +1683,59 @@ def test_lb_with_selector_link_target_portrules(client,
                         [service2],
                         "www.abc1.com", "/service1.html")
 
+    delete_all(client, [env])
+
+
+@if_stress
+def test_lbservice_edit_add_multiple_port_rules(
+        client, socat_containers):
+
+    port = "90"
+    count = int(STRESS_LB_PORT_RULE_COUNT)
+    service_scale = 2
+    lb_scale = 1
+    service_count = 1
+    ports = [port]
+    port_rules = []
+    port_rule = {"hostname": "www.abc.com",
+                 "serviceId": 0,
+                 "sourcePort": port,
+                 "targetPort": "80",
+                 "protocol": "http"
+                 }
+    port_rules.append(port_rule)
+    launch_config_lb = {"imageUuid": get_haproxy_image()}
+
+    env, services, lb_service = create_env_with_multiple_svc_and_lb(
+        client, service_scale, lb_scale, ports, service_count, port_rules)
+
+    wait_for_lb_service_to_become_active(client,
+                                         services, lb_service)
+    validate_lb_service(client,
+                        lb_service, port, [services[0]],
+                        "www.abc.com", "/service2.html")
+
+    for i in range(0, count):
+        port_rule = {"hostname": "www.abc.com"+str(i),
+                     "serviceId": services[0].id,
+                     "sourcePort": port+str(i),
+                     "targetPort": "80",
+                     "protocol": "http"
+                     }
+        port_rules.append(port_rule)
+        ports.append(port+str(i))
+        launch_config_lb["ports"] = ports
+        lb_service = client.update(lb_service,
+                                   launchConfig=launch_config_lb,
+                                   lbConfig=create_lb_config(port_rules))
+        wait_for_lb_service_to_become_active(client,
+                                             services, lb_service)
+        validate_lb_service(client,
+                            lb_service, port, [services[0]],
+                            "www.abc.com", "/service2.html")
+        for j in range(0, i):
+            print "Validation after adding " + str(i) + " ports"
+            validate_lb_service(client,
+                                lb_service, port+str(j), [services[0]],
+                                "www.abc.com"+str(j), "/name.html")
     delete_all(client, [env])
