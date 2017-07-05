@@ -102,7 +102,7 @@ socat_container_list = []
 host_container_list = []
 ha_host_list = []
 ha_host_count = 4
-kube_host_count = os.environ.get('KUBE_HOST_COUNT', 3)
+kube_host_count = int(os.environ.get('KUBE_HOST_COUNT', 3))
 kube_host_list = []
 catalog_host_count = 3
 
