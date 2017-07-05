@@ -196,7 +196,25 @@ def upgrade_k8s():
     k8s_stack = k8s_client.list_stack(name="kubernetes")[0]
     docker_compose = k8s_stack.dockerCompose
     rancher_compose = k8s_stack.rancherCompose
-    env = k8s_stack.environment
+    # Getting Environment
+    k8s_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/library:infra*k8s"
+    r = requests.get(k8s_catalog_url)
+    template_details = json.loads(r.content)
+    r.close()
+    default_version_link = template_details["defaultTemplateVersionId"]
+
+    default_k8s_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/" + default_version_link
+    r = requests.get(default_k8s_catalog_url)
+    template = json.loads(r.content)
+    r.close()
+    env = {}
+    questions = template["questions"]
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        env[label] = value
     external_id = k8s_stack.externalId
     time.sleep(10)
     upgraded_k8s_stack = k8s_stack.upgrade(
