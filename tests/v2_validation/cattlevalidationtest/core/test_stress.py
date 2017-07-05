@@ -191,6 +191,44 @@ def check_k8s_dashboard():
         return False
 
 
+def upgrade_k8s():
+    k8s_client = kubectl_client_con["k8s_client"]
+    k8s_stack = k8s_client.list_stack(name="kubernetes")[0]
+    docker_compose = k8s_stack.dockerCompose
+    rancher_compose = k8s_stack.rancherCompose
+    env = k8s_stack.environment
+    external_id = k8s_stack.externalId
+
+    upgraded_k8s_stack = k8s_stack.upgrade(
+                            name="kubernetes",
+                            dockerCompose=docker_compose,
+                            rancherCompose=rancher_compose,
+                            environment=env,
+                            externalId=external_id)
+    upgraded_k8s_stack = k8s_client.wait_success(
+                            upgraded_k8s_stack,
+                            timeout=300)
+    upgraded_k8s_stack.finishupgrade()
+
+
+def validate_kubectl_and_dashboard():
+    # make sure that kubectl is working
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    assert len(nodes['items']) == 3
+    # make sure that dashboard is working
+
+
+def validate_app_and_helm():
+    # Validate app
+    input_config = {
+        "namespace": "stresstest-ns",
+        "port_ext": "8"
+    }
+    validate_stack(input_config)
+    # Validate Helm
+
+
 @if_stress_testing
 def test_k8s_dashboard(kube_hosts):
     assert check_k8s_dashboard()
@@ -204,3 +242,11 @@ def test_deploy_k8s_yaml(kube_hosts):
     }
     create_stack(input_config)
     validate_stack(input_config)
+
+
+@if_stress_testing
+def test_upgrade_validate_k8s(kube_hosts):
+    for i in range(10):
+        upgrade_k8s()
+        validate_kubectl_and_dashboard()
+        validate_app_and_helm()
