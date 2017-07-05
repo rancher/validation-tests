@@ -110,6 +110,7 @@ rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
 kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
+helm_version = os.environ.get('HELM_VERSION', "v2.1.3")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 check_connectivity_by_wget = True
 cert_list = {}
@@ -2746,7 +2747,13 @@ def create_kubectl_client_container(client, port,
     cmd3 = "mkdir .kube"
     cmd4 = "echo '" + kube_config + "'> .kube/config"
     cmd5 = "./kubectl version"
-    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5
+    cmd6 = "wget https://storage.googleapis.com/kubernetes-helm/helm-" + \
+           helm_version + "-linux-amd64.tar.gz"
+    cmd7 = "tar xfz helm-" + helm_version + "-linux-amd64.tar.gz " + \
+           "--strip-components 1"
+    cmd8 = "./helm version"
+    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5 + \
+          ";" + cmd6 + ";" + cmd7 + ";" + cmd8
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     print response
