@@ -217,6 +217,29 @@ def validate_kubectl():
     nodes = json.loads(get_response)
     assert len(nodes['items']) == 4
 
+def validate_helm():
+    response = execute_helm_cmds("create validation-nginx")
+    print response
+    get_response = execute_helm_cmds("install validation-nginx \
+        --name stresstest --namespace stresstest-ns --replace")
+
+    if "STATUS: DEPLOYED" not in get_response:
+        print "dies at install"
+        return False
+    time.sleep(2)
+
+    get_response = execute_kubectl_cmds("get svc stresstest-validation-ng --namespace stresstest-ns -o json")
+    print get_response
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == "stresstest-validation-ng"
+
+    waitfor_pods(selector="app=stresstest-validation-ng", namespace="stresstest-ns", number=1)
+    get_response = execute_kubectl_cmds(
+        "get pods -o json -l 'app=stresstest-validation-ng'  ")
+    pod = json.loads(get_response)
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+
 
 @if_stress_testing
 def test_k8s_dashboard(kube_hosts):
@@ -232,6 +255,10 @@ def test_deploy_k8s_yaml(kube_hosts):
     create_stack(input_config)
     validate_stack(input_config)
 
+@if_stress_testing
+def test_validate_helm(kube_hosts):
+    assert validate_helm()
+
 
 @if_stress_testing
 def test_upgrade_validate_k8s(kube_hosts):
@@ -241,7 +268,7 @@ def test_upgrade_validate_k8s(kube_hosts):
     }
     for i in range(10):
         upgrade_k8s()
-        validate_kubectl()
+        assert validate_kubectl()
         assert check_k8s_dashboard()
-        validate_stack(input_config)
-        # validate_helm
+        assert validate_stack(input_config)
+        assert validate_helm()
