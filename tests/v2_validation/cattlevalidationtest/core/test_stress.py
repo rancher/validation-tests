@@ -176,9 +176,24 @@ def create_stack(input_config):
         file_name="stress_testing.yml")
 
 
+def check_k8s_dashboard():
+    k8s_client = kubectl_client_con["k8s_client"]
+    project_id = k8s_client.list_project()[0].id
+    dashboard_url = rancher_server_url() + \
+        '/r/projects/' + \
+        project_id + \
+        '/kubernetes-dashboard:9090/'
+    try:
+        r = requests.get(dashboard_url)
+        return r.ok
+    except requests.ConnectionError:
+        logger.info("Connection Error - " + url)
+        return False
+
+
 @if_stress_testing
 def test_k8s_dashboard(kube_hosts):
-    assert True
+    assert check_k8s_dashboard()
 
 
 @if_stress_testing
