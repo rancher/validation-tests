@@ -198,7 +198,7 @@ def upgrade_k8s():
     rancher_compose = k8s_stack.rancherCompose
     env = k8s_stack.environment
     external_id = k8s_stack.externalId
-
+    time.sleep(10)
     upgraded_k8s_stack = k8s_stack.upgrade(
                             name="kubernetes",
                             dockerCompose=docker_compose,
@@ -209,6 +209,12 @@ def upgrade_k8s():
                             upgraded_k8s_stack,
                             timeout=300)
     upgraded_k8s_stack.finishupgrade()
+    environment = k8s_client.list_stack(name="kubernetes")[0]
+    wait_for_condition(
+        k8s_client, environment,
+        lambda x: x.healthState == "healthy",
+        lambda x: 'State is: ' + x.healthState,
+        timeout=1200)
 
 
 def validate_kubectl():
@@ -216,6 +222,7 @@ def validate_kubectl():
     get_response = execute_kubectl_cmds("get nodes -o json")
     nodes = json.loads(get_response)
     assert len(nodes['items']) == 4
+
 
 def validate_helm():
     response = execute_helm_cmds("create validation-nginx")
@@ -226,19 +233,33 @@ def validate_helm():
     if "STATUS: DEPLOYED" not in get_response:
         print "dies at install"
         return False
-    time.sleep(2)
+    time.sleep(10)
 
-    get_response = execute_kubectl_cmds("get svc stresstest-validation-ng --namespace stresstest-ns -o json")
+    get_response = execute_kubectl_cmds(
+                    "get svc stresstest-validation-ng --namespace \
+                    stresstest-ns -o json")
     print get_response
     service = json.loads(get_response)
     assert service['metadata']['name'] == "stresstest-validation-ng"
 
-    waitfor_pods(selector="app=stresstest-validation-ng", namespace="stresstest-ns", number=1)
+    waitfor_pods(
+        selector="app=stresstest-validation-ng",
+        namespace="stresstest-ns", number=1)
     get_response = execute_kubectl_cmds(
         "get pods -o json -l 'app=stresstest-validation-ng'  ")
     pod = json.loads(get_response)
-    assert pod['kind'] == "Pod"
-    assert pod['status']['phase'] == "Running"
+
+    for pod in pod["items"]:
+        assert pod["status"]["phase"] == "Running"
+        assert pod['kind'] == "Pod"
+
+    # Remove the release
+    response = execute_helm_cmds("delete --purge stresstest")
+    print response
+    time.sleep(10)
+    response = execute_helm_cmds("ls -q stresstest")
+    assert response is ''
+    return True
 
 
 @if_stress_testing
@@ -255,6 +276,7 @@ def test_deploy_k8s_yaml(kube_hosts):
     create_stack(input_config)
     validate_stack(input_config)
 
+
 @if_stress_testing
 def test_validate_helm(kube_hosts):
     assert validate_helm()
@@ -268,7 +290,7 @@ def test_upgrade_validate_k8s(kube_hosts):
     }
     for i in range(10):
         upgrade_k8s()
-        assert validate_kubectl()
+        validate_kubectl()
         assert check_k8s_dashboard()
-        assert validate_stack(input_config)
+        validate_stack(input_config)
         assert validate_helm()

@@ -2752,7 +2752,7 @@ def create_kubectl_client_container(client, port,
     cmd7 = "tar xfz helm-" + helm_version + "-linux-amd64.tar.gz " + \
            "--strip-components 1"
     cmd8 = "./helm version"
-    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5 + \
+    cmd = "" + cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5 + \
           ";" + cmd6 + ";" + cmd7 + ";" + cmd8
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
@@ -2824,7 +2824,7 @@ def execute_helm_cmds(command, chdir=None, expected_resps=None):
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    error = stderr.readlines()
+    # error = stderr.readlines()
 
     str_response = ""
     for resp in response:
