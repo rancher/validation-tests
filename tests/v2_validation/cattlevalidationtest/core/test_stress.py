@@ -211,22 +211,11 @@ def upgrade_k8s():
     upgraded_k8s_stack.finishupgrade()
 
 
-def validate_kubectl_and_dashboard():
+def validate_kubectl():
     # make sure that kubectl is working
     get_response = execute_kubectl_cmds("get nodes -o json")
     nodes = json.loads(get_response)
-    assert len(nodes['items']) == 3
-    # make sure that dashboard is working
-
-
-def validate_app_and_helm():
-    # Validate app
-    input_config = {
-        "namespace": "stresstest-ns",
-        "port_ext": "8"
-    }
-    validate_stack(input_config)
-    # Validate Helm
+    assert len(nodes['items']) == 4
 
 
 @if_stress_testing
@@ -246,7 +235,13 @@ def test_deploy_k8s_yaml(kube_hosts):
 
 @if_stress_testing
 def test_upgrade_validate_k8s(kube_hosts):
+    input_config = {
+        "namespace": "stresstest-ns",
+        "port_ext": "8"
+    }
     for i in range(10):
         upgrade_k8s()
-        validate_kubectl_and_dashboard()
-        validate_app_and_helm()
+        validate_kubectl()
+        assert check_k8s_dashboard()
+        validate_stack(input_config)
+        # validate_helm
