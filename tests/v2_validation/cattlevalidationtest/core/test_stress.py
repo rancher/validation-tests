@@ -185,6 +185,7 @@ def check_k8s_dashboard():
         '/kubernetes-dashboard:9090/'
     try:
         r = requests.get(dashboard_url)
+        r.close()
         return r.ok
     except requests.ConnectionError:
         logger.info("Connection Error - " + url)
