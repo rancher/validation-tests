@@ -2987,7 +2987,11 @@ def add_digital_ocean_hosts(client, count, size="2gb",
         os_version = "ubuntu-14-04-x64"
     for i in range(0, count):
         # need extra random names for this one(sorry).
+<<<<<<< HEAD
         create_args = {"hostname": random_str() + str(random_num()),
+=======
+        create_args = {"hostname": random_str() + random_num(),
+>>>>>>> e8b9f5a43dc467713c5de4b2986d79089c258df9
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
                                               "image": os_version},
