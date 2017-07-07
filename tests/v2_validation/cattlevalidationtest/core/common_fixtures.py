@@ -2986,7 +2986,8 @@ def add_digital_ocean_hosts(client, count, size="2gb",
     if docker_version == "1.10":
         os_version = "ubuntu-14-04-x64"
     for i in range(0, count):
-        create_args = {"hostname": random_str(),
+        # need extra random names for this one(sorry).
+        create_args = {"hostname": random_str() + random_num,
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
                                               "image": os_version},
