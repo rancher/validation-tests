@@ -2824,7 +2824,11 @@ def execute_helm_cmds(command, chdir=None, expected_resps=None):
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    # error = stderr.readlines()
+    error = stderr.readlines()
+    str_error = ""
+    for err in error:
+        str_error += err
+    print "Error in response" + str(str_error)
 
     str_response = ""
     for resp in response:
@@ -2985,19 +2989,24 @@ def add_digital_ocean_hosts(client, count, size="2gb",
     os_version = "ubuntu-16-04-x64"
     if docker_version == "1.10":
         os_version = "ubuntu-14-04-x64"
-    for i in range(0, count):
-        # need extra random names for this one(sorry).
-        create_args = {"hostname": random_str() + str(random_num()),
+    active = 0
+    while active < count:
+        create_args = {"hostname": random_str(),
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
                                               "image": os_version},
                        "engineInstallUrl": docker_install_url}
         host = client.create_host(**create_args)
-        hosts.append(host)
-
-    for host in hosts:
-        host = client.wait_success(host, timeout=DEFAULT_MACHINE_TIMEOUT)
-        assert host.state == 'active'
+        try:
+            host = client.wait_success(host, timeout=DEFAULT_MACHINE_TIMEOUT)
+            assert host.state == 'active'
+            active += 1
+            hosts.append(host)
+        except:
+            host = client.wait_success(
+                        client.delete(host),
+                        timeout=DEFAULT_MACHINE_TIMEOUT)
+            assert host.state == 'removed'
     return hosts
 
 
