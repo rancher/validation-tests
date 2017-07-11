@@ -10,7 +10,10 @@ pre_upgrade_namespace = ""
 post_upgrade_namespace = ""
 pre_port_ext = ""
 post_port_ext = ""
-
+base_lb_port = os.environ.get("BASE_LB_PORT", "88")
+base_external_port = os.environ.get("BASE_EXTERNAL_PORT", "300")
+base_node_port = os.environ.get("BASE_NODE_PORT", "310")
+base_ingress_port = os.environ.get("BASE_INGRESS_PORT", "8")
 
 @pytest.fixture(scope='session')
 def get_env():
@@ -49,6 +52,13 @@ def create_stack(input_config):
 
     # Render the testing yaml
     input_config["external_node"] = node1
+    input_config["base_lb_port"] = base_lb_port
+    input_config["base_external_port"] = base_external_port + "0"
+    input_config["base_node_port"] = base_node_port + "0"
+    input_config["base_ingress_port"] = base_ingress_port
+    if len(input_config["port_ext"]) > 1:
+        input_config["base_external_port"] = base_external_port
+        input_config["base_node_port"] = base_node_port
     fname = os.path.join(K8_SUBDIR, "upgrade_testing.yml.j2")
     rendered_tmpl = render(fname, input_config)
 
@@ -62,10 +72,13 @@ def create_stack(input_config):
 
 def validate_stack(input_config):
     namespace = input_config["namespace"]
-    lb_port = int("888" + input_config["port_ext"])
-    external_port = "3000" + input_config["port_ext"]
-    node_port = int("3100" + input_config["port_ext"])
-    ingress_port = "8" + input_config["port_ext"]
+    lb_port = int(base_lb_port + input_config["port_ext"])
+    external_port = base_external_port + "0" + input_config["port_ext"]
+    node_port = int(base_node_port + "0" + input_config["port_ext"])
+    if len(input_config["port_ext"]) > 1:
+        external_port = base_external_port + input_config["port_ext"]
+        node_port = int(base_node_port + input_config["port_ext"])
+    ingress_port = base_ingress_port + input_config["port_ext"]
 
     get_response = execute_kubectl_cmds("get nodes -o json")
     nodes = json.loads(get_response)
@@ -195,7 +208,7 @@ def validate_stack(input_config):
 
 def modify_stack(input_config):
     namespace = input_config["namespace"]
-    ingress_port = "8" + input_config["port_ext"]
+    ingress_port = base_ingress_port + input_config["port_ext"]
 
     # Scale the RC
     get_response = execute_kubectl_cmds(

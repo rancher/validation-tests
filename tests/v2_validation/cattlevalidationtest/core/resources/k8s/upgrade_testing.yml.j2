@@ -49,7 +49,7 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 888{{ port_ext }}
+  - port: {{ base_lb_port }}{{ port_ext }}
     targetPort: 80
   selector:
     name: nginx
@@ -69,7 +69,7 @@ spec:
   ports:
   - port: 80
     targetPort: 80
-    nodePort: 3000{{ port_ext }}
+    nodePort: {{ base_external_port }}{{ port_ext }}
   selector:
     name: nginx
 
@@ -85,7 +85,7 @@ metadata:
 spec:
   sessionAffinity: ClientIP
   type: ClusterIP
-  clusterIP: 10.43.0.5{{ port_ext }}
+  clusterIP: 10.43.0.1{{ port_ext }}
   ports:
   - port: 8000
     targetPort: 80
@@ -105,7 +105,7 @@ spec:
   ports:
   - port: 80
     targetPort: 80
-    nodePort: 3100{{ port_ext }}
+    nodePort: {{ base_node_port }}{{ port_ext }}
   selector:
     name: nginx
 
@@ -117,7 +117,7 @@ kind: Ingress
 metadata:
  name: ingress1
  annotations:
-   http.port: "8{{ port_ext }}"
+   http.port: "{{ base_ingress_port }}{{ port_ext }}"
 spec:
  rules:
  - host: foo.bar.com
