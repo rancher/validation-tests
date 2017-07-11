@@ -1,8 +1,9 @@
 from common_fixtures import *  # NOQA
-from test_upgrade import validate_stack, create_stack, modify_stack
+from test_upgrade import  *
 import jinja2
 import os
 
+upgrade_loops = int(os.environ.get("UPGRADE_LOOPS", "10"))
 
 if_stress_testing = pytest.mark.skipif(
     os.environ.get("STRESS_TESTING") != "true",
@@ -155,9 +156,9 @@ def test_upgrade_validate_k8s(kube_hosts):
         "namespace": "stresstest-ns-1",
         "port_ext": "1"
     }
-    for i in range(2, 10):
+    for i in range(2, upgrade_loops):
         upgrade_k8s()
-        time.sleep(120)
+        time.sleep(60)
         validate_kubectl()
         assert check_k8s_dashboard()
         modify_stack(input_config)
