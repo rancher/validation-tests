@@ -84,6 +84,50 @@ def upgrade_k8s():
         timeout=1200)
 
 
+def upgrade_ipsec():
+    ipsec_client = kubectl_client_con["k8s_client"]
+    ipsec_stack = ipsec_client.list_stack(name="ipsec")[0]
+    docker_compose = ipsec_stack.dockerCompose
+    rancher_compose = ipsec_stack.rancherCompose
+    # Getting Environment
+    ipsec_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/library:infra*ipsec"
+    r = requests.get(ipsec_catalog_url)
+    template_details = json.loads(r.content)
+    r.close()
+    default_version_link = template_details["defaultTemplateVersionId"]
+
+    default_ipsec_catalog_url = \
+        rancher_server_url() + "/v1-catalog/templates/" + default_version_link
+    r = requests.get(default_ipsec_catalog_url)
+    template = json.loads(r.content)
+    r.close()
+    env = {}
+    questions = template["questions"]
+    for question in questions:
+        label = question["variable"]
+        value = question["default"]
+        env[label] = value
+    external_id = ipsec_stack.externalId
+    time.sleep(10)
+    upgraded_ipsec_stack = ipsec_stack.upgrade(
+                            name="kubernetes",
+                            dockerCompose=docker_compose,
+                            rancherCompose=rancher_compose,
+                            environment=env,
+                            externalId=external_id)
+    upgraded_ipsec_stack = ipsec_client.wait_success(
+                            upgraded_ipsec_stack,
+                            timeout=300)
+    upgraded_ipsec_stack.finishupgrade()
+    environment = ipsec_client.list_stack(name="kubernetes")[0]
+    wait_for_condition(
+        ipsec_client, environment,
+        lambda x: x.healthState == "healthy",
+        lambda x: 'State is: ' + x.healthState,
+        timeout=1200)
+
+
 def validate_kubectl():
     # make sure that kubectl is working
     get_response = execute_kubectl_cmds("get nodes -o json")
@@ -157,7 +201,8 @@ def test_upgrade_validate_k8s(kube_hosts):
         "port_ext": "1"
     }
     for i in range(2, upgrade_loops):
-        upgrade_k8s()
+        # upgrade_k8s()
+        upgrade_ipsec()
         time.sleep(60)
         validate_kubectl()
         assert check_k8s_dashboard()
