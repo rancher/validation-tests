@@ -84,7 +84,7 @@ DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
-SERVICE_WAIT_TIMEOUT = 120
+SERVICE_WAIT_TIMEOUT = int(os.environ.get('SERVICE_WAIT_TIMEOUT', "120"))
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')
