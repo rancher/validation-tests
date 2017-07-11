@@ -88,7 +88,7 @@ def validate_kubectl():
     # make sure that kubectl is working
     get_response = execute_kubectl_cmds("get nodes -o json")
     nodes = json.loads(get_response)
-    assert len(nodes['items']) == 4
+    assert len(nodes['items']) == kube_host_count
 
 
 def validate_helm():
