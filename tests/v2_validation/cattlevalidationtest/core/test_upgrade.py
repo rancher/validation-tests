@@ -14,6 +14,8 @@ base_lb_port = os.environ.get("BASE_LB_PORT", "88")
 base_external_port = os.environ.get("BASE_EXTERNAL_PORT", "300")
 base_node_port = os.environ.get("BASE_NODE_PORT", "310")
 base_ingress_port = os.environ.get("BASE_INGRESS_PORT", "8")
+base_lb_node_port = os.environ.get("BASE_LB_NODE_PORT", "320")
+
 
 @pytest.fixture(scope='session')
 def get_env():
@@ -55,10 +57,12 @@ def create_stack(input_config):
     input_config["base_lb_port"] = base_lb_port
     input_config["base_external_port"] = base_external_port + "0"
     input_config["base_node_port"] = base_node_port + "0"
+    input_config["base_lb_node_port"] = base_lb_node_port + "0"
     input_config["base_ingress_port"] = base_ingress_port
     if len(input_config["port_ext"]) > 1:
         input_config["base_external_port"] = base_external_port
         input_config["base_node_port"] = base_node_port
+        input_config["base_lb_node_port"] = base_lb_node_port
     fname = os.path.join(K8_SUBDIR, "upgrade_testing.yml.j2")
     rendered_tmpl = render(fname, input_config)
 

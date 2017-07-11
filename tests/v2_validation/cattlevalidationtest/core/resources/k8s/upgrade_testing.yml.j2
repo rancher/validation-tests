@@ -50,6 +50,7 @@ spec:
   type: LoadBalancer
   ports:
   - port: {{ base_lb_port }}{{ port_ext }}
+    nodePort: {{ base_lb_node_port }}{{ port_ext }}
     targetPort: 80
   selector:
     name: nginx
