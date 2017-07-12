@@ -142,6 +142,7 @@ def validate_stack(input_config):
         "get service nginx-lb -o json --namespace=" + namespace)
     service = json.loads(get_response)
     lbip = service['status']['loadBalancer']['ingress'][0]["ip"]
+    time.sleep(10)
     check_round_robin_access_k8s_service(pods_list, lbip, str(lb_port),
                                          path="/name.html")
 
