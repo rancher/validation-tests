@@ -60,6 +60,9 @@ CONTAINER_REFACTORING = os.environ.get(
 RANCHER_EBS = os.environ.get(
     'RANCHER_EBS', "false")
 
+STRESS_TEST = os.environ.get(
+    'STRESS_TEST', "false")
+
 ACCESS_KEY = os.environ.get('ACCESS_KEY')
 SECRET_KEY = os.environ.get('SECRET_KEY')
 PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
@@ -67,6 +70,11 @@ PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
 if_container_refactoring = pytest.mark.skipif(
     CONTAINER_REFACTORING != "True",
     reason='Container Refactoring not available')
+
+if_stress = pytest.mark.skipif(
+    STRESS_TEST != "True",
+    reason='Not Stress Test Run')
+
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
