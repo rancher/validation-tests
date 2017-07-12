@@ -142,7 +142,7 @@ def validate_stack(input_config):
         "get service nginx-lb -o json --namespace=" + namespace)
     service = json.loads(get_response)
     lbip = service['status']['loadBalancer']['ingress'][0]["ip"]
-    time.sleep(10)
+    time.sleep(20)
     check_round_robin_access_k8s_service(pods_list, lbip, str(lb_port),
                                          path="/name.html")
 
@@ -259,7 +259,7 @@ def modify_stack(input_config):
 
     # Check if the ingress works with the new pods
     ingress_name = "ingress1"
-
+    time.sleep(20)
     check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
