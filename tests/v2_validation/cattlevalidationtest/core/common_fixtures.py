@@ -4067,7 +4067,7 @@ def check_round_robin_access_k8s_service(container_names, lb_ip, port,
 
     logger.info(url)
 
-    for n in range(0, 10):
+    for n in range(0, 20):
         r = requests.get(url)
         response = r.text.strip("\n")
         logger.info(response)
