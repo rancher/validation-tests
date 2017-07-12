@@ -84,7 +84,7 @@ DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
-SERVICE_WAIT_TIMEOUT = 120
+SERVICE_WAIT_TIMEOUT = int(os.environ.get('SERVICE_WAIT_TIMEOUT', "120"))
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')
@@ -102,7 +102,7 @@ socat_container_list = []
 host_container_list = []
 ha_host_list = []
 ha_host_count = 4
-kube_host_count = 3
+kube_host_count = int(os.environ.get('KUBE_HOST_COUNT', 3))
 kube_host_list = []
 catalog_host_count = 3
 
@@ -110,6 +110,7 @@ rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
 kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
+helm_version = os.environ.get('HELM_VERSION', "v2.1.3")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 check_connectivity_by_wget = True
 cert_list = {}
@@ -2746,7 +2747,13 @@ def create_kubectl_client_container(client, port,
     cmd3 = "mkdir .kube"
     cmd4 = "echo '" + kube_config + "'> .kube/config"
     cmd5 = "./kubectl version"
-    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5
+    cmd6 = "wget https://storage.googleapis.com/kubernetes-helm/helm-" + \
+           helm_version + "-linux-amd64.tar.gz"
+    cmd7 = "tar xfz helm-" + helm_version + "-linux-amd64.tar.gz " + \
+           "--strip-components 1"
+    cmd8 = "./helm version"
+    cmd = "" + cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5 + \
+          ";" + cmd6 + ";" + cmd7 + ";" + cmd8
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     print response
@@ -2801,6 +2808,32 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
                 found = True
                 print "Found in Error Response " + err_str
         assert found
+    return str_response
+
+
+def execute_helm_cmds(command, chdir=None, expected_resps=None):
+    cmd = "./helm " + command
+    if chdir:
+        cmd = "cd " + chdir + ";" + cmd
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        kubectl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(kubectl_client_con["port"]))
+    print cmd
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    error = stderr.readlines()
+    str_error = ""
+    for err in error:
+        str_error += err
+    print "Error in response" + str(str_error)
+
+    str_response = ""
+    for resp in response:
+        str_response += resp
+    print "Obtained Response: " + str_response
     return str_response
 
 
@@ -2956,18 +2989,24 @@ def add_digital_ocean_hosts(client, count, size="2gb",
     os_version = "ubuntu-16-04-x64"
     if docker_version == "1.10":
         os_version = "ubuntu-14-04-x64"
-    for i in range(0, count):
+    active = 0
+    while active < count:
         create_args = {"hostname": random_str(),
                        "digitaloceanConfig": {"accessToken": do_access_key,
                                               "size": size,
                                               "image": os_version},
                        "engineInstallUrl": docker_install_url}
         host = client.create_host(**create_args)
-        hosts.append(host)
-
-    for host in hosts:
-        host = client.wait_success(host, timeout=DEFAULT_MACHINE_TIMEOUT)
-        assert host.state == 'active'
+        try:
+            host = client.wait_success(host, timeout=DEFAULT_MACHINE_TIMEOUT)
+            assert host.state == 'active'
+            active += 1
+            hosts.append(host)
+        except:
+            host = client.wait_success(
+                        client.delete(host),
+                        timeout=DEFAULT_MACHINE_TIMEOUT)
+            assert host.state == 'removed'
     return hosts
 
 
@@ -4028,7 +4067,7 @@ def check_round_robin_access_k8s_service(container_names, lb_ip, port,
 
     logger.info(url)
 
-    for n in range(0, 10):
+    for n in range(0, 20):
         r = requests.get(url)
         response = r.text.strip("\n")
         logger.info(response)
