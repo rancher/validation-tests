@@ -1,5 +1,5 @@
 from common_fixtures import *  # NOQA
-from test_upgrade import  *
+from test_upgrade import *  # NOQA
 import jinja2
 import os
 
