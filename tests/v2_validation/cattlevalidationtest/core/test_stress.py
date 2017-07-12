@@ -203,15 +203,16 @@ def test_upgrade_validate_k8s(kube_hosts):
     for i in range(2, upgrade_loops):
         # upgrade_k8s()
         upgrade_ipsec()
-        time.sleep(60)
         validate_kubectl()
         assert check_k8s_dashboard()
         modify_stack(input_config)
+        time.sleep(120)
         # New stack
         input_config = {
             "namespace": "stresstest-ns-"+str(i),
             "port_ext": str(i)
         }
         create_stack(input_config)
+        time.sleep(120)
         validate_stack(input_config)
         assert validate_helm()
