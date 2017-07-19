@@ -66,6 +66,7 @@ STRESS_TEST = os.environ.get(
 ACCESS_KEY = os.environ.get('ACCESS_KEY')
 SECRET_KEY = os.environ.get('SECRET_KEY')
 PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
+PROJECT_NAME = os.environ.get('PROJECT_NAME', "Default")
 
 if_container_refactoring = pytest.mark.skipif(
     CONTAINER_REFACTORING != "True",
@@ -3328,7 +3329,7 @@ def execute_rancher_cli(client, stack_name, command,
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-v*"
-    cmd5 = "export RANCHER_ENVIRONMENT=" + "Default"
+    cmd5 = "export RANCHER_ENVIRONMENT=" + PROJECT_NAME
     clicmd = "./rancher " + command
     if docker_compose is not None and rancher_compose is None:
         cmd6 = 'echo "' + docker_compose + '" > ' + docker_filename + ";"
