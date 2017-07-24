@@ -7,32 +7,15 @@ A running Rancher Environment.
 
 To run from scratch:
 
-1. [cloudnautique/10acre-ranch](https://github.com/cloudnautique/10acre-ranch)
-2. Tox
+1. Tox
 
 
 ### Running
 
-If you have a running Rancher environment set `CATTLE_TEST_URL` environment variable.
-If that variable is not set, the tests will attempt to provision one.
-
-To run:
-
-```
-git clone git@github.com:rancher/validation-tests.git
-cd validation-tests
-./scripts/test
-```
-## Contact
-For bugs, questions, comments, corrections, suggestions, etc., open an issue in
- [rancher/rancher](//github.com/rancher/rancher/issues) with a title starting with `[Validation-Tests] `.
-
-Or just [click here](//github.com/rancher/rancher/issues/new?title=%5BValidation-Tests%5D%20) to create a new issue.
-
-PLEASE READ BELOW FOR RUNNING V2 TESTS:
+Running v2-beta validation tests:
 **************************************
 
-1- Environment global variables required for v2 version of tests (upgrade support) to work depends on the type of tests, for cattle:
+1 - Environment global variables required for v2 version of tests (upgrade support) to work depends on the type of tests, for cattle:
 
 ```
 export CATTLE_TEST_URL=http://x.x.x.x:8080
@@ -61,34 +44,26 @@ export SECRET_KEY=xxxxx
 export PROJECT_ID=1a5
 ```
 
-2- Edit the tox.ini file in v2_validation directory `tests/v2_validation/tox.ini` to run the specific tests you need and make sure to add `passenv=*`, it should look something like that:
+2 - Edit the tox.ini file in v2_validation directory `tests/v2_validation/tox.ini` to run the specific tests if needed, change by adding to the command:
 
 ```
-[tox]
-envlist=py27, flake8
-
 [testenv]
 deps=-rrequirements.txt
 commands=py.test --durations=20 --junitxml=validationTestsJunit.xml cattlevalidationtest/core/test_k8s.py::test_k8s_env_rollingupdates {posargs}
 passenv=*
-
-[testenv:flake8]
-deps=-rrequirements.txt
-commands=flake8 cattlevalidationtest
-
-[testenv:githubauthenv]
-deps=-rrequirements.txt
-commands=py.test --duration=20 --junitxml=validationTestsJunit.xml cattlevalidationtest/core/test_github.py {posargs}
 ```
 
 The previous example will run the `test_k8s_env_rollingupdates` test case in `test_k8s.py` validation
 
-3- Change the line in scripts/test to `pushd ./tests/v2_validation` instead of `pushd ./tests/validation`
+3 - Run the tests
+```
+./scripts/test_v2-beta
+```
 
-4- Run the tests
-```
-./scripts/test
-```
+## Contact
+For bugs, questions, comments, corrections, suggestions, etc., open an issue in
+ [rancher/rancher](//github.com/rancher/rancher/issues) with a title starting with `[Validation-Tests] `.
+Or just [click here](//github.com/rancher/rancher/issues/new?title=%5BValidation-Tests%5D%20) to create a new issue.
 
 # License
 Copyright (c) 2014-2015 [Rancher Labs, Inc.](http://rancher.com)

@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e
+set -x
+
+: ${CATTLE_TEST_AGENT_IMAGE:='docker:cattle/test-agent:v7'}
+: ${PHANTOMJS_BIN:='/usr/local/bin/phantomjs'}
+: ${VALIDATION_JUNIT_XML_FILE:='validationTestsJunit.xml'}
+: ${CATTLE_TEST_PARALLEL_THREADS:=1}
+
+export CATTLE_TEST_AGENT_IMAGE PHANTOMJS_BIN CATTLE_TEST_PARALLEL_THREADS
+
+echo "Running tests with ${CATTLE_TEST_PARALLEL_THREADS} parallel threads"
+
+
+cd $(dirname $0)/..
+
+if [ -d '/scratch' ]; then
+    rm -rf /scratch/*
+    rsync -a --delete ./ /scratch
+    cd /scratch
+fi
+
+build_env()
+{
+    ./scripts/build-env 
+}
+
+teardown_env()
+{
+    popd
+    ./scripts/build-env -d
+}
+
+copy_logs(){
+    [ ! -f "/scratch/tests/v2_validation/validationTestsJunit.xml" ] && echo Can\'t Find /scratch/tests/v2_validation/validationTestsJunit.xml && return
+    [ -f "/scratch/tests/v2_validation/validationTestsJunit.xml" ] && echo Copying /scratch/tests/v2_validation/validationTestsJunit.xml to /target/${VALIDATION_JUNIT_XML_FILE}
+    [ -d "/target" ] && cp /scratch/tests/v2_validation/validationTestsJunit.xml /target/${VALIDATION_JUNIT_XML_FILE}
+}
+
+run_tests()
+{
+    pushd ./tests/v2_validation
+    if [ "${CATTLE_TEST_PARALLEL_THREADS}" -gt 1 ]; then
+       echo "Running in sigle thread"
+       tox '-k test_container.py::test_set_up'
+    fi
+    TOX_ARGS=
+    if [ "${CATTLE_TEST_PARALLEL_THREADS}" -gt 1 ]; then
+       TOX_ARGS="-- -v -n ${CATTLE_TEST_PARALLEL_THREADS}"
+    fi
+
+    tox ${TOX_ARGS} || copy_logs && exit 1
+
+}
+
+if [ -z "${CATTLE_TEST_URL}" ]; then
+    trap "teardown_env" EXIT TERM ERR
+    build_env
+
+    export CATTLE_TEST_URL=http://$(gce-10acre-ranch -c cattle-$(id -un) -i):8080
+    echo "\nGiving hosts time to register"
+    sleep 30
+else
+    echo "Using set CATTLE_TEST_URL env var: ${CATTLE_TEST_URL} for tests"
+fi
+
+
+run_tests
