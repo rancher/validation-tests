@@ -106,7 +106,7 @@ def test_metadata_self_2016_07_29(
                                               "self/stack", "2016-07-29")
         metadata = json.loads(metadata_str)
 
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         # Check for service object list
 
         # Set token value to None in service metadata object returned
@@ -192,7 +192,7 @@ def test_metadata_byname_2016_07_29(
                                               "stacks/" + env_name,
                                               "2016-07-29")
         metadata = json.loads(metadata_str)
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         # Check for service object list
         assert cmp(metadata["services"][0], service_metadata) == 0
         assert metadata["name"] == env.name
@@ -282,7 +282,7 @@ def test_metadata_self_2015_12_19(
                                               "self/stack", "2015-12-19")
         metadata = json.loads(metadata_str)
 
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         # Check for service object list
 
         # Set token value to None in service metadata object returned
@@ -368,7 +368,7 @@ def test_metadata_byname_2015_12_19(
                                               "stacks/" + env_name,
                                               "2015-12-19")
         metadata = json.loads(metadata_str)
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         # Check for service object list
         assert cmp(metadata["services"][0], service_metadata) == 0
         assert metadata["name"] == env.name
@@ -449,7 +449,7 @@ def test_metadata_self_2015_07_25(
         metadata_str = fetch_rancher_metadata(client, con, port,
                                               "self/stack", "2015-07-25")
         metadata = json.loads(metadata_str)
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         assert metadata["services"] == ["test"]
         assert metadata["name"] == env.name
         assert metadata["uuid"] == env.uuid
@@ -521,7 +521,7 @@ def test_metadata_byname_2015_07_25(
                                               "stacks/" + env_name,
                                               "2015-07-25")
         metadata = json.loads(metadata_str)
-        assert metadata["environment_name"] == "Default"
+        assert metadata["environment_name"] == PROJECT_NAME
         assert metadata["services"] == ["test2"]
         assert metadata["name"] == env.name
         assert metadata["uuid"] == env.uuid
