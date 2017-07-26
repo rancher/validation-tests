@@ -4,10 +4,13 @@ RCCOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  'resources/rccmds')
 logger = logging.getLogger(__name__)
 start_project_str = "Starting"
+reason_skipped_str = 'Rancher compose files directory location not ' \
+                     'set/does not Exist or account api keys provided'
 
 if_compose_data_files = pytest.mark.skipif(
-    not os.path.isdir(RCCOMMANDS_SUBDIR),
-    reason='Rancher compose files directory location not set/does not Exist')
+    not os.path.isdir(RCCOMMANDS_SUBDIR) or
+    ACCESS_KEY is not None or SECRET_KEY is not None,
+    reason=reason_skipped_str)
 
 
 @if_compose_data_files
