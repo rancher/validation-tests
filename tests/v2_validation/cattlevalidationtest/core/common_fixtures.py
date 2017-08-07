@@ -93,7 +93,7 @@ DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"
 RANCHER_FQDN = "rancher.internal"
-SERVICE_WAIT_TIMEOUT = 120
+SERVICE_WAIT_TIMEOUT = int(os.environ.get('SERVICE_WAIT_TIMEOUT', "120"))
 
 SSLCERT_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               'resources/sslcerts')
@@ -111,7 +111,7 @@ socat_container_list = []
 host_container_list = []
 ha_host_list = []
 ha_host_count = 4
-kube_host_count = 3
+kube_host_count = int(os.environ.get('KUBE_HOST_COUNT', 3))
 kube_host_list = []
 catalog_host_count = 3
 
@@ -2066,9 +2066,19 @@ def check_round_robin_access_lb_ip(container_names, lb_ip, port,
 
     for n in range(0, len(con_hostname)):
         if headers is not None:
-            r = requests.get(url, headers=headers)
+            try:
+                r = requests.get(url, headers=headers)
+            except requests.ConnectionError:
+                logger.info("Connection Error - " + url)
+                time.sleep(5)
+                continue
         else:
-            r = requests.get(url)
+            try:
+                r = requests.get(url)
+            except requests.ConnectionError:
+                logger.info("Connection Error - " + url)
+                time.sleep(5)
+                continue
         response = r.text.strip("\n")
         logger.info(response)
         r.close()
@@ -2079,11 +2089,21 @@ def check_round_robin_access_lb_ip(container_names, lb_ip, port,
     logger.info(con_hostname_ordered)
 
     i = 0
-    for n in range(0, 10):
+    for n in range(0, 20):
         if headers is not None:
-            r = requests.get(url, headers=headers)
+            try:
+                r = requests.get(url, headers=headers)
+            except requests.ConnectionError:
+                logger.info("Connection Error - " + url)
+                time.sleep(5)
+                continue
         else:
-            r = requests.get(url)
+            try:
+                r = requests.get(url)
+            except requests.ConnectionError:
+                logger.info("Connection Error - " + url)
+                time.sleep(5)
+                continue
         response = r.text.strip("\n")
         r.close()
         logger.info("Response received-" + response)
@@ -4037,8 +4057,13 @@ def check_round_robin_access_k8s_service(container_names, lb_ip, port,
 
     logger.info(url)
 
-    for n in range(0, 10):
-        r = requests.get(url)
+    for n in range(0, 20):
+        try:
+            r = requests.get(url)
+        except requests.ConnectionError:
+            logger.info("Connection Error - " + url)
+            time.sleep(5)
+            continue
         response = r.text.strip("\n")
         logger.info(response)
         r.close()
