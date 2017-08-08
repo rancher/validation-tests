@@ -796,10 +796,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
             found = False
     assert found
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 13
@@ -868,10 +865,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
             found = False
     assert found
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 14,15
@@ -948,10 +942,10 @@ def test_ldap_deactivate_activate_env(admin_client):
 
     # Activate environment back
     dec_project.activate()
-    act_project = u2_client.by_id('project', project.id)
+    act_project = u2_client.by_id('project', dec_project.id)
     assert act_project['state'] == 'active'
 
-    assert u3_client.by_id('project', project.id) is not None
+    assert u3_client.by_id('project', dec_project.id) is not None
 
 
 # 16
@@ -1034,18 +1028,14 @@ def test_ldap_remove_deactivated_env(admin_client):
     # Remove environment
     main_client.delete(dec_project)
     time.sleep(5)
-    project = main_client.by_id('project', project.id)
+    project = main_client.by_id('project', dec_project.id)
     assert project.state == 'purged' or project.state == 'removed'
 
     # Users can't access the environment anymore
-    with pytest.raises(ApiError) as excinfo:
-        u2_client.by_id('project', project.id)
 
-    assert "Not Found" in str(excinfo.value)
+    assert u2_client.by_id('project', project.id) is None
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 17,18
@@ -1335,16 +1325,12 @@ def test_ldap_member_add_host(admin_client):
     assert len(host_list) == 1
 
     # Remove host
-    host = host_list[0]
+    host = u2_client.list_host()[0]
     deactivated_host = host.deactivate()
     u2_client.wait_success(deactivated_host)
 
+    deactivated_host = u2_client.list_host()[0]
     deactivated_host.remove()
-
-    all_hosts = u2_client.list_host()
-    for h in all_hosts:
-        if h.hostname == host.hostname:
-            assert False
 
 
 # 31
@@ -1395,6 +1381,7 @@ def test_ldap_create_new_env_with_restricted_member(admin_client):
 
 # 32
 @if_test_ldap
+@if_do_key
 def test_ldap_create_service_with_restricted_member(admin_client):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
