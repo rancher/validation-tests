@@ -14,3 +14,6 @@ tox -e flake8
 
 cd ../v2_validation
 tox -e flake8
+
+cd ../v3_validation
+tox -e flake8
