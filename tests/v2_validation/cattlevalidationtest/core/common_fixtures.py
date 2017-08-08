@@ -2064,21 +2064,12 @@ def check_round_robin_access_lb_ip(container_names, lb_ip, port,
 
     logger.info(headers)
 
+    wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False)
     for n in range(0, len(con_hostname)):
         if headers is not None:
-            try:
-                r = requests.get(url, headers=headers)
-            except requests.ConnectionError:
-                logger.info("Connection Error - " + url)
-                time.sleep(5)
-                continue
+            r = requests.get(url, headers=headers)
         else:
-            try:
-                r = requests.get(url)
-            except requests.ConnectionError:
-                logger.info("Connection Error - " + url)
-                time.sleep(5)
-                continue
+            r = requests.get(url)
         response = r.text.strip("\n")
         logger.info(response)
         r.close()
@@ -2091,19 +2082,9 @@ def check_round_robin_access_lb_ip(container_names, lb_ip, port,
     i = 0
     for n in range(0, 20):
         if headers is not None:
-            try:
-                r = requests.get(url, headers=headers)
-            except requests.ConnectionError:
-                logger.info("Connection Error - " + url)
-                time.sleep(5)
-                continue
+            r = requests.get(url, headers=headers)
         else:
-            try:
-                r = requests.get(url)
-            except requests.ConnectionError:
-                logger.info("Connection Error - " + url)
-                time.sleep(5)
-                continue
+            r = requests.get(url)
         response = r.text.strip("\n")
         r.close()
         logger.info("Response received-" + response)
@@ -4056,14 +4037,9 @@ def check_round_robin_access_k8s_service(container_names, lb_ip, port,
           ":" + port + path
 
     logger.info(url)
-
+    wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False)
     for n in range(0, 20):
-        try:
-            r = requests.get(url)
-        except requests.ConnectionError:
-            logger.info("Connection Error - " + url)
-            time.sleep(5)
-            continue
+        r = requests.get(url)
         response = r.text.strip("\n")
         logger.info(response)
         r.close()
