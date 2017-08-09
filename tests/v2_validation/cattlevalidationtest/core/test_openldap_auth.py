@@ -1,6 +1,6 @@
 from common_fixtures import *  # NOQA
 from requests.auth import AuthBase
-from cattle import ApiError, ClientApiError
+from cattle import ClientApiError
 
 
 if_test_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
@@ -9,6 +9,10 @@ if_test_ldap = pytest.mark.skipif(not os.environ.get('API_AUTH_LDAP_SERVER'),
 if_do_key = pytest.mark.skipif(
     not os.environ.get('DIGITALOCEAN_KEY'),
     reason="Digital Ocean key is not set")
+
+if_ldap_port = pytest.mark.skipif(
+    os.environ.get('LDAP_PORT') != 'True',
+    reason="LDAP_PORT is not True")
 
 ADMIN_LDAP_CLIENT = None
 
@@ -63,7 +67,7 @@ def create_ldap_client(username=None,
 
 def get_authed_token(username=None, password=None):
     token = requests.post(cattle_url() + '/token', {
-        'authProvider': "ldapconfig",
+        'authProvider': "openldapconfig",
         'code': username + ':' + password
     })
     assert token.ok
@@ -152,7 +156,7 @@ def turn_on_off_ldap_auth(admin_client, request):
     def fin():
         config = load_config()
         config['enabled'] = None
-        client.create_ldapconfig(config)
+        client.create_openldapconfig(config)
     request.addfinalizer(fin)
 
 
@@ -165,7 +169,7 @@ def reconfigure_ldap(admin_client, domain, groupSearchDomain):
     token = get_authed_token(username=ldap_main_user,
                              password=ldap_main_pass)
     config['enabled'] = None
-    client.create_ldapconfig(config)
+    client.create_openldapconfig(config)
 
     user = token['userIdentity']
     allowed_identities = []
@@ -546,18 +550,18 @@ def test_ldap_group_search_domain(admin_client):
                                      password=ldap_main_pass)
 
     # Narrow down domain to OU=dev, so that group search fails
-    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+    reconfigure_ldap(main_client, 'ou=dev,dc=us-west-2,dc=compute,\
         dc=internal', '')
     assert len(main_client.list_identity(name=group)) == 0
 
     # Set groupSearchDomain so group search works
-    reconfigure_ldap(admin_client, 'ou=dev,dc=us-west-2,dc=compute,\
+    reconfigure_ldap(main_client, 'ou=dev,dc=us-west-2,dc=compute,\
         dc=internal', 'ou=groups,dc=us-west-2,dc=compute,dc=internal')
     assert len(main_client.list_identity(name=group)) == 1
     assert main_client.list_identity(name=group)[0]['login'] == group
 
     # Set domain back to original value
-    reconfigure_ldap(admin_client,
+    reconfigure_ldap(main_client,
                      os.environ.get('API_AUTH_LDAP_SEARCH_BASE'), '')
 
     # Two groups with same name 'caringQA' are added under separate OUs
@@ -565,7 +569,7 @@ def test_ldap_group_search_domain(admin_client):
     duplicate_name_group = 'caringQA'
 
     # Set groupSearchDomain such that caringQA from only OU=groups is returned
-    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+    reconfigure_ldap(main_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
                      'ou=groups,dc=us-west-2,dc=compute,dc=internal')
     groups_searched = main_client.list_identity(name=duplicate_name_group)
     assert len(groups_searched) == 1
@@ -574,7 +578,7 @@ def test_ldap_group_search_domain(admin_client):
 
     # Set groupSearchDomain such that
     # caringQA from only OU=groupsDuplicate is returned
-    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+    reconfigure_ldap(main_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
                      'ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal')
     groups_searched = main_client.list_identity(name=duplicate_name_group)
     assert len(groups_searched) == 1
@@ -583,7 +587,7 @@ def test_ldap_group_search_domain(admin_client):
 
     # Unset groupSearchDomain, so both groups get searched
     # and settings are restored for remanining tests
-    reconfigure_ldap(admin_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+    reconfigure_ldap(main_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
                      '')
     assert len(main_client.list_identity(name=duplicate_name_group)) == 2
 
@@ -796,10 +800,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
             found = False
     assert found
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 13
@@ -868,10 +869,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
             found = False
     assert found
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 14,15
@@ -948,10 +946,10 @@ def test_ldap_deactivate_activate_env(admin_client):
 
     # Activate environment back
     dec_project.activate()
-    act_project = u2_client.by_id('project', project.id)
+    act_project = u2_client.by_id('project', dec_project.id)
     assert act_project['state'] == 'active'
 
-    assert u3_client.by_id('project', project.id) is not None
+    assert u3_client.by_id('project', dec_project.id) is not None
 
 
 # 16
@@ -1034,18 +1032,14 @@ def test_ldap_remove_deactivated_env(admin_client):
     # Remove environment
     main_client.delete(dec_project)
     time.sleep(5)
-    project = main_client.by_id('project', project.id)
+    project = main_client.by_id('project', dec_project.id)
     assert project.state == 'purged' or project.state == 'removed'
 
     # Users can't access the environment anymore
-    with pytest.raises(ApiError) as excinfo:
-        u2_client.by_id('project', project.id)
 
-    assert "Not Found" in str(excinfo.value)
+    assert u2_client.by_id('project', project.id) is None
 
-    with pytest.raises(ApiError) as excinfo:
-        u3_client.by_id('project', project.id)
-    assert "Not Found" in str(excinfo.value)
+    assert u3_client.by_id('project', project.id) is None
 
 
 # 17,18
@@ -1214,7 +1208,7 @@ def test_ldap_change_user_to_admin(admin_client):
                                    password=ldap_pass2)
 
     with pytest.raises(ClientApiError) as excinfo:
-        u2_client.list_ldapconfig()
+        u2_client.list_openldapconfig()
     assert "is not a valid type" in str(excinfo.value)
 
     # change account from user to admin
@@ -1225,7 +1219,7 @@ def test_ldap_change_user_to_admin(admin_client):
 
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
-    assert u2_client.list_ldapconfig() is not None
+    assert u2_client.list_openldapconfig() is not None
 
     # change account from admin to user
     u2_account = main_client.list_account(name=u2_name)[0]
@@ -1335,16 +1329,12 @@ def test_ldap_member_add_host(admin_client):
     assert len(host_list) == 1
 
     # Remove host
-    host = host_list[0]
+    host = u2_client.list_host()[0]
     deactivated_host = host.deactivate()
     u2_client.wait_success(deactivated_host)
 
+    deactivated_host = u2_client.list_host()[0]
     deactivated_host.remove()
-
-    all_hosts = u2_client.list_host()
-    for h in all_hosts:
-        if h.hostname == host.hostname:
-            assert False
 
 
 # 31
@@ -1395,6 +1385,7 @@ def test_ldap_create_new_env_with_restricted_member(admin_client):
 
 # 32
 @if_test_ldap
+@if_do_key
 def test_ldap_create_service_with_restricted_member(admin_client):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
@@ -1448,6 +1439,7 @@ def test_ldap_create_service_with_restricted_member(admin_client):
 
 # 33,34
 @if_test_ldap
+@if_do_key
 def test_ldap_create_new_env_with_readonly_member(admin_client):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
@@ -1537,12 +1529,13 @@ def test_ldap_list_identities(admin_client):
 
 
 @if_test_ldap
+@if_ldap_port
 def test_secret_setting(admin_client):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
 
-    client = create_ad_client(username=ldap_main_user,
-                              password=ldap_main_pass)
+    client = create_ldap_client(username=ldap_main_user,
+                                password=ldap_main_pass)
     password_setting = 'api.auth.ldap.openldap.service.account.password'
     secret = client.by_id_setting(password_setting)
     assert secret.value is None

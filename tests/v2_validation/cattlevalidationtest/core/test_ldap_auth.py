@@ -88,6 +88,10 @@ def delete_ldap_token(id, cookies):
 
 
 def load_config():
+    if os.environ.get('API_AUTH_AD_TLS') == 'True':
+        tls = True
+    else:
+        tls = False
     config = {
         'server': os.environ.get('API_AUTH_AD_SERVER'),
         'domain': os.environ.get('API_AUTH_AD_SEARCH_BASE'),
@@ -101,11 +105,12 @@ def load_config():
         'groupObjectClass': os.environ.get('SCHEMA_AD_GROUP_OBJECT_CLASS'),
         'groupSearchField': os.environ.get('SCHEMA_AD_GROUP_SEARCH_FIELD'),
         'groupDNField': os.environ.get('SCHEMA_AD_GROUP_DN_FIELD'),
+        'tls': tls,
         'groupMemberMappingAttribute': "memberUid",
         'groupMemberUserAttribute': os.environ.get('SCHEMA_AD_GROUP_'
                                                    'MEMBER_USER_ATTRIBUTE'),
         'groupSearchDomain': os.environ.get('API_AUTH_AD_GROUP_SEARCH_BASE'),
-        'tls': False,
+
         'userDisabledBitMask': int(os.environ.get('SCHEMA_AD_USER_DISABLED'
                                                   '_STATUS_BITMASK')),
         'userEnabledAttribute': None,
