@@ -1608,12 +1608,9 @@ def test_ad_restrict_to_specific_user(admin_client):
     user = ADMIN_TOKEN['userIdentity']
     allowed_identities = []
     allowed_identities.append(user)
-    token2 = get_authed_token(username=ldap_user2,
-                              password=ldap_pass2)
-    token3 = get_authed_token(username=ldap_user3,
-                              password=ldap_pass3)
-    user2 = token2['userIdentity']
-    allowed_identities.append(user2)
+    user2_identity = ADMIN_AD_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ast.literal_eval(str(user2_identity))
+    allowed_identities.append(user2_identity)
 
     # Enable new configuration
     config = load_config(access_mode='required')
@@ -1621,13 +1618,8 @@ def test_ad_restrict_to_specific_user(admin_client):
     config['allowedIdentities'] = allowed_identities
 
     if ldap_port == 'True':
-        test_config = load_test_api_config(config)
         access_key = ADMIN_AD_CLIENT._access_key
         secret_key = ADMIN_AD_CLIENT._secret_key
-        auth_url = cattle_url()[:-7] + 'v1-auth/testlogin'
-        r = requests.post(auth_url, data=json.dumps(test_config),
-                          auth=(access_key, secret_key))
-        assert r.ok
         auth_url = cattle_url()[:-7] + 'v1-auth/config'
         r = requests.post(auth_url, data=json.dumps(config),
                           auth=(access_key, secret_key))
@@ -1635,16 +1627,21 @@ def test_ad_restrict_to_specific_user(admin_client):
     else:
         ADMIN_AD_CLIENT.create_ldapconfig(config)
 
-    cookies = dict(token=token3['jwt'])
-    bad_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
-    assert bad_auth.status_code == 403
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '401' in str(e)
 
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
     config = load_config()
-    config['enabled'] = None
+    config['enabled'] = True
     if ldap_port == 'True':
         auth_url = cattle_url()[:-7] + 'v1-auth/config'
         r = requests.post(auth_url, data=json.dumps(config),
@@ -1673,19 +1670,15 @@ def test_ad_restrict_to_specific_group(admin_client):
     user = ADMIN_TOKEN['userIdentity']
     allowed_identities = []
     allowed_identities.append(user)
-    token2 = get_authed_token(username=ldap_user2,
-                              password=ldap_pass2)
-    token3 = get_authed_token(username=ldap_user3,
-                              password=ldap_pass3)
 
     group_identity = main_client.list_identity(name=group)[0]
     group_identity_dict = ast.literal_eval(str(group_identity))
     allowed_identities.append(group_identity_dict)
+
     # Enable new configuration
     config = load_config(access_mode='required')
     config['enabled'] = True
     config['allowedIdentities'] = allowed_identities
-
     if ldap_port == 'True':
         access_key = ADMIN_AD_CLIENT._access_key
         secret_key = ADMIN_AD_CLIENT._secret_key
@@ -1696,16 +1689,21 @@ def test_ad_restrict_to_specific_group(admin_client):
     else:
         ADMIN_AD_CLIENT.create_ldapconfig(config)
 
-    cookies = dict(token=token3['jwt'])
-    bad_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
-    assert bad_auth.status_code == 403
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '401' in str(e)
 
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
     config = load_config()
-    config['enabled'] = None
+    config['enabled'] = True
     if ldap_port == 'True':
         auth_url = cattle_url()[:-7] + 'v1-auth/config'
         r = requests.post(auth_url, data=json.dumps(config),
