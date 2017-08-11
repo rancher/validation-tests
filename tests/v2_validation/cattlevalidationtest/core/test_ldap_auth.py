@@ -1506,6 +1506,8 @@ def test_ad_member_add_host(admin_client):
     deactivated_host = u2_client.list_host()[0]
     deactivated_host.remove()
 
+    time.sleep(60)
+
     all_hosts = u2_client.list_host()
     for h in all_hosts:
         if h.hostname == host.hostname:
