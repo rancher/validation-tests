@@ -1,6 +1,6 @@
 from common_fixtures import *  # NOQA
 from requests.auth import AuthBase
-
+import ast
 
 if_test_ad = pytest.mark.skipif(not os.environ.get('API_AUTH_AD_SERVER'),
                                 reason='API_AUTH_AD_SERVER is not set')
@@ -87,7 +87,7 @@ def delete_ldap_token(id, cookies):
         in response.headers['set-cookie']
 
 
-def load_config():
+def load_config(access_mode="unrestricted"):
     if os.environ.get('API_AUTH_AD_TLS') == 'True':
         tls = True
     else:
@@ -124,7 +124,7 @@ def load_config():
     ldap_port = os.environ.get('LDAP_PORT')
     if ldap_port == 'True':
         data = {
-            "accessMode": "unrestricted",
+            "accessMode": access_mode,
             "allowedIdentities": [],
             "enabled": True,
             "provider": "ldapconfig",
@@ -134,7 +134,7 @@ def load_config():
             "type": "config"
         }
     else:
-        config['accessMode'] = 'unrestricted'
+        config['accessMode'] = access_mode
         config['enabled'] = True
         return config
 
@@ -281,6 +281,129 @@ def test_ad_delete_token_on_logout(admin_client):
 
     identities = requests.get(cattle_url() + "identities", cookies=cookies)
     assert identities.status_code == 401
+
+
+# 2
+@if_test_ad
+def test_ad_restrict_to_specific_user(admin_client):
+    ldap_main_user = os.environ.get('AD_MAIN_USER')
+    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+    ldap_user2 = os.environ.get('AD_USER2')
+    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user3 = os.environ.get('AD_USER3')
+    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_port = os.environ.get('LDAP_PORT')
+
+    user = ADMIN_TOKEN['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    token3 = get_authed_token(username=ldap_user3,
+                              password=ldap_pass3)
+    user2 = token2['userIdentity']
+    allowed_identities.append(user2)
+
+    # Enable new configuration
+    config = load_config(access_mode='required')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+
+    if ldap_port == 'True':
+        test_config = load_test_api_config(config)
+        access_key = ADMIN_AD_CLIENT._access_key
+        secret_key = ADMIN_AD_CLIENT._secret_key
+        auth_url = cattle_url()[:-7] + 'v1-auth/testlogin'
+        r = requests.post(auth_url, data=json.dumps(test_config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        ADMIN_AD_CLIENT.create_ldapconfig(config)
+
+    cookies = dict(token=token3['jwt'])
+    bad_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert bad_auth.status_code == 403
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    config = load_config()
+    config['enabled'] = None
+    if ldap_port == 'True':
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        client = create_ad_client(username=ldap_main_user,
+                                  password=ldap_main_pass)
+        client.create_ldapconfig(config)
+
+
+# 3
+@if_test_ad
+def test_ad_restrict_to_specific_group(admin_client):
+    ldap_main_user = os.environ.get('AD_MAIN_USER')
+    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+    ldap_user2 = os.environ.get('AD_USER2')
+    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user3 = os.environ.get('AD_USER3')
+    ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_port = os.environ.get('LDAP_PORT')
+    group = os.environ.get('AD_GROUP')
+
+    main_client = create_ad_client(username=ldap_main_user,
+                                   password=ldap_main_pass)
+    user = ADMIN_TOKEN['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    token3 = get_authed_token(username=ldap_user3,
+                              password=ldap_pass3)
+
+    group_identity = main_client.list_identity(name=group)[0]
+    group_identity_dict = ast.literal_eval(str(group_identity))
+    allowed_identities.append(group_identity_dict)
+    # Enable new configuration
+    config = load_config(access_mode='required')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+
+    if ldap_port == 'True':
+        access_key = ADMIN_AD_CLIENT._access_key
+        secret_key = ADMIN_AD_CLIENT._secret_key
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        ADMIN_AD_CLIENT.create_ldapconfig(config)
+
+    cookies = dict(token=token3['jwt'])
+    bad_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert bad_auth.status_code == 403
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    config = load_config()
+    config['enabled'] = None
+    if ldap_port == 'True':
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        client = create_ad_client(username=ldap_main_user,
+                                  password=ldap_main_pass)
+        client.create_ldapconfig(config)
 
 
 # 4
