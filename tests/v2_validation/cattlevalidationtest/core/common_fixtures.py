@@ -239,8 +239,8 @@ def wait_success(client, obj, timeout=DEFAULT_TIMEOUT):
     return client.wait_success(obj, timeout=timeout)
 
 
-def wait_state(client, obj, state):
-    wait_for(lambda: client.reload(obj).state == state)
+def wait_state(client, obj, state, timeout=DEFAULT_TIMEOUT):
+    wait_for(lambda: client.reload(obj).state == state, timeout)
     return client.reload(obj)
 
 
@@ -615,7 +615,7 @@ def get_ssh_to_host_ssh_container(host):
 
 @pytest.fixture
 def wait_for_condition(client, resource, check_function, fail_handler=None,
-                       timeout=180):
+                       timeout=DEFAULT_TIMEOUT):
     start = time.time()
     resource = client.reload(resource)
     while not check_function(resource):
@@ -813,8 +813,8 @@ def get_docker_client(host):
     return Client(**params)
 
 
-def wait_for_scale_to_adjust(admin_client, service):
-    service = wait_state(admin_client, service, "active")
+def wait_for_scale_to_adjust(admin_client, service, timeout=DEFAULT_TIMEOUT):
+    service = wait_state(admin_client, service, "active", timeout)
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active",
                                                        managed=1)
@@ -2999,12 +2999,12 @@ def wait_for_host(client, machine):
     return machine
 
 
-def wait_for_host_agent_state(client, host, state):
+def wait_for_host_agent_state(client, host, state, timeout=DEFAULT_TIMEOUT):
     host = wait_for_condition(client,
                               host,
                               lambda x: x.agentState == state,
-                              lambda x: 'Host state is ' + x.agentState
-                              )
+                              lambda x: 'Host state is ' + x.agentState,
+                              timeout)
     return host
 
 
