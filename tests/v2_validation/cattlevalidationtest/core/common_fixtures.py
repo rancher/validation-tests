@@ -3104,7 +3104,7 @@ def waitfor_pods(selector=None,
     pods = pod['items']
     pods_no = len(pod['items'])
     while True:
-        if pods_no >= number:
+        if pods_no == number:
             for pod in pods:
                 if pod['status']['phase'] != state:
                     all_running = False
@@ -3186,6 +3186,7 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
     lb_ip = []
     startTime = time.time()
     while len(lb_ip) < ing_scale:
+        lb_ip = []
         if time.time() - startTime > 60:
             raise \
                 ValueError("Timed out waiting "
@@ -3197,8 +3198,12 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
         if "ingress" in ingress["status"]["loadBalancer"]:
             for item in ingress["status"]["loadBalancer"]["ingress"]:
                 print item["ip"]
+                print "Array is:"
+                print lb_ip
                 lb_ip.append(item["ip"])
         time.sleep(.5)
+    print "Length of lb_ip"
+    print len(lb_ip)
     return lb_ip
 
 
