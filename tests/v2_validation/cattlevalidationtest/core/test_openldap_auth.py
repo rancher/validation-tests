@@ -89,6 +89,10 @@ def delete_ldap_token(id, cookies):
 
 
 def load_config(access_mode='unrestricted'):
+    if os.environ.get('API_AUTH_LDAP_TLS') == 'True':
+        tls = True
+    else:
+        tls = False
     config = {
         'accessMode': access_mode,
         'server': os.environ.get('API_AUTH_LDAP_SERVER'),
@@ -107,7 +111,7 @@ def load_config(access_mode='unrestricted'):
                                                    'MEMBER_USER_ATTRIBUTE'),
         'loginDomain': None,
         'enabled': True,
-        'tls': False,
+        'tls': tls,
         'userDisabledBitMask': os.environ.get('SCHEMA_LDAP_USER_DISABLED'
                                               '_STATUS_BITMASK'),
         'userEnabledAttribute': None,
