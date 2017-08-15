@@ -1596,7 +1596,7 @@ def test_secret_setting(admin_client):
 
 # 2
 @if_test_ad
-def test_ad_restrict_to_specific_user(admin_client):
+def test_ad_restrict_to_specific_user(admin_client, request):
     ldap_main_user = os.environ.get('AD_MAIN_USER')
     ldap_main_pass = os.environ.get('AD_MAIN_PASS')
     ldap_user2 = os.environ.get('AD_USER2')
@@ -1640,22 +1640,15 @@ def test_ad_restrict_to_specific_user(admin_client):
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
-    config = load_config()
-    config['enabled'] = True
-    if ldap_port == 'True':
-        auth_url = cattle_url()[:-7] + 'v1-auth/config'
-        r = requests.post(auth_url, data=json.dumps(config),
-                          auth=(access_key, secret_key))
-        assert r.ok
-    else:
-        client = create_ad_client(username=ldap_main_user,
-                                  password=ldap_main_pass)
-        client.create_ldapconfig(config)
+    def fin():
+        reconfigure_ad(main_client,
+                       os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    request.addfinalizer(fin)
 
 
 # 3
 @if_test_ad
-def test_ad_restrict_to_specific_group(admin_client):
+def test_ad_restrict_to_specific_group(admin_client, request):
     ldap_main_user = os.environ.get('AD_MAIN_USER')
     ldap_main_pass = os.environ.get('AD_MAIN_PASS')
     ldap_user2 = os.environ.get('AD_USER2')
@@ -1702,14 +1695,7 @@ def test_ad_restrict_to_specific_group(admin_client):
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
-    config = load_config()
-    config['enabled'] = True
-    if ldap_port == 'True':
-        auth_url = cattle_url()[:-7] + 'v1-auth/config'
-        r = requests.post(auth_url, data=json.dumps(config),
-                          auth=(access_key, secret_key))
-        assert r.ok
-    else:
-        client = create_ad_client(username=ldap_main_user,
-                                  password=ldap_main_pass)
-        client.create_ldapconfig(config)
+    def fin():
+        reconfigure_ad(main_client,
+                       os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    request.addfinalizer(fin)
