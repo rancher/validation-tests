@@ -1419,6 +1419,8 @@ def test_k8s_ingress_24(kube_hosts):
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
+    lbips = wait_for_ingress_to_become_active(ingress_name, namespace,
+                                              ing_scale=2)
     wait_until_lb_ip_is_active(lbips[0], port, timeout=120)
     wait_until_lb_ip_is_active(lbips[1], port, timeout=120)
 
