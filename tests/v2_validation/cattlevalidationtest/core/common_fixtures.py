@@ -2758,6 +2758,7 @@ def create_kubectl_client_container(client, port,
     cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
+    ssh.close()
     print response
     test_kubectl_client_con["container"] = c
     test_kubectl_client_con["host"] = host
@@ -2783,6 +2784,7 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     error = stderr.readlines()
+    ssh.close()
 
     str_response = ""
     for resp in response:
