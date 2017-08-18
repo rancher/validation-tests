@@ -1548,13 +1548,19 @@ def test_secret_setting(admin_client):
 
 # 2
 @if_test_ldap
-def test_ldap_restrict_to_specific_user(admin_client, request):
+def test_ldap_required_to_specific_user(admin_client, request):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
     ldap_user2 = os.environ.get('LDAP_USER2')
     ldap_pass2 = os.environ.get('LDAP_PASS2')
     ldap_user3 = os.environ.get('LDAP_USER3')
     ldap_pass3 = os.environ.get('LDAP_PASS3')
+    ldap_user5 = os.environ.get('LDAP_USER5')
+    ldap_pass5 = os.environ.get('LDAP_PASS5')
+
+    # Login with user5 to create new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
@@ -1581,6 +1587,12 @@ def test_ldap_restrict_to_specific_user(admin_client, request):
     except AssertionError as e:
         assert '403' in str(e)
 
+    try:
+        get_authed_token(username=ldap_user5,
+                         password=ldap_pass5)
+    except AssertionError as e:
+        assert '403' in str(e)
+
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
@@ -1594,14 +1606,20 @@ def test_ldap_restrict_to_specific_user(admin_client, request):
 
 # 3
 @if_test_ldap
-def test_ldap_restrict_to_specific_group(admin_client, request):
+def test_ldap_required_to_specific_group(admin_client, request):
     ldap_main_user = os.environ.get('LDAP_MAIN_USER')
     ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
     ldap_user2 = os.environ.get('LDAP_USER2')
     ldap_pass2 = os.environ.get('LDAP_PASS2')
     ldap_user3 = os.environ.get('LDAP_USER3')
     ldap_pass3 = os.environ.get('LDAP_PASS3')
+    ldap_user5 = os.environ.get('LDAP_USER5')
+    ldap_pass5 = os.environ.get('LDAP_PASS5')
     group = os.environ.get('LDAP_GROUP')
+
+    # Login with user5 to create new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
@@ -1628,7 +1646,130 @@ def test_ldap_restrict_to_specific_group(admin_client, request):
     except AssertionError as e:
         assert '403' in str(e)
 
+    try:
+        get_authed_token(username=ldap_user5,
+                         password=ldap_pass5)
+    except AssertionError as e:
+        assert '403' in str(e)
+
     cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    def fin():
+        reconfigure_ldap(main_client,
+                         os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                         '')
+    request.addfinalizer(fin)
+
+
+# 35
+@if_test_ldap
+def test_ldap_restricted_to_specific_user(admin_client, request):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+    ldap_user3 = os.environ.get('LDAP_USER6')
+    ldap_pass3 = os.environ.get('LDAP_PASS6')
+    ldap_user5 = os.environ.get('LDAP_USER5')
+    ldap_pass5 = os.environ.get('LDAP_PASS5')
+
+    # Login with user5 to create new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+
+    allowed_identities = []
+    allowed_identities.append(main_identity)
+    user2_identity = ADMIN_LDAP_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ast.literal_eval(str(user2_identity))
+    allowed_identities.append(user2_identity)
+
+    # Enable new configuration
+    config = load_config(access_mode='restricted')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+    ADMIN_LDAP_CLIENT.create_openldapconfig(config)
+
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '403' in str(e)
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    token5 = get_authed_token(username=ldap_user5,
+                              password=ldap_pass5)
+    cookies = dict(token=token5['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    def fin():
+        reconfigure_ldap(main_client,
+                         os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
+                         '')
+    request.addfinalizer(fin)
+
+
+# 36
+@if_test_ldap
+def test_ldap_restricted_to_specific_group(admin_client, request):
+    ldap_main_user = os.environ.get('LDAP_MAIN_USER')
+    ldap_main_pass = os.environ.get('LDAP_MAIN_PASS')
+    ldap_user2 = os.environ.get('LDAP_USER2')
+    ldap_pass2 = os.environ.get('LDAP_PASS2')
+    ldap_user3 = os.environ.get('LDAP_USER6')
+    ldap_pass3 = os.environ.get('LDAP_PASS6')
+    ldap_user5 = os.environ.get('LDAP_USER5')
+    ldap_pass5 = os.environ.get('LDAP_PASS5')
+    group = os.environ.get('LDAP_GROUP')
+
+    # Login with user5 to create new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
+
+    main_client = create_ldap_client(username=ldap_main_user,
+                                     password=ldap_main_pass)
+    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+    allowed_identities = []
+    allowed_identities.append(main_identity)
+
+    group_identity = ADMIN_LDAP_CLIENT.list_identity(name=group)[0]
+    group_identity_dict = ast.literal_eval(str(group_identity))
+    allowed_identities.append(group_identity_dict)
+
+    # Enable new configuration
+    config = load_config(access_mode='restricted')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+    ADMIN_LDAP_CLIENT.create_openldapconfig(config)
+
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '403' in str(e)
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    token5 = get_authed_token(username=ldap_user5,
+                              password=ldap_pass5)
+    cookies = dict(token=token5['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 

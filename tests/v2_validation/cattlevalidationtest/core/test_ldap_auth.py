@@ -1596,14 +1596,18 @@ def test_secret_setting(admin_client):
 
 # 2
 @if_test_ad
-def test_ad_restrict_to_specific_user(admin_client, request):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
-    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+def test_ad_required_to_specific_user(admin_client, request):
     ldap_user2 = os.environ.get('AD_USER2')
     ldap_pass2 = os.environ.get('AD_PASS2')
     ldap_user3 = os.environ.get('AD_USER3')
     ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user5 = os.environ.get('AD_USER5')
+    ldap_pass5 = os.environ.get('AD_PASS5')
     ldap_port = os.environ.get('LDAP_PORT')
+
+    # login with user5 to create a new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
 
     user = ADMIN_TOKEN['userIdentity']
     allowed_identities = []
@@ -1636,27 +1640,39 @@ def test_ad_restrict_to_specific_user(admin_client, request):
     except AssertionError as e:
         assert '401' in str(e)
 
+    try:
+        get_authed_token(username=ldap_user5,
+                         password=ldap_pass5)
+    except AssertionError as e:
+        assert '401' in str(e)
+
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
     def fin():
-        reconfigure_ad(main_client,
+        reconfigure_ad(ADMIN_AD_CLIENT,
                        os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
     request.addfinalizer(fin)
 
 
 # 3
 @if_test_ad
-def test_ad_restrict_to_specific_group(admin_client, request):
+def test_ad_required_to_specific_group(admin_client, request):
     ldap_main_user = os.environ.get('AD_MAIN_USER')
     ldap_main_pass = os.environ.get('AD_MAIN_PASS')
     ldap_user2 = os.environ.get('AD_USER2')
     ldap_pass2 = os.environ.get('AD_PASS2')
     ldap_user3 = os.environ.get('AD_USER3')
     ldap_pass3 = os.environ.get('AD_PASS3')
+    ldap_user5 = os.environ.get('AD_USER5')
+    ldap_pass5 = os.environ.get('AD_PASS5')
     ldap_port = os.environ.get('LDAP_PORT')
     group = os.environ.get('AD_GROUP')
+
+    # login with user5 to create a new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
 
     main_client = create_ad_client(username=ldap_main_user,
                                    password=ldap_main_pass)
@@ -1691,11 +1707,148 @@ def test_ad_restrict_to_specific_group(admin_client, request):
     except AssertionError as e:
         assert '401' in str(e)
 
+    try:
+        get_authed_token(username=ldap_user5,
+                         password=ldap_pass5)
+    except AssertionError as e:
+        assert '401' in str(e)
+
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
     assert good_auth.status_code == 200
 
     def fin():
-        reconfigure_ad(main_client,
+        reconfigure_ad(ADMIN_AD_CLIENT,
+                       os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    request.addfinalizer(fin)
+
+
+# 35
+@if_test_ad
+def test_ad_restricted_to_specific_user(admin_client, request):
+    ldap_user2 = os.environ.get('AD_USER2')
+    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user3 = os.environ.get('AD_USER6')
+    ldap_pass3 = os.environ.get('AD_PASS6')
+    ldap_user5 = os.environ.get('AD_USER5')
+    ldap_pass5 = os.environ.get('AD_PASS5')
+    ldap_port = os.environ.get('LDAP_PORT')
+
+    # login with user5 to create a new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
+
+    user = ADMIN_TOKEN['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+    user2_identity = ADMIN_AD_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ast.literal_eval(str(user2_identity))
+    allowed_identities.append(user2_identity)
+
+    # Enable new configuration
+    config = load_config(access_mode='restricted')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+
+    if ldap_port == 'True':
+        access_key = ADMIN_AD_CLIENT._access_key
+        secret_key = ADMIN_AD_CLIENT._secret_key
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        ADMIN_AD_CLIENT.create_ldapconfig(config)
+
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '401' in str(e)
+
+    token5 = get_authed_token(username=ldap_user5,
+                              password=ldap_pass5)
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    cookies = dict(token=token5['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    def fin():
+        reconfigure_ad(ADMIN_AD_CLIENT,
+                       os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    request.addfinalizer(fin)
+
+
+# 36
+@if_test_ad
+def test_ad_restricted_to_specific_group(admin_client, request):
+    ldap_main_user = os.environ.get('AD_MAIN_USER')
+    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+    ldap_user2 = os.environ.get('AD_USER2')
+    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_user3 = os.environ.get('AD_USER6')
+    ldap_pass3 = os.environ.get('AD_PASS6')
+    ldap_user5 = os.environ.get('AD_USER5')
+    ldap_pass5 = os.environ.get('AD_PASS5')
+    ldap_port = os.environ.get('LDAP_PORT')
+    group = os.environ.get('AD_GROUP')
+
+    # login with user5 to create a new environment
+    get_authed_token(username=ldap_user5,
+                     password=ldap_pass5)
+
+    main_client = create_ad_client(username=ldap_main_user,
+                                   password=ldap_main_pass)
+    user = ADMIN_TOKEN['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+
+    group_identity = main_client.list_identity(name=group)[0]
+    group_identity_dict = ast.literal_eval(str(group_identity))
+    allowed_identities.append(group_identity_dict)
+
+    # Enable new configuration
+    config = load_config(access_mode='restricted')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+    if ldap_port == 'True':
+        access_key = ADMIN_AD_CLIENT._access_key
+        secret_key = ADMIN_AD_CLIENT._secret_key
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        ADMIN_AD_CLIENT.create_ldapconfig(config)
+
+    # Try to login with user2 and user3
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+    try:
+        get_authed_token(username=ldap_user3,
+                         password=ldap_pass3)
+    except AssertionError as e:
+        assert '401' in str(e)
+
+    token5 = get_authed_token(username=ldap_user5,
+                              password=ldap_pass5)
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    cookies = dict(token=token5['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    def fin():
+        reconfigure_ad(ADMIN_AD_CLIENT,
                        os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
     request.addfinalizer(fin)
