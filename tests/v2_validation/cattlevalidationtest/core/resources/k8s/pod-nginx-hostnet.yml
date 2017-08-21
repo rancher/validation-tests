@@ -8,6 +8,6 @@ spec:
   hostNetwork: true
   containers:
   - name: nginx
-    image: husseingalal/podspec-hostnet
+    image: sangeetha/testnewhostrouting
     ports:
-    - containerPort: 8000
+    - containerPort: 80
