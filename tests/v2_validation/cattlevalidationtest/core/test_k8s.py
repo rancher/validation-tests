@@ -1163,8 +1163,6 @@ def test_k8s_env_service_nodeport(kube_hosts):
     teardown_ns(namespace)
 
 
-# Failed tests
-# hostnetwork #4345
 @if_test_k8s
 def test_k8s_env_podspec_hostnetwork(kube_hosts):
     namespace = random_ns + '-hostnetwork-namespace'
@@ -1181,9 +1179,35 @@ def test_k8s_env_podspec_hostnetwork(kube_hosts):
     assert pod['kind'] == "Pod"
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
-    assert "husseingalal/podspec-hostnet" in container['image']
+    assert "sangeetha/testnewhostrouting" in container['image']
     assert container['ready']
     assert container['name'] == "nginx"
+    # Make sure that you can reach the host's ip:port
+    podIP = pod['status']['podIP']
+    hostIP = pod['status']['hostIP']
+    assert podIP == hostIP
+    containerPort = pod['spec']['containers'][0]['ports'][0]['containerPort']
+    request_url = urlopen("http://"+podIP+":"+str(containerPort)+"/name.html")
+    node_name = request_url.read().rstrip('\r\n')
+    assert node_name == pod['spec']['nodeName']
+    # Checking interconnectivity between pods
+    ds_name = "daemonset"
+    # Create daemonset
+    expected_result = ['daemonset "'+ds_name+'" created']
+    execute_kubectl_cmds("create --namespace="+namespace, expected_result,
+                         file_name="daemonset_hostnet.yml")
+    waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get pods --selector=app=daemonset-nginx"
+        " -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    for pod in pods['items']:
+        assert pod['status']['phase'] == "Running"
+        podIP = pod['status']['podIP']
+        cmd = "ping -c 1 " + podIP + " &> /dev/null; echo $?"
+        result = execute_kubectl_cmds(
+                    "exec " + name + " -n " + namespace + " -- " + cmd)
+        assert result.rstrip('\r\n') == "0"
     teardown_ns(namespace)
 
 
