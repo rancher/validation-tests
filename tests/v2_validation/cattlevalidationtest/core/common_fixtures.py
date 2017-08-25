@@ -11,7 +11,7 @@ import inspect
 import re
 import json
 import base64
-from docker import Client
+import docker
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -751,6 +751,25 @@ def socat_containers(client, request):
     request.addfinalizer(remove_socat)
 
 
+def generate_socat_certificates(hosts):
+    hosts_names = ["IP:"+host.ipAddresses()[0].address for host in hosts]
+    print hosts_names
+    hosts_names = ",".join(hosts_names)
+    os.environ["SAN"] = hosts_names
+    os.system('openssl req -new -x509 -days 365 -nodes \
+        -out ' + SSLCERT_SUBDIR + '/socat-crt.pem \
+        -keyout ' + SSLCERT_SUBDIR + '/socat-key.pem \
+        -config ' + SSLCERT_SUBDIR + '/san-env.conf -extensions san_env')
+    os.system(
+        'cat ' + SSLCERT_SUBDIR + '/socat-key.pem ' +
+        SSLCERT_SUBDIR + '/socat-crt.pem > ' +
+        SSLCERT_SUBDIR + '/socat-combined.pem')
+    socat_crt = readDataFile(SSLCERT_SUBDIR, "socat-crt.pem")
+    socat_combined = readDataFile(SSLCERT_SUBDIR, "socat-combined.pem")
+    crts = {"socat_crt": socat_crt, "socat_combined": socat_combined}
+    return crts
+
+
 def create_socat_containers(client):
     # When these tests run in the CI environment, the hosts don't expose the
     # docker daemon over tcp, so we need to create a container that binds to
@@ -759,7 +778,10 @@ def create_socat_containers(client):
     if len(socat_container_list) != 0:
         return
     hosts = client.list_host(kind='docker', removed_null=True, state='active')
-
+    crts = generate_socat_certificates(hosts)
+    env_var = {"SOCAT_SSL": "true",
+               "SOCAT_CA_CRT": crts['socat_crt'],
+               "SOCAT_CLIENT_CRT": crts['socat_combined']}
     for host in hosts:
         socat_container = client.create_container(
             name='socat-%s' % random_str(),
@@ -770,6 +792,7 @@ def create_socat_containers(client):
             tty=False,
             publishAllPorts=True,
             privileged=True,
+            environment=env_var,
             dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
             requestedHostId=host.id,
             restartPolicy={"name": "always"})
@@ -805,12 +828,13 @@ def get_docker_client(host):
     ip = host.ipAddresses()[0].address
     port = '2375'
 
-    params = {}
-    params['base_url'] = 'tcp://%s:%s' % (ip, port)
-    api_version = os.getenv('DOCKER_API_VERSION', '1.18')
-    params['version'] = api_version
+    tls_config = docker.tls.TLSConfig(
+                    ca_cert=SSLCERT_SUBDIR + '/socat-crt.pem',
+                    client_cert=(SSLCERT_SUBDIR + '/socat-crt.pem',
+                                 SSLCERT_SUBDIR + '/socat-key.pem'))
 
-    return Client(**params)
+    return docker.APIClient(base_url='tcp://' + ip + ":" + port,
+                            tls=tls_config, version='auto')
 
 
 def wait_for_scale_to_adjust(admin_client, service):
@@ -1016,9 +1040,10 @@ def wait_for_lb_service_to_become_active(client, service, lb_service):
     for lb_con in lb_containers:
         host = lb_con.hosts[0]
         docker_client = get_docker_client(host)
-        haproxy = docker_client.copy(
-            lb_con.externalId, "/etc/haproxy/haproxy.cfg")
-        print "haproxy: " + haproxy.read()
+        haproxy_tar = docker_client.get_archive(lb_con.externalId,
+                                                "/etc/haproxy/haproxy.cfg")
+        haproxy = haproxy_tar[0].read()
+        print "haproxy: " + haproxy
 
         # Get iptable entries from host
         ssh = paramiko.SSHClient()
