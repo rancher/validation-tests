@@ -627,8 +627,7 @@ def test_ad_group_search_domain(admin_client, request):
     assert len(main_client.list_identity(name=group)) == 0
 
     # Set groupSearchDomain so group search works
-    reconfigure_ad(main_client, os.environ.get('API_AUTH_AD_SEARCH_BASE'),
-                   group_search_domain)
+    reconfigure_ad(main_client, narrow_domain, group_search_domain)
     assert len(main_client.list_identity(name=group)) == 1
     assert main_client.list_identity(name=group)[0]['login'] == group
 
