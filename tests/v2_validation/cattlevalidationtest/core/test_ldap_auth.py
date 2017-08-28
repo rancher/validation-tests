@@ -621,13 +621,14 @@ def test_ad_group_search_domain(admin_client, request):
     main_client = create_ad_client(username=ldap_main_user,
                                    password=ldap_main_pass)
 
-    # Narrow down domain to OU=Domain Controllers,
+    # Narrow down domain to CN=users,
     # and don't set group_search_domain so that group search fails
     reconfigure_ad(main_client, narrow_domain, '')
     assert len(main_client.list_identity(name=group)) == 0
 
     # Set groupSearchDomain so group search works
-    reconfigure_ad(main_client, narrow_domain, group_search_domain)
+    reconfigure_ad(main_client, os.environ.get('API_AUTH_AD_SEARCH_BASE'),
+                   group_search_domain)
     assert len(main_client.list_identity(name=group)) == 1
     assert main_client.list_identity(name=group)[0]['login'] == group
 
@@ -1638,13 +1639,13 @@ def test_ad_required_to_specific_user(admin_client, request):
         get_authed_token(username=ldap_user3,
                          password=ldap_pass3)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     try:
         get_authed_token(username=ldap_user5,
                          password=ldap_pass5)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
@@ -1705,13 +1706,13 @@ def test_ad_required_to_specific_group(admin_client, request):
         get_authed_token(username=ldap_user3,
                          password=ldap_pass3)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     try:
         get_authed_token(username=ldap_user5,
                          password=ldap_pass5)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     cookies = dict(token=token2['jwt'])
     good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
@@ -1767,7 +1768,7 @@ def test_ad_restricted_to_specific_user(admin_client, request):
         get_authed_token(username=ldap_user3,
                          password=ldap_pass3)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     token5 = get_authed_token(username=ldap_user5,
                               password=ldap_pass5)
@@ -1835,7 +1836,7 @@ def test_ad_restricted_to_specific_group(admin_client, request):
         get_authed_token(username=ldap_user3,
                          password=ldap_pass3)
     except AssertionError as e:
-        assert '401' in str(e)
+        assert '403' in str(e)
 
     token5 = get_authed_token(username=ldap_user5,
                               password=ldap_pass5)
