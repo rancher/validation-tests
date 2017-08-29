@@ -1189,7 +1189,7 @@ def test_k8s_env_podspec_hostnetwork(kube_hosts):
     containerPort = pod['spec']['containers'][0]['ports'][0]['containerPort']
     request_url = urlopen("http://"+podIP+":"+str(containerPort)+"/name.html")
     node_name = request_url.read().rstrip('\r\n')
-    assert node_name == pod['spec']['nodeName']
+    assert pod['spec']['nodeName'].startswith(node_name)
     # Checking interconnectivity between pods
     ds_name = "daemonset"
     # Create daemonset
