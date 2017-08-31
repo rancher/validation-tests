@@ -96,12 +96,12 @@ def test_container_run_with_options_1(client, test_name,
     assert inspect["Config"]["User"] == user
     assert inspect["HostConfig"]["CapAdd"] == cap_add
     assert inspect["HostConfig"]["CapDrop"] == cap_drop
-    assert inspect["Config"]["Cpuset"] == cpu_set
+    assert inspect["HostConfig"]["CpusetCpus"] == cpu_set
     assert inspect["HostConfig"]["RestartPolicy"]["Name"] == u"on-failure"
     assert inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == 5
 
     assert inspect["Config"]["Cmd"] == command
-    assert inspect["Config"]["Memory"] == memory
+    assert inspect["HostConfig"]["Memory"] == memory
     assert "name1=value1" in inspect["Config"]["Env"]
     delete_all(client, [con_vol, c])
 
