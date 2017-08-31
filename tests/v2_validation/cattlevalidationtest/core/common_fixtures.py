@@ -763,9 +763,9 @@ def generate_socat_certificates(hosts):
     logger.info(cmd)
     os.system(cmd)
     os.system(
-        'cat ' + SSLCERT_SUBDIR + '/socat-key.pem ' +
-        SSLCERT_SUBDIR + '/socat-crt.pem > ' +
-        SSLCERT_SUBDIR + '/socat-combined.pem')
+        'cat "' + SSLCERT_SUBDIR + '/socat-key.pem" "' +
+        SSLCERT_SUBDIR + '/socat-crt.pem" > "' +
+        SSLCERT_SUBDIR + '/socat-combined.pem"')
     socat_crt = readDataFile(SSLCERT_SUBDIR, "socat-crt.pem")
     socat_combined = readDataFile(SSLCERT_SUBDIR, "socat-combined.pem")
     crts = {"socat_crt": socat_crt, "socat_combined": socat_combined}
