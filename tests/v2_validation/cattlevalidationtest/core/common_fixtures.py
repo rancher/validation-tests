@@ -30,7 +30,7 @@ SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
                                      'v0.1.0')
 
 SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                  'docker:rancher/socat-docker:v0.2.0')
+                                  'docker:husseingalal/socat-test:0.2.1')
 
 do_access_key = os.environ.get('DIGITALOCEAN_KEY')
 docker_version = os.environ.get(
