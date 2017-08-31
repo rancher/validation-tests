@@ -756,10 +756,12 @@ def generate_socat_certificates(hosts):
     print hosts_names
     hosts_names = ",".join(hosts_names)
     os.environ["SAN"] = hosts_names
-    os.system('openssl req -new -x509 -days 365 -nodes \
-        -out ' + SSLCERT_SUBDIR + '/socat-crt.pem \
-        -keyout ' + SSLCERT_SUBDIR + '/socat-key.pem \
-        -config ' + SSLCERT_SUBDIR + '/san-env.conf -extensions san_env')
+    cmd = 'openssl req -new -x509 -days 365 -nodes' + \
+        '-out ' + SSLCERT_SUBDIR + '/socat-crt.pem' + \
+        '-keyout ' + SSLCERT_SUBDIR + '/socat-key.pem' + \
+        '-config ' + SSLCERT_SUBDIR + '/san-env.conf -extensions san_env'
+    print cmd
+    os.system(cmd)
     os.system(
         'cat ' + SSLCERT_SUBDIR + '/socat-key.pem ' +
         SSLCERT_SUBDIR + '/socat-crt.pem > ' +
