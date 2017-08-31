@@ -114,9 +114,9 @@ def test_rancher_compose_service(client,
         assert \
             inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == 0
         assert inspect["Config"]["Cmd"] == command
-        assert inspect["Config"]["Memory"] == memory
+        assert inspect["HostConfig"]["Memory"] == memory
         assert "TEST_FILE=/etc/testpath.conf" in inspect["Config"]["Env"]
-        assert inspect["Config"]["CpuShares"] == cpu_shares
+        assert inspect["HostConfig"]["CpuShares"] == cpu_shares
     delete_all(client, [env, rancher_env])
 
 
@@ -237,7 +237,7 @@ def test_rancher_compose_service_option_2(client,
         dev_opts_inspect["Rate"] = 3000
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteIOps"] == [dev_opts_inspect]
-        assert inspect["Config"]["CpuShares"] == cpu_shares
+        assert inspect["HostConfig"]["CpuShares"] == cpu_shares
         assert inspect["HostConfig"]["CgroupParent"] == cgroup_parent
         assert inspect["HostConfig"]["CpuPeriod"] == cpu_period
         assert inspect["HostConfig"]["CpuQuota"] == cpu_quota

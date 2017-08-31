@@ -1,4 +1,3 @@
-from docker.utils import create_host_config
 from common_fixtures import *  # NOQA
 import websocket as ws
 from test_container import assert_execute, assert_stats, assert_ip_inject
@@ -58,7 +57,7 @@ def test_native_net_blank(socat_containers, client, native_name, pull_images):
 
 def test_native_net_bridge(socat_containers, client, native_name, pull_images):
     docker_client = get_docker_client(host(client))
-    host_config = create_host_config(network_mode='bridge')
+    host_config = docker_client.create_host_config(network_mode='bridge')
     docker_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                       name=native_name,
                                                       host_config=host_config)
@@ -71,7 +70,7 @@ def test_native_net_bridge(socat_containers, client, native_name, pull_images):
 
 def test_native_net_host(socat_containers, client, native_name, pull_images):
     docker_client = get_docker_client(host(client))
-    host_config = create_host_config(network_mode='host')
+    host_config = docker_client.create_host_config(network_mode='host')
     docker_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                       name=native_name,
                                                       host_config=host_config)
@@ -93,7 +92,7 @@ def test_native_net_container(socat_containers, client, native_name,
                                                          docker_client,
                                                          target_name)
 
-    host_config = create_host_config(
+    host_config = docker_client.create_host_config(
         network_mode='container:%s' % target_name)
     docker_container = docker_client.create_container('busybox',
                                                       stdin_open=True,
@@ -162,16 +161,18 @@ def wait_for_state(client, expected_state, c_id):
 
 def test_native_volumes(socat_containers, client, native_name, pull_images):
     docker_client = get_docker_client(host(client))
+    config = docker_client.create_host_config(
+                                binds={'/var': {'bind': '/host/var'},
+                                       '/tmp1': {'bind': '/host/tmpreadonly',
+                                                 'ro': True}})
     docker_container = docker_client. \
         create_container(NATIVE_TEST_IMAGE,
                          name=native_name,
                          volumes=['/foo',
                                   '/host/var',
-                                  '/host/tmpreadonly'])
-    docker_client.start(docker_container,
-                        binds={'/var': {'bind': '/host/var'},
-                               '/tmp1': {'bind': '/host/tmpreadonly',
-                                         'ro': True}})
+                                  '/host/tmpreadonly'],
+                         host_config=config)
+    docker_client.start(docker_container)
 
     rancher_container = wait_on_rancher_container(client, native_name)
 
@@ -331,22 +332,22 @@ def test_native_fields(socat_containers, client, pull_images):
     docker_client = get_docker_client(host(client))
     name = 'native-%s' % random_str()
 
-    host_config = create_host_config(
+    host_config = docker_client.create_host_config(
         privileged=True,
         publish_all_ports=True,
         dns=['1.2.3.4'], dns_search=['search.dns.com'],
         cap_add=['SYSLOG'], cap_drop=['KILL', 'LEASE'],
         restart_policy={'MaximumRetryCount': 5,
                         'Name': 'on-failure'},
-        devices=['/dev/null:/dev/xnull:rw'])
+        devices=['/dev/null:/dev/xnull:rw'],
+        mem_limit='16MB',
+        memswap_limit='32MB')
 
     docker_container = docker_client.create_container(NATIVE_TEST_IMAGE,
                                                       name=name,
                                                       hostname='hostname1',
                                                       domainname='domainname1',
                                                       user='root',
-                                                      mem_limit='16MB',
-                                                      memswap_limit='32MB',
                                                       cpu_shares=1024,
                                                       cpuset='0',
                                                       tty=True,

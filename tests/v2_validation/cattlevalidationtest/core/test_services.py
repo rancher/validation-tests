@@ -165,15 +165,15 @@ def test_services_docker_options(client, socat_containers):
         assert inspect["Config"]["User"] == user
         assert inspect["HostConfig"]["CapAdd"] == cap_add
         assert inspect["HostConfig"]["CapDrop"] == cap_drop
-        assert inspect["Config"]["Cpuset"] == cpu_set
+        assert inspect["HostConfig"]["CpusetCpus"] == cpu_set
 #       No support for restart
         assert inspect["HostConfig"]["RestartPolicy"]["Name"] == ""
         assert \
             inspect["HostConfig"]["RestartPolicy"]["MaximumRetryCount"] == 0
         assert inspect["Config"]["Cmd"] == command
-        assert inspect["Config"]["Memory"] == memory
+        assert inspect["HostConfig"]["Memory"] == memory
         assert "TEST_FILE=/etc/testpath.conf" in inspect["Config"]["Env"]
-        assert inspect["Config"]["CpuShares"] == cpu_shares
+        assert inspect["HostConfig"]["CpuShares"] == cpu_shares
 
     delete_all(client, [env])
 
@@ -287,7 +287,7 @@ def test_services_docker_options_2(client, socat_containers):
         dev_opts_inspect["Rate"] = 3000
         assert \
             inspect["HostConfig"]["BlkioDeviceWriteIOps"] == [dev_opts_inspect]
-        assert inspect["Config"]["CpuShares"] == cpu_shares
+        assert inspect["HostConfig"]["CpuShares"] == cpu_shares
         assert inspect["HostConfig"]["CgroupParent"] == cgroup_parent
         assert inspect["HostConfig"]["CpuPeriod"] == cpu_period
         assert inspect["HostConfig"]["CpuQuota"] == cpu_quota
