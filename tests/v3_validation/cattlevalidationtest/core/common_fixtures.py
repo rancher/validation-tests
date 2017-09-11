@@ -10,13 +10,19 @@ import paramiko
 import inspect
 import re
 import json
-from docker import Client
+import base64
+import jinja2
+import docker
+
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 FIELD_SEPARATOR = "-"
+
+INSERVICE_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                'resources/inservicedc')
 
 TEST_IMAGE_UUID = os.environ.get('CATTLE_TEST_AGENT_IMAGE',
                                  'docker:cattle/test-agent:v7')
@@ -26,7 +32,7 @@ SSH_HOST_IMAGE_UUID = os.environ.get('CATTLE_SSH_HOST_IMAGE',
                                      'v0.1.0')
 
 SOCAT_IMAGE_UUID = os.environ.get('CATTLE_CLUSTER_SOCAT_IMAGE',
-                                  'docker:rancher/socat-docker:v0.2.0')
+                                  'docker:husseingalal/socat-test:0.2.1')
 
 do_access_key = os.environ.get('DIGITALOCEAN_KEY')
 docker_version = os.environ.get(
@@ -50,12 +56,28 @@ OVERRIDE_CATALOG = os.environ.get(
 RANCHER_ORCHESTRATION = os.environ.get(
     'RANCHER_ORCHESTRATION', "cattle")
 
+CONTAINER_REFACTORING = os.environ.get(
+    'CONTAINER_REFACTORING', "False")
+
 RANCHER_EBS = os.environ.get(
     'RANCHER_EBS', "false")
+
+STRESS_TEST = os.environ.get(
+    'STRESS_TEST', "false")
 
 ACCESS_KEY = os.environ.get('ACCESS_KEY')
 SECRET_KEY = os.environ.get('SECRET_KEY')
 PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
+PROJECT_NAME = os.environ.get('PROJECT_NAME', "Default")
+
+if_container_refactoring = pytest.mark.skipif(
+    CONTAINER_REFACTORING != "True",
+    reason='Container Refactoring not available')
+
+if_stress = pytest.mark.skipif(
+    STRESS_TEST != "True",
+    reason='Not Stress Test Run')
+
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
@@ -99,6 +121,7 @@ rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
 kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
+helm_version = os.environ.get('HELM_VERSION', "v2.1.3")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 check_connectivity_by_wget = True
 cert_list = {}
@@ -114,6 +137,12 @@ api_version = "v2-beta"
 sleep_interval = int(os.environ.get('CATTLE_SLEEP_INTERVAL', 5))
 restart_sleep_interval = \
     int(os.environ.get('CATTLE_RESTART_SLEEP_INTERVAL', 10))
+
+k8s_base_lb_port = os.environ.get("BASE_LB_PORT", "88")
+k8s_base_external_port = os.environ.get("BASE_EXTERNAL_PORT", "300")
+k8s_base_node_port = os.environ.get("BASE_NODE_PORT", "310")
+k8s_base_ingress_port = os.environ.get("BASE_INGRESS_PORT", "8")
+k8s_base_lb_node_port = os.environ.get("BASE_LB_NODE_PORT", "320")
 
 
 @pytest.fixture(scope='session')
@@ -219,8 +248,8 @@ def wait_success(client, obj, timeout=DEFAULT_TIMEOUT):
     return client.wait_success(obj, timeout=timeout)
 
 
-def wait_state(client, obj, state):
-    wait_for(lambda: client.reload(obj).state == state)
+def wait_state(client, obj, state, timeout=DEFAULT_TIMEOUT):
+    wait_for(lambda: client.reload(obj).state == state, timeout)
     return client.reload(obj)
 
 
@@ -287,8 +316,7 @@ def admin_client():
         admin_client = _admin_client()
         assert admin_client.valid()
     set_haproxy_image(admin_client)
-    if (ACCESS_KEY is None or SECRET_KEY is None):
-        set_host_url(admin_client)
+    set_host_url(admin_client)
     return admin_client
 
 
@@ -596,7 +624,7 @@ def get_ssh_to_host_ssh_container(host):
 
 @pytest.fixture
 def wait_for_condition(client, resource, check_function, fail_handler=None,
-                       timeout=180):
+                       timeout=DEFAULT_TIMEOUT):
     start = time.time()
     resource = client.reload(resource)
     while not check_function(resource):
@@ -732,6 +760,27 @@ def socat_containers(client, request):
     request.addfinalizer(remove_socat)
 
 
+def generate_socat_certificates(hosts):
+    hosts_names = ["IP:"+host.ipAddresses()[0].address for host in hosts]
+    print hosts_names
+    hosts_names = ",".join(hosts_names)
+    os.environ["SAN"] = hosts_names
+    cmd = 'openssl req -new -x509 -days 365 -nodes' + \
+        ' -out "' + SSLCERT_SUBDIR + '/socat-crt.pem"' + \
+        ' -keyout "' + SSLCERT_SUBDIR + '/socat-key.pem"' + \
+        ' -config "' + SSLCERT_SUBDIR + '/san-env.conf" -extensions san_env'
+    logger.info(cmd)
+    os.system(cmd)
+    os.system(
+        'cat "' + SSLCERT_SUBDIR + '/socat-key.pem" "' +
+        SSLCERT_SUBDIR + '/socat-crt.pem" > "' +
+        SSLCERT_SUBDIR + '/socat-combined.pem"')
+    socat_crt = readDataFile(SSLCERT_SUBDIR, "socat-crt.pem")
+    socat_combined = readDataFile(SSLCERT_SUBDIR, "socat-combined.pem")
+    crts = {"socat_crt": socat_crt, "socat_combined": socat_combined}
+    return crts
+
+
 def create_socat_containers(client):
     # When these tests run in the CI environment, the hosts don't expose the
     # docker daemon over tcp, so we need to create a container that binds to
@@ -740,7 +789,10 @@ def create_socat_containers(client):
     if len(socat_container_list) != 0:
         return
     hosts = client.list_host(kind='docker', removed_null=True, state='active')
-
+    crts = generate_socat_certificates(hosts)
+    env_var = {"SOCAT_SSL": "true",
+               "SOCAT_CA_CRT": crts['socat_crt'],
+               "SOCAT_CLIENT_CRT": crts['socat_combined']}
     for host in hosts:
         socat_container = client.create_container(
             name='socat-%s' % random_str(),
@@ -751,6 +803,7 @@ def create_socat_containers(client):
             tty=False,
             publishAllPorts=True,
             privileged=True,
+            environment=env_var,
             dataVolumes='/var/run/docker.sock:/var/run/docker.sock',
             requestedHostId=host.id,
             restartPolicy={"name": "always"})
@@ -786,16 +839,17 @@ def get_docker_client(host):
     ip = host.ipAddresses()[0].address
     port = '2375'
 
-    params = {}
-    params['base_url'] = 'tcp://%s:%s' % (ip, port)
-    api_version = os.getenv('DOCKER_API_VERSION', '1.18')
-    params['version'] = api_version
+    tls_config = docker.tls.TLSConfig(
+                    ca_cert=SSLCERT_SUBDIR + '/socat-crt.pem',
+                    client_cert=(SSLCERT_SUBDIR + '/socat-crt.pem',
+                                 SSLCERT_SUBDIR + '/socat-key.pem'))
 
-    return Client(**params)
+    return docker.APIClient(base_url='tcp://' + ip + ":" + port,
+                            tls=tls_config, version='auto')
 
 
-def wait_for_scale_to_adjust(admin_client, service):
-    service = wait_state(admin_client, service, "active")
+def wait_for_scale_to_adjust(admin_client, service, timeout=DEFAULT_TIMEOUT):
+    service = wait_state(admin_client, service, "active", timeout)
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active",
                                                        managed=1)
@@ -864,10 +918,11 @@ def get_service_container_list(client, service, managed=None):
     assert len(services) == 1
     container = []
     for instance in services[0].instances:
-        containers = client.list_container(externalId=instance.externalId,
-                                           include="hosts")
-        assert len(containers) == 1
-        container.append(containers[0])
+        if instance.state != "error":
+            containers = client.list_container(externalId=instance.externalId,
+                                               include="hosts")
+            assert len(containers) == 1
+            container.append(containers[0])
     return container
 
 
@@ -996,9 +1051,10 @@ def wait_for_lb_service_to_become_active(client, service, lb_service):
     for lb_con in lb_containers:
         host = lb_con.hosts[0]
         docker_client = get_docker_client(host)
-        haproxy = docker_client.copy(
-            lb_con.externalId, "/etc/haproxy/haproxy.cfg")
-        print "haproxy: " + haproxy.read()
+        haproxy_tar = docker_client.get_archive(lb_con.externalId,
+                                                "/etc/haproxy/haproxy.cfg")
+        haproxy = haproxy_tar[0].read()
+        print "haproxy: " + haproxy
 
         # Get iptable entries from host
         ssh = paramiko.SSHClient()
@@ -2694,17 +2750,32 @@ def create_kubectl_client_container(client, port,
     assert c.state == "running"
     time.sleep(sleep_interval)
 
+    k8s_version = float(kubectl_version[1:4])
     if cattle_url().startswith("https"):
         server_ip = rancher_server_url()
-        config_file = "config-ssl.txt"
+        if k8s_version >= 1.6:
+            config_file = "config-ssl-k8s16.txt"
+        else:
+            config_file = "config-ssl.txt"
     else:
         server_ip = cattle_url()[cattle_url().index("//") +
                                  2:cattle_url().index(":8080")]
-        config_file = "config.txt"
+        if k8s_version >= 1.6:
+            config_file = "config-k8s16.txt"
+        else:
+            config_file = "config.txt"
 
     kube_config = readDataFile(K8_SUBDIR, config_file)
-    kube_config = kube_config.replace("$username", client._access_key)
-    kube_config = kube_config.replace("$password", client._secret_key)
+    if k8s_version >= 1.6:
+        token = base64.standard_b64encode(
+                    "Basic " + base64.standard_b64encode(
+                                    client._access_key +
+                                    ":" +
+                                    client._secret_key))
+        kube_config = kube_config.replace("$token", token)
+    else:
+        kube_config = kube_config.replace("$username", client._access_key)
+        kube_config = kube_config.replace("$password", client._secret_key)
     kube_config = kube_config.replace("$environment", project_name)
     kube_config = kube_config.replace("$pid", project_id)
 
@@ -2720,9 +2791,16 @@ def create_kubectl_client_container(client, port,
     cmd3 = "mkdir .kube"
     cmd4 = "echo '" + kube_config + "'> .kube/config"
     cmd5 = "./kubectl version"
-    cmd = cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5
+    cmd6 = "wget https://storage.googleapis.com/kubernetes-helm/helm-" + \
+           helm_version + "-linux-amd64.tar.gz"
+    cmd7 = "tar xfz helm-" + helm_version + "-linux-amd64.tar.gz " + \
+           "--strip-components 1"
+    cmd8 = "./helm version"
+    cmd = "" + cmd1 + ";" + cmd2 + ";" + cmd3 + ";" + cmd4 + ";" + cmd5 + \
+          ";" + cmd6 + ";" + cmd7 + ";" + cmd8
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
+    ssh.close()
     print response
     test_kubectl_client_con["container"] = c
     test_kubectl_client_con["host"] = host
@@ -2748,6 +2826,7 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     error = stderr.readlines()
+    ssh.close()
 
     str_response = ""
     for resp in response:
@@ -2775,6 +2854,32 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
                 found = True
                 print "Found in Error Response " + err_str
         assert found
+    return str_response
+
+
+def execute_helm_cmds(command, chdir=None, expected_resps=None):
+    cmd = "./helm " + command
+    if chdir:
+        cmd = "cd " + chdir + ";" + cmd
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(
+        kubectl_client_con["host"].ipAddresses()[0].address, username="root",
+        password="root", port=int(kubectl_client_con["port"]))
+    print cmd
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    response = stdout.readlines()
+    error = stderr.readlines()
+    str_error = ""
+    for err in error:
+        str_error += err
+    print "Error in response" + str(str_error)
+
+    str_response = ""
+    for resp in response:
+        str_response += resp
+    print "Obtained Response: " + str_response
     return str_response
 
 
@@ -2962,12 +3067,12 @@ def wait_for_host(client, machine):
     return machine
 
 
-def wait_for_host_agent_state(client, host, state):
+def wait_for_host_agent_state(client, host, state, timeout=DEFAULT_TIMEOUT):
     host = wait_for_condition(client,
                               host,
                               lambda x: x.agentState == state,
-                              lambda x: 'Host state is ' + x.agentState
-                              )
+                              lambda x: 'Host state is ' + x.agentState,
+                              timeout)
     return host
 
 
@@ -3069,7 +3174,7 @@ def waitfor_pods(selector=None,
     pods = pod['items']
     pods_no = len(pod['items'])
     while True:
-        if pods_no >= number:
+        if pods_no == number:
             for pod in pods:
                 if pod['status']['phase'] != state:
                     all_running = False
@@ -3151,6 +3256,7 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
     lb_ip = []
     startTime = time.time()
     while len(lb_ip) < ing_scale:
+        lb_ip = []
         if time.time() - startTime > 60:
             raise \
                 ValueError("Timed out waiting "
@@ -3162,8 +3268,12 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
         if "ingress" in ingress["status"]["loadBalancer"]:
             for item in ingress["status"]["loadBalancer"]["ingress"]:
                 print item["ip"]
+                print "Array is:"
+                print lb_ip
                 lb_ip.append(item["ip"])
         time.sleep(.5)
+    print "Length of lb_ip"
+    print len(lb_ip)
     return lb_ip
 
 
@@ -3249,7 +3359,7 @@ def rancher_cli_container(admin_client, client, request):
     assert len(hosts) > 0
     host = hosts[0]
     port = rancher_cli_con["port"]
-    c = client.create_container(name="rancher-cli-client",
+    c = client.create_container(name="rancher-cli-client-" + random_str(),
                                 networkMode=MANAGED_NETWORK,
                                 imageUuid="docker:sangeetha/testclient",
                                 ports=[port+":22/tcp"],
@@ -3294,7 +3404,7 @@ def execute_rancher_cli(client, stack_name, command,
     cmd2 = "export RANCHER_ACCESS_KEY=" + access_key
     cmd3 = "export RANCHER_SECRET_KEY=" + secret_key
     cmd4 = "cd rancher-v*"
-    cmd5 = "export RANCHER_ENVIRONMENT=" + "Default"
+    cmd5 = "export RANCHER_ENVIRONMENT=" + PROJECT_NAME
     clicmd = "./rancher " + command
     if docker_compose is not None and rancher_compose is None:
         cmd6 = 'echo "' + docker_compose + '" > ' + docker_filename + ";"
@@ -3329,7 +3439,8 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
     if rancher_compose is not None:
         rancher_compose = readDataFile(subdir, rancher_compose)
     cli_response = execute_rancher_cli(client, env_name, command,
-                                       docker_compose, rancher_compose)
+                                       docker_compose, rancher_compose,
+                                       timeout=150)
     print "Obtained Response: " + str(cli_response)
     print "Expected Response: " + str(expected_response)
     found = False
@@ -3902,13 +4013,6 @@ def create_sa_container(client, stack=None, healthcheck=False, port=None,
 
     con = client.wait_success(con)
     assert con.state == "running"
-    if healthcheck:
-        wait_for_condition(
-            client, con,
-            lambda x: x.healthState == 'healthy',
-            lambda x: 'State is: ' + x.healthState)
-        con = client.reload(con)
-        assert con.healthState == "healthy"
     return con
 
 
@@ -3947,8 +4051,15 @@ def get_container_host(admin_client, con):
     return containers[0].hosts[0]
 
 
+def get_container_host_ip(con):
+    hostdata = con['hosts']
+    for data in hostdata:
+        ipaddr = data['agentIpAddress']
+    return ipaddr
+
+
 def write_data(con, port, dir, file, content):
-    hostIpAddress = con.dockerHostIp
+    hostIpAddress = get_container_host_ip(con)
 
     ssh = paramiko.SSHClient()
     ssh = paramiko.SSHClient()
@@ -3967,7 +4078,7 @@ def write_data(con, port, dir, file, content):
 
 
 def read_data(con, port, dir, file):
-    hostIpAddress = con.dockerHostIp
+    hostIpAddress = get_container_host_ip(con)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -4033,36 +4144,468 @@ def get_client_for_auth_enabled_setup(access_key, secret_key, project_id=None):
         client = from_env(url=cattle_url(),
                           cache=False,
                           access_key=access_key,
-                          secret_key=secret_key)
+                          secret_key=secret_key,
+                          headers={'Accepts': 'application/json'})
         client.reload_schema()
     assert client.valid()
     return client
 
 
-def wait_for_unhealthy_container_reconcile(client, con):
-    wait_for_condition(
-        client, con,
-        lambda x: x.healthState == 'unhealthy',
-        lambda x: 'State is: ' + x.healthState)
-    con = client.reload(con)
-    assert con.healthState == "unhealthy"
+def upgrade_stack(client, stack_name, service, docker_compose,
+                  rancher_compose=None, upgrade_option=None,
+                  directory=None):
 
-    wait_for_condition(
-        client, con,
-        lambda x: x.state in ('removed', 'purged'),
-        lambda x: 'State is: ' + x.healthState)
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    upgrade_cmd = "up --upgrade -d "
+    if upgrade_option is not None:
+        upgrade_cmd += upgrade_option
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        upgrade_cmd, "Upgrading",
+        docker_compose, rancher_compose)
+    service = client.reload(service)
+    assert service.state == "upgraded"
+    return service
 
-    new_containers = client.list_container(name=con.name,
-                                           state="running",
-                                           healthState="healthy")
-    start = time.time()
-    while len(new_containers) != 1:
-        time.sleep(.5)
-        new_containers = client.list_container(name=con.name,
-                                               state="running",
-                                               healthState="healthy")
-        if time.time() - start > 30:
-            raise Exception('Timed out waiting for Service Expose map to be ' +
-                            'created for all instances')
-    assert len(new_containers) == 1
-    return new_containers[0]
+
+def confirm_upgrade_stack(client, stack_name, service, docker_compose,
+                          directory=None):
+
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        "up --confirm-upgrade -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service
+
+
+def rollback_upgrade_stack(client, stack_name, service, docker_compose,
+                           directory=None):
+
+    if directory is None:
+        directory = INSERVICE_SUBDIR
+    launch_rancher_cli_from_file(
+        client, directory, stack_name,
+        "up --rollback -d", "Started",
+        docker_compose)
+    service = client.reload(service)
+    assert service.state == "active"
+    return service
+
+
+def delete_volume(client, volume):
+    volume = wait_for_condition(
+        client, volume,
+        lambda x: x.state == 'detached',
+        lambda x: 'State is: ' + x.state,
+        timeout=600)
+    assert volume.state == "detached"
+    volume = client.wait_success(client.delete(volume))
+    assert volume.state == "removed"
+    volume = client.wait_success(volume.purge())
+    assert volume.state == "purged"
+
+
+# k8s related fixtures
+def k8s_create_stack(input_config):
+    namespace = input_config["namespace"]
+    create_ns(namespace)
+
+    # Create pre upgrade resources
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    node1 = nodes['items'][0]['status']['addresses'][0]['address']
+
+    # Render the testing yaml
+    input_config["external_node"] = node1
+    input_config["k8s_base_lb_port"] = k8s_base_lb_port
+    input_config["k8s_base_external_port"] = k8s_base_external_port + "0"
+    input_config["k8s_base_node_port"] = k8s_base_node_port + "0"
+    input_config["k8s_base_lb_node_port"] = k8s_base_lb_node_port + "0"
+    input_config["k8s_base_ingress_port"] = k8s_base_ingress_port
+    if len(input_config["port_ext"]) > 1:
+        input_config["k8s_base_external_port"] = k8s_base_external_port
+        input_config["k8s_base_node_port"] = k8s_base_node_port
+        input_config["k8s_base_lb_node_port"] = k8s_base_lb_node_port
+    fname = os.path.join(K8_SUBDIR, "upgrade_testing.yml.j2")
+    rendered_tmpl = jinja2_render(fname, input_config)
+
+    with open(os.path.join(K8_SUBDIR, "upgrade_testing.yml"), "wt") as fout:
+        fout.write(rendered_tmpl)
+    fout.close()
+    execute_kubectl_cmds(
+        "create --namespace="+namespace,
+        file_name="upgrade_testing.yml")
+
+
+def k8s_validate_stack(input_config):
+    namespace = input_config["namespace"]
+    lb_port = int(k8s_base_lb_port + input_config["port_ext"])
+    external_port = k8s_base_external_port + "0" + input_config["port_ext"]
+    node_port = int(k8s_base_node_port + "0" + input_config["port_ext"])
+    if len(input_config["port_ext"]) > 1:
+        external_port = k8s_base_external_port + input_config["port_ext"]
+        node_port = int(k8s_base_node_port + input_config["port_ext"])
+    ingress_port = k8s_base_ingress_port + input_config["port_ext"]
+
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    node1 = nodes['items'][0]['status']['addresses'][0]['address']
+    # Verify the nginx pod is created
+    waitfor_pods(selector="app=nginx-pod", namespace=namespace, number=1)
+    get_response = execute_kubectl_cmds(
+        "get pod/nginx-pod -o json --namespace="+namespace)
+
+    pod = json.loads(get_response)
+    assert pod['metadata']['name'] == "nginx-pod"
+    assert pod['kind'] == "Pod"
+    assert pod['status']['phase'] == "Running"
+    container = pod['status']['containerStatuses'][0]
+    assert "husseingalal/nginx-curl" in container['image']
+    assert container['restartCount'] == 0
+    assert container['ready']
+    assert container['name'] == "nginx"
+
+    # Verify RC is created
+    get_response = execute_kubectl_cmds(
+        "get rc/nginx -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc["metadata"]["name"] == "nginx"
+    assert rc["metadata"]["labels"]["name"] == "nginx"
+    assert rc["spec"]["replicas"] == 2
+    assert rc["spec"]["selector"]["name"] == "nginx"
+    container = rc["spec"]["template"]["spec"]["containers"][0]
+    assert "sangeetha/testnewhostrouting" in container["image"]
+    assert container["name"] == "nginx"
+    waitfor_pods(
+        selector="type=rc", namespace=namespace, number=2)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=type=rc"
+        " -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert len(pod["items"]) == 2
+    pods_list = []
+    for pod in pod["items"]:
+        pods_list.append(pod["metadata"]["name"])
+        assert pod["metadata"]["labels"]["name"] == "nginx"
+        assert pod["metadata"]["namespace"] == namespace
+        container = pod["spec"]["containers"][0]
+        assert "sangeetha/testnewhostrouting" in container["image"]
+        assert container["name"] == "nginx"
+        assert pod["status"]["phase"] == "Running"
+
+    # Verify that the Load Balancer service is working
+    get_response = execute_kubectl_cmds(
+        "get service nginx-lb -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == "nginx-lb"
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['port'] == lb_port
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+    time.sleep(20)
+    get_response = execute_kubectl_cmds(
+        "get service nginx-lb -o json --namespace=" + namespace)
+    service = json.loads(get_response)
+    lbip = service['status']['loadBalancer']['ingress'][0]["ip"]
+    time.sleep(20)
+    check_round_robin_access_k8s_service(pods_list, lbip, str(lb_port),
+                                         path="/name.html")
+
+    # Verify that the external service is working
+    check_round_robin_access_k8s_service(pods_list, node1, str(external_port),
+                                         path="/name.html")
+
+    # Verify that the Clusterip service is working
+    get_response = execute_kubectl_cmds(
+        "get service nginx-clusterip -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == "nginx-clusterip"
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['port'] == 8000
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+    clusterip = service['spec']['clusterIP']
+    clusterport = service['spec']['ports'][0]['port']
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=app=nginx-pod -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    clusterurl = clusterip+":"+str(clusterport)
+    nginxpod = pods['items'][0]['metadata']['name']
+
+    cmd_result = k8s_execute_cmd(
+        nginxpod,
+        '''curl -s -w "%{http_code}" ''' + clusterurl + " -o /dev/null",
+        namespace)
+    cmd_result = cmd_result.rstrip()
+    assert cmd_result == "200"
+
+    # Verify that the nodeport service is working
+    get_response = execute_kubectl_cmds(
+        "get service nodeport-nginx -o json --namespace="+namespace)
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == "nodeport-nginx"
+    assert service['kind'] == "Service"
+    assert service['spec']['ports'][0]['nodePort'] == node_port
+    assert service['spec']['ports'][0]['port'] == 80
+    assert service['spec']['ports'][0]['protocol'] == "TCP"
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=name=nginx -o json --namespace="+namespace)
+    pods = json.loads(get_response)
+    get_response = execute_kubectl_cmds("get nodes -o json")
+    nodes = json.loads(get_response)
+    for node in nodes["items"]:
+        node_ip = node['status']['addresses'][0]['address']
+        check_round_robin_access_k8s_service(pods_list, node_ip,
+                                             str(node_port), path="/name.html")
+
+    # Check if the ingress works
+    ingress_name = "ingress1"
+    port = ingress_port
+
+    # Initial set up
+    lbips = wait_for_ingress_to_become_active(ingress_name, namespace, 1)
+
+    selector1 = "k8s-app=k8test1-service"
+    pod_new_names = get_pod_names_for_selector(selector1, namespace, scale=1)
+
+    check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/service3.html")
+
+    check_round_robin_access_lb_ip(["nginx-ingress2"], lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/name.html")
+
+
+def k8s_modify_stack(input_config):
+    namespace = input_config["namespace"]
+    ingress_port = k8s_base_ingress_port + input_config["port_ext"]
+
+    # Scale the RC
+    get_response = execute_kubectl_cmds(
+        "scale rc nginx --replicas=3 --namespace="+namespace)
+    get_response = execute_kubectl_cmds(
+        "get rc/nginx -o json --namespace="+namespace)
+    rc = json.loads(get_response)
+    assert rc["metadata"]["name"] == "nginx"
+    assert rc["metadata"]["labels"]["name"] == "nginx"
+    assert rc["spec"]["replicas"] == 3
+    assert rc["spec"]["selector"]["name"] == "nginx"
+    container = rc["spec"]["template"]["spec"]["containers"][0]
+    assert "sangeetha/testnewhostrouting" in container["image"]
+    assert container["name"] == "nginx"
+    waitfor_pods(
+        selector="type=rc", namespace=namespace, number=3)
+    get_response = execute_kubectl_cmds(
+        "get pod --selector=type=rc"
+        " -o json --namespace="+namespace)
+    pod = json.loads(get_response)
+    assert len(pod["items"]) == 3
+    for pod in pod["items"]:
+        assert pod["metadata"]["labels"]["name"] == "nginx"
+        assert pod["metadata"]["namespace"] == namespace
+        container = pod["spec"]["containers"][0]
+        assert "sangeetha/testnewhostrouting" in container["image"]
+        assert container["name"] == "nginx"
+        assert pod["status"]["phase"] == "Running"
+
+    # Check if the ingress works
+    ingress_name = "ingress1"
+    port = ingress_port
+
+    lbips = wait_for_ingress_to_become_active(ingress_name, namespace, 1)
+    selector1 = "k8s-app=k8test1-service"
+    rc_name1 = "k8testrc1"
+    get_response = execute_kubectl_cmds(
+        "scale rc "+rc_name1+" --replicas=3 --namespace="+namespace)
+    waitfor_pods(selector=selector1, namespace=namespace, number=3)
+    pod_new_names = get_pod_names_for_selector(selector1, namespace, scale=3)
+
+    # Check if the ingress works with the new pods
+    ingress_name = "ingress1"
+    time.sleep(20)
+    check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
+                                   hostheader="foo.bar.com",
+                                   path="/service3.html")
+
+
+def k8s_execute_cmd(pod, cmd, namespace):
+    result = execute_kubectl_cmds(
+                "exec " + pod + " --namespace=" + namespace + " -- " + cmd)
+    return result
+
+
+def jinja2_render(tpl_path, context):
+    path, filename = os.path.split(tpl_path)
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path)
+    ).get_template(filename).render(context)
+
+
+def k8s_check_dashboard():
+    k8s_client = kubectl_client_con["k8s_client"]
+    project_id = k8s_client.list_project()[0].id
+    dashboard_url = rancher_server_url() + \
+        '/r/projects/' + \
+        project_id + \
+        '/kubernetes-dashboard:9090/'
+    try:
+        r = requests.get(dashboard_url)
+        r.close()
+        return r.ok
+    except requests.ConnectionError:
+        logger.info("Connection Error - " + dashboard_url)
+        return False
+
+
+def k8s_force_upgrade_stack(stack_name):
+    k8s_client = kubectl_client_con["k8s_client"]
+    access_key = k8s_client._access_key
+    secret_key = k8s_client._secret_key
+
+    force_up_commands = [
+        "export RANCHER_URL=" + rancher_server_url(),
+        "export RANCHER_ACCESS_KEY=" + access_key,
+        "export RANCHER_SECRET_KEY=" + secret_key,
+        "export RANCHER_ENVIRONMENT=" + PROJECT_ID,
+        "cd rancher-v*",
+        "./rancher export " + stack_name,
+        "./rancher up --force-upgrade --confirm-upgrade " +
+        "-d -s " + stack_name + " --batch-size 1 " +
+        "--interval 1000 -f " + stack_name + "/docker-compose.yml" +
+        " --rancher-file=" + stack_name + "/rancher-compose.yml"
+    ]
+
+    logger.info("Final command: " + " ; ".join(force_up_commands))
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        ssh.connect(
+            rancher_cli_con["host"].ipAddresses()[0].address, username="root",
+            password="root", port=int(rancher_cli_con["port"]))
+    except Exception as e:
+        logger.info("SSH Connection Error")
+        raise e
+    stdin, stdout, stderr = ssh.exec_command(
+                                            " ; ".join(force_up_commands),
+                                            timeout=1200)
+    response = stdout.readlines()
+    error = stderr.readlines()
+    logger.info(response)
+    logger.info(error)
+
+    env = k8s_client.list_stack(name=stack_name)
+    assert len(env) == 1
+    environment = env[0]
+    wait_for_condition(
+        k8s_client, environment,
+        lambda x: x.healthState == "healthy",
+        lambda x: 'State is: ' + x.healthState,
+        timeout=1200)
+
+
+def k8s_waitfor_infra_stacks():
+    k8s_client = kubectl_client_con["k8s_client"]
+    infra_stacks = [
+            "ipsec",
+            "network-services",
+            "healthcheck",
+            "kubernetes"
+            ]
+    for stack_name in infra_stacks:
+        env = k8s_client.list_stack(name=stack_name)
+        assert len(env) == 1
+        environment = env[0]
+        wait_for_condition(
+            k8s_client, environment,
+            lambda x: x.healthState == "healthy",
+            lambda x: 'State is: ' + x.healthState,
+            timeout=1200)
+
+
+def k8s_validate_kubectl():
+    # make sure that kubectl is working
+    started = time.time()
+    while time.time() - started < 1200:
+        while True:
+            try:
+                get_response = execute_kubectl_cmds("get nodes -o json")
+                break
+            except:
+                time.sleep(2)
+                continue
+        nodes = json.loads(get_response)
+        if len(nodes['items']) == kube_host_count:
+            ready_flag = True
+            for node in nodes['items']:
+                logger.info("node name: " + str(node['metadata']['name']))
+                if node['status']['conditions'][3]['status'] != "True":
+                    ready_flag = False
+            if ready_flag:
+                logger.info("hosts found after: " + str(time.time() - started))
+                return True
+        time.sleep(2)
+    return False
+
+
+def k8s_validate_helm():
+    response = execute_helm_cmds("create test-nginx")
+    print response
+    get_response = execute_helm_cmds("install test-nginx \
+        --name stresstest --namespace stresstest-ns --replace")
+
+    if "STATUS: DEPLOYED" not in get_response:
+        print "dies at install"
+        return False
+    time.sleep(10)
+
+    get_response = execute_kubectl_cmds(
+                    "get svc stresstest-test-nginx --namespace \
+                    stresstest-ns -o json")
+    print get_response
+    service = json.loads(get_response)
+    assert service['metadata']['name'] == "stresstest-test-nginx"
+
+    waitfor_pods(
+        selector="app=stresstest-test-nginx",
+        namespace="stresstest-ns", number=1)
+    get_response = execute_kubectl_cmds(
+        "get pods -o json -l 'app=stresstest-test-nginx'  ")
+    pod = json.loads(get_response)
+
+    for pod in pod["items"]:
+        assert pod["status"]["phase"] == "Running"
+        assert pod['kind'] == "Pod"
+
+    # Remove the release
+    response = execute_helm_cmds("delete --purge stresstest")
+    print response
+    time.sleep(10)
+    response = execute_helm_cmds("ls -q stresstest")
+    assert response is ''
+    return True
+
+
+def k8s_check_cluster_health(input_config=None):
+    # k8s initial checks
+    assert k8s_validate_kubectl()
+    assert k8s_check_dashboard()
+    assert k8s_validate_helm()
+    # create a test stack if you don't get one.
+    if not input_config:
+        input_config = {
+            "namespace": "stresstest-ns-0",
+            "port_ext": "0"
+        }
+        k8s_create_stack(input_config)
+        time.sleep(120)
+
+    # do test stack related tests
+    k8s_validate_stack(input_config)
+    k8s_modify_stack(input_config)
+    time.sleep(120)
