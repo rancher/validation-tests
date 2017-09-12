@@ -15,8 +15,6 @@ def create_environment_with_linked_services(
         env, service, consumed_service = create_env_with_2_svc_hostnetwork(
             client, service_scale, consumed_service_scale, port, ssh_port,
             isnetworkModeHost_svc, isnetworkModeHost_consumed_svc)
-    service.activate()
-    consumed_service.activate()
 
     if linkName is None:
         linkName = "mylink"

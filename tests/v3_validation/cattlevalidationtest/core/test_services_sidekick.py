@@ -1,8 +1,5 @@
 from common_fixtures import *  # NOQA
 
-WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
-SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +29,7 @@ def env_with_sidekick_config(client, service_scale,
         secondaryLaunchConfigs=[launch_config_consumed_service])
 
     service = client.wait_success(service)
-    assert service.state == "inactive"
+    assert service.state == "active"
 
     consumed_service_name = \
         get_sidekick_service_name(env, service, consumed_service_name)
@@ -42,17 +39,12 @@ def env_with_sidekick_config(client, service_scale,
 
 def create_env_with_sidekick(client, service_scale, expose_port, env=None):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     # Adding service anti-affinity rule to workaround bug-1419
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID,
-        "ports": [expose_port+":22/tcp"],
-        "labels": {
-            'io.rancher.scheduler.affinity:container_label_ne':
-                "io.rancher.stack_service.name" +
-                "=${stack_name}/${service_name}"
-        }
+        "image": SSH_IMAGE_UUID,
+        "ports": [expose_port+":22/tcp"]
     }
     env, service, service_name, consumed_service_name = \
         env_with_sidekick_config(client, service_scale,
@@ -64,10 +56,10 @@ def create_env_with_sidekick(client, service_scale, expose_port, env=None):
 
 def create_env_with_sidekick_for_linking(client, service_scale, env=None):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     env, service, service_name, consumed_service_name = \
         env_with_sidekick_config(client, service_scale,
@@ -79,10 +71,10 @@ def create_env_with_sidekick_for_linking(client, service_scale, env=None):
 
 def create_env_with_sidekick_anti_affinity(client, service_scale):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID,
+        "image": SSH_IMAGE_UUID,
         "labels": {
             'io.rancher.scheduler.affinity:container_label_ne':
                 "io.rancher.stack_service.name" +
@@ -101,11 +93,11 @@ def create_env_with_sidekick_anti_affinity(client, service_scale):
 def create_env_with_exposed_port_on_secondary(client, service_scale,
                                               expose_port):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID,
+        "image": WEB_IMAGE_UUID,
         "ports": [expose_port+":80/tcp"]}
 
     launch_config_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     env, service, service_name, consumed_service_name = \
         env_with_sidekick_config(client, service_scale,
@@ -118,11 +110,11 @@ def create_env_with_exposed_port_on_secondary(client, service_scale,
 def create_env_with_exposed_ports_on_primary_and_secondary(
         client, service_scale, expose_port_pri, expose_port_sec):
     launch_config_consumed_service = {
-        "imageUuid": SSH_IMAGE_UUID,
+        "image": SSH_IMAGE_UUID,
         "ports": [expose_port_pri+":22/tcp"]}
 
     launch_config_service = {
-        "imageUuid": WEB_IMAGE_UUID,
+        "image": WEB_IMAGE_UUID,
         "ports": [expose_port_sec+":22/tcp"]}
 
     env, service, service_name, consumed_service_name = \
@@ -136,13 +128,13 @@ def create_env_with_exposed_ports_on_primary_and_secondary(
 def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
 
     launch_config_consumed_service1 = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_consumed_service2 = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID,
+        "image": SSH_IMAGE_UUID,
         "ports": [expose_port+":22/tcp"],
         "labels": {
             'io.rancher.scheduler.affinity:container_label_ne':
@@ -277,7 +269,7 @@ def test_sidekick_for_lb(client, socat_containers):
 
     # Add LB services
 
-    launch_config_lb = {"imageUuid": get_haproxy_image(),
+    launch_config_lb = {"image": get_haproxy_image(),
                         "ports": [port]}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
@@ -361,7 +353,7 @@ def test_service_links_to_sidekick(client):
         create_env_with_sidekick_for_linking(client, service_scale)
 
     client_port = "7004"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [client_port+":22/tcp"]}
 
     service = create_svc(client, env, launch_config, 1)
@@ -661,7 +653,7 @@ def test_sidekick_lbactivation_after_linking(client, socat_containers):
     # Add LB service
 
     launch_config_lb = {"ports": [port],
-                        "imageUuid": get_haproxy_image()}
+                        "image": get_haproxy_image()}
     random_name = random_str()
     service_name = "LB-" + random_name.replace("-", "")
 

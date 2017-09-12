@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def test_lbservice_host_routing_1(client, socat_containers):
+def test_lbservice_host_routing_1(client):
 
     port = "900"
 
@@ -106,8 +106,7 @@ def test_lbservice_host_routing_1(client, socat_containers):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_cross_stack(
-        client, socat_containers):
+def test_lbservice_host_routing_cross_stack(client):
 
     port = "901"
 
@@ -189,8 +188,6 @@ def test_lbservice_host_routing_cross_stack(
         port_rules, crosslinking=True)
 
     for service in services:
-        service = service.activate()
-    for service in services:
         service = client.wait_success(service, 120)
         assert service.state == "active"
 
@@ -219,7 +216,7 @@ def test_lbservice_host_routing_cross_stack(
     delete_all(client, to_delete)
 
 
-def test_lbservice_host_routing_2(client, socat_containers):
+def test_lbservice_host_routing_2(client):
 
     port = "902"
 
@@ -310,8 +307,7 @@ def test_lbservice_host_routing_2(client, socat_containers):
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_scale_up(
-        client, socat_containers):
+def test_lbservice_host_routing_scale_up(client):
 
     port = "903"
 
@@ -438,8 +434,7 @@ def test_lbservice_host_routing_scale_up(
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_scale_down(
-        client, socat_containers):
+def test_lbservice_host_routing_scale_down(client):
 
     port = "904"
 
@@ -566,8 +561,7 @@ def test_lbservice_host_routing_scale_down(
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_only_path(
-        client, socat_containers):
+def test_lbservice_host_routing_only_path(client):
 
     port = "905"
 
@@ -629,7 +623,7 @@ def test_lbservice_host_routing_only_path(
 
 
 def test_lbservice_host_routing_only_host(
-        client, socat_containers):
+        client):
 
     port = "906"
 
@@ -679,7 +673,7 @@ def test_lbservice_host_routing_only_host(
     delete_all(client, [env])
 
 
-def test_lbservice_host_routing_3(client, socat_containers):
+def test_lbservice_host_routing_3(client):
 
     port = "907"
 
@@ -743,7 +737,7 @@ def test_lbservice_host_routing_3(client, socat_containers):
     delete_all(client, [env])
 
 
-def test_lbservice_edit_host_routing_3(client, socat_containers):
+def test_lbservice_edit_host_routing_3(client):
 
     port = "908"
 
@@ -873,7 +867,7 @@ def test_lbservice_edit_host_routing_3(client, socat_containers):
 
 
 def test_lbservice_edit_host_routing_add_host(
-        client, socat_containers):
+        client):
 
     port = "909"
 
@@ -929,7 +923,7 @@ def test_lbservice_edit_host_routing_add_host(
 
 
 def test_lbservice_edit_host_routing_remove_host(
-        client, socat_containers):
+        client):
 
     port = "910"
 
@@ -991,7 +985,7 @@ def test_lbservice_edit_host_routing_remove_host(
 
 
 def test_lbservice_edit_host_routing_edit_existing_host(
-        client, socat_containers):
+        client):
 
     port = "911"
 
@@ -1043,7 +1037,7 @@ def test_lbservice_edit_host_routing_edit_existing_host(
 
 
 def test_lbservice_host_routing_multiple_port_1(
-        client, socat_containers):
+        client):
 
     port1 = "1000"
     port2 = "1001"
@@ -1152,7 +1146,7 @@ def test_lbservice_host_routing_multiple_port_1(
 
 
 def test_lbservice_host_routing_multiple_port_2(
-        client, socat_containers):
+        client):
 
     port1 = "1002"
     port2 = "1003"
@@ -1224,7 +1218,7 @@ def test_lbservice_host_routing_multiple_port_2(
 
 
 def test_lbservice_host_routing_multiple_port_3(
-        client, socat_containers):
+        client):
 
     port1 = "1004"
     port2 = "1005"
@@ -1269,17 +1263,13 @@ def test_lbservice_host_routing_multiple_port_3(
     delete_all(client, [env])
 
 
-def test_lbservice_external_service(client, socat_containers):
+def test_lbservice_external_service(client):
     port = "1010"
 
     lb_scale = 2
 
     env, lb_service, ext_service, con_list = \
         create_env_with_ext_svc_and_lb(client, lb_scale, port)
-
-    ext_service = activate_svc(client, ext_service)
-    lb_service = activate_svc(client, lb_service)
-
     validate_lb_service_for_external_services(client,
                                               lb_service, port, con_list)
 
@@ -1287,7 +1277,7 @@ def test_lbservice_external_service(client, socat_containers):
 
 
 def test_lbservice_host_routing_tcp_only(client,
-                                         socat_containers):
+                                         ):
 
     port = "1011"
 
@@ -1335,7 +1325,7 @@ def test_lbservice_host_routing_tcp_only(client,
 
 
 def test_lbservice_host_routing_tcp_and_http(client,
-                                             socat_containers):
+                                             ):
 
     port1 = "1012"
     port2 = "1013"
@@ -1411,7 +1401,7 @@ def test_lbservice_host_routing_tcp_and_http(client,
 
 
 def test_lbservice_host_routing_wildcard(
-        client, socat_containers):
+        client):
 
     port = "1014"
 
@@ -1472,7 +1462,7 @@ def test_lbservice_host_routing_wildcard(
 
 
 def test_lbservice_host_routing_wildcard_order(
-        client, socat_containers):
+        client):
 
     port = "1014"
 
@@ -1561,7 +1551,7 @@ def test_lbservice_host_routing_wildcard_order(
 
 
 def test_lbservice_host_routing_priority_override_1(
-        client, socat_containers):
+        client):
 
     port = "1015"
 
@@ -1604,13 +1594,13 @@ def test_lbservice_host_routing_priority_override_1(
 
 
 def test_lb_with_selector_link_target_portrules(client,
-                                                socat_containers):
+                                                ):
 
     port = "20001"
     # Create Environment
     env = create_env(client)
 
-    launch_config_svc = {"imageUuid": LB_HOST_ROUTING_IMAGE_UUID,
+    launch_config_svc = {"image": LB_HOST_ROUTING_IMAGE_UUID,
                          "labels": {"test1": "value1"}}
     port_rule1 = {
         "targetPort": "80",
@@ -1632,7 +1622,7 @@ def test_lb_with_selector_link_target_portrules(client,
                                      lbConfig=create_lb_config([port_rule1]))
 
     service1 = client.wait_success(service1)
-    assert service1.state == "inactive"
+    assert service1.state == "active"
 
     random_name = random_str()
     service2_name = random_name.replace("-", "")
@@ -1644,10 +1634,10 @@ def test_lb_with_selector_link_target_portrules(client,
                                      lbConfig=create_lb_config([port_rule2]))
 
     service2 = client.wait_success(service2)
-    assert service2.state == "inactive"
+    assert service2.state == "active"
 
     launch_config_lb = {"ports": [port],
-                        "imageUuid": get_haproxy_image()}
+                        "image": get_haproxy_image()}
 
     port_rule1 = {
         "sourcePort": port,
@@ -1661,11 +1651,7 @@ def test_lb_with_selector_link_target_portrules(client,
         scale=1,
         lbConfig=create_lb_config([port_rule1]))
     lb_service = client.wait_success(lb_service)
-    assert lb_service.state == "inactive"
-
-    service1 = activate_svc(client, service1)
-    service2 = activate_svc(client, service2)
-    lb_service = activate_svc(client, lb_service)
+    assert lb_service.state == "active"
 
     wait_for_lb_service_to_become_active(client,
                                          [service1, service2], lb_service)

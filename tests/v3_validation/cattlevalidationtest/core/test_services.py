@@ -61,7 +61,6 @@ def create_env_and_svc_activate_launch_config(
         check=True, retainIp=False):
     start_time = time.time()
     service, env = create_env_and_svc(client, launch_config, scale, retainIp)
-    service = service.activate()
     service = client.wait_success(service, 300)
     assert service.state == "active"
     if check:
@@ -1274,8 +1273,6 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
                                            launchConfig=launch_config_svc,
                                            scale=1)
     client_service = client.wait_success(client_service)
-    assert client_service.state == "inactive"
-    client_service = client.wait_success(client_service.activate())
     assert client_service.state == "active"
 
     # Check for DNS resolution
@@ -1474,8 +1471,6 @@ def test_service_name_unique_edit(client):
 def test_service_retain_ip(client):
     launch_config = {"imageUuid": SSH_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 3, retainIp=True)
-    service = service.activate()
-    service = client.wait_success(service, 300)
     assert service.state == "active"
 
     container_name = get_container_name(env, service, "1")
