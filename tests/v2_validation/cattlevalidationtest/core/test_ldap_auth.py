@@ -70,9 +70,12 @@ def get_authed_token(username=None, password=None):
         'authProvider': "ldapconfig",
         'code': username + ':' + password
     })
+
     assert token.ok
     token = token.json()
     assert token['type'] != 'error'
+    if username.find("\\") > -1:
+        username = username.split("\\",2)[1]
     assert token['user'] == username
     assert token['userIdentity']['login'] == username
     return token
@@ -165,6 +168,8 @@ def turn_on_off_ad_auth(admin_client, request):
     ldap_main_user = os.environ.get('AD_MAIN_USER')
     ldap_main_pass = os.environ.get('AD_MAIN_PASS')
 
+    if os.environ.get('AD_MAIN_USER_PREFIX_DOMAIN').decode('string-escape') is not None:
+        ldap_main_user = os.environ.get('AD_MAIN_USER_PREFIX_DOMAIN').decode('string-escape')
     # Disable AD Authentication
     config = load_config()
     config['enabled'] = False
