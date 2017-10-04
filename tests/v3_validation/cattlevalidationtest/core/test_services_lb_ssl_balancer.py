@@ -79,7 +79,7 @@ def validate_lb_services_ssl(client, test_ssl_client_con,
 
 @if_certs_available
 def test_lb_ssl_with_default_cert(client, certs,
-                                  socat_containers):
+                                  ):
     domain = dom_list[0]
     service_scale = 2
     lb_scale = 2
@@ -106,7 +106,7 @@ def test_lb_ssl_with_default_cert(client, certs,
 
 @if_certs_available
 def test_lb_ssl_scale_up_service(
-        client, certs, socat_containers):
+        client, certs):
 
     domain = dom_list[0]
     port = "401"
@@ -137,7 +137,7 @@ def test_lb_ssl_scale_up_service(
 
 @if_certs_available
 def test_lb_ssl_scale_down_service(
-        client, certs, socat_containers):
+        client, certs):
 
     domain = dom_list[0]
     port = "402"
@@ -168,7 +168,7 @@ def test_lb_ssl_scale_down_service(
 
 @if_certs_available
 def test_lb_ssl_scale_up_lb_service(
-        client, certs, socat_containers):
+        client, certs):
 
     domain = dom_list[0]
     port = "403"
@@ -199,7 +199,7 @@ def test_lb_ssl_scale_up_lb_service(
 
 @if_certs_available
 def test_lb_ssl_scale_up_lb_service_passing_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     domain = dom_list[0]
     port = "4031"
@@ -232,7 +232,7 @@ def test_lb_ssl_scale_up_lb_service_passing_cert(
 
 @if_certs_available
 def test_lb_ssl_scale_down_lb_service(
-        client, certs, socat_containers):
+        client, certs):
 
     domain = dom_list[0]
     port = "404"
@@ -263,7 +263,7 @@ def test_lb_ssl_scale_down_lb_service(
 
 @if_certs_available
 def test_lb_ssl_edit_add_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     port = "405"
@@ -312,7 +312,7 @@ def test_lb_ssl_edit_add_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_edit_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -350,7 +350,7 @@ def test_lb_ssl_edit_edit_cert(
 
 @if_certs_available
 def test_lb_ssl_swap_default_and_alternate_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -386,7 +386,7 @@ def test_lb_ssl_swap_default_and_alternate_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_add_more_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     domain = dom_list[1]
@@ -426,7 +426,7 @@ def test_lb_ssl_edit_add_more_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_remove_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     domain1 = dom_list[1]
@@ -465,7 +465,7 @@ def test_lb_ssl_edit_remove_cert(
 
 @if_certs_available
 def test_lb_ssl_edit_add_cert_without_setting_default_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
     port = "409"
@@ -499,7 +499,7 @@ def test_lb_ssl_edit_add_cert_without_setting_default_cert(
 
 @if_certs_available
 def test_lb_ssl_delete_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[3]
     port = "410"
@@ -535,7 +535,7 @@ def test_lb_ssl_delete_cert(
 
 @if_certs_available
 def test_lb_ssl_multiple_certs(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[0]
 
@@ -552,7 +552,7 @@ def test_lb_ssl_multiple_certs(
                                default_domain, [dom_list[1], dom_list[2]])
     lb_containers = get_service_container_list(client, lb_service)
     for lb_con in lb_containers:
-        host = client.by_id('host', lb_con.hosts[0].id)
+        host = lb_con.host()
         check_cert_using_openssl(
             host, port, default_domain, test_ssl_client_con)
         check_cert_using_openssl(
@@ -564,7 +564,7 @@ def test_lb_ssl_multiple_certs(
 
 @if_certs_available
 def test_lb_sni(
-        client, socat_containers):
+        client):
 
     port = "20001"
     client_port = "20002"
@@ -575,19 +575,15 @@ def test_lb_sni(
         client, service_scale, lb_scale, port, includePortRule=False,
         target_with_certs=True)
 
-    lb_service = activate_svc(client, lb_service)
-    service = activate_svc(client, service)
-
     # Create Service1
     random_name = random_str()
     service_name = random_name.replace("-", "")
     service1 = client.create_service(
         name=service_name, stackId=env.id,
-        launchConfig={"imageUuid": WEB_SSL_IMAGE2_UUID}, scale=2)
+        launchConfig={"image": WEB_SSL_IMAGE2_UUID}, scale=2)
 
     service1 = client.wait_success(service1)
-    assert service1.state == "inactive"
-    service1 = activate_svc(client, service1)
+    assert service1.state == "active"
 
     port_rules = lb_service.lbConfig["portRules"]
     port_rule = {"hostname": "test1.com",
@@ -624,7 +620,7 @@ def test_lb_sni(
 
 @if_certs_available
 def test_lb_tcp_ssl_pass_through(
-        client, socat_containers):
+        client):
 
     port = "20003"
     client_port = "20004"
@@ -635,19 +631,15 @@ def test_lb_tcp_ssl_pass_through(
         client, service_scale, lb_scale, port, includePortRule=False,
         target_with_certs=True)
 
-    lb_service = activate_svc(client, lb_service)
-    service = activate_svc(client, service)
-
     # Create Service1
     random_name = random_str()
     service_name = random_name.replace("-", "")
     service1 = client.create_service(
         name=service_name, stackId=env.id,
-        launchConfig={"imageUuid": WEB_SSL_IMAGE1_UUID}, scale=2)
+        launchConfig={"image": WEB_SSL_IMAGE1_UUID}, scale=2)
 
     service1 = client.wait_success(service1)
-    assert service1.state == "inactive"
-    service1 = activate_svc(client, service1)
+    assert service1.state == "active"
 
     port_rules = lb_service.lbConfig["portRules"]
     port_rule = {"serviceId": service.id,
@@ -678,7 +670,7 @@ def test_lb_tcp_ssl_pass_through(
 
 @if_certs_available
 def test_lb_tls(
-        client, certs, socat_containers):
+        client, certs):
 
     service_count = 2
     certs = []
@@ -714,7 +706,7 @@ def test_lb_tls(
 
 @if_certs_available
 def test_lb_ssl_remove_cert(
-        client, certs, socat_containers):
+        client, certs):
 
     default_domain = dom_list[4]
     port = "410"

@@ -17,9 +17,6 @@ def create_environment_with_services(
         env, service, consumed_service = create_env_with_2_svc_hostnetwork(
             client, service_scale, consumed_service_scale, port, ssh_port,
             isnetworkModeHost_svc, isnetworkModeHost_consumed_svc)
-    service.activate()
-    consumed_service.activate()
-
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
 
     consumed_service = client.wait_success(
@@ -435,8 +432,9 @@ def test_dns_discoverys_with_hostnetwork_2(client):
         ssh_port, isnetworkModeHost_svc=True,
         isnetworkModeHost_consumed_svc=True)
     validate_linked_service(
-        client, service, [consumed_service], ssh_port,
-        linkName=consumed_service.name + "." + env.name + ".rancher.internal")
+        client, service, [consumed_service],
+        ssh_port,
+        linkName=consumed_service.name + "." + env.name + RANCHER_FQDN)
 
     delete_all(client, [env])
 
@@ -458,7 +456,7 @@ def test_dns_discoverys_with_hostnetwork_3(client):
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
         client, service, [consumed_service], ssh_port,
-        linkName=consumed_service.name + "." + env.name + ".rancher.internal")
+        linkName=consumed_service.name + "." + env.name + RANCHER_FQDN)
     delete_all(client, [env])
 
 
@@ -471,7 +469,7 @@ def test_dns_discoverys_with_hostnetwork_externalService(client):
     env, service, ext_service, con_list = \
         create_env_with_ext_svc(client, 1, port)
 
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET,
+    launch_config_svc = {"image": SSH_IMAGE_UUID_HOSTNET,
                          "networkMode": "host",
                          "labels": dns_labels}
     random_name = random_str()
@@ -481,8 +479,6 @@ def test_dns_discoverys_with_hostnetwork_externalService(client):
                                          launchConfig=launch_config_svc,
                                          scale=1)
     host_service = client.wait_success(host_service)
-    host_service.activate()
-    ext_service.activate()
     host_service = client.wait_success(host_service, SERVICE_WAIT_TIMEOUT)
     ext_service = client.wait_success(ext_service, SERVICE_WAIT_TIMEOUT)
     assert host_service.state == "active"
@@ -490,7 +486,7 @@ def test_dns_discoverys_with_hostnetwork_externalService(client):
 
     validate_external_service(
         client, host_service, [ext_service], 33, con_list,
-        fqdn="." + env.name + ".rancher.internal")
+        fqdn="." + env.name + ".default.discover.internal")
     con_list.append(env)
     delete_all(client, con_list)
 
@@ -505,7 +501,7 @@ def test_dns_discoverys_with_hostnetwork_externalService_cname(
     env, service, ext_service, con_list = \
         create_env_with_ext_svc(client, 1, port, True)
 
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID_HOSTNET,
+    launch_config_svc = {"image": SSH_IMAGE_UUID_HOSTNET,
                          "networkMode": "host",
                          "labels": dns_labels}
     random_name = random_str()
@@ -515,8 +511,6 @@ def test_dns_discoverys_with_hostnetwork_externalService_cname(
                                          launchConfig=launch_config_svc,
                                          scale=1)
     host_service = client.wait_success(host_service)
-    host_service.activate()
-    ext_service.activate()
     host_service = client.wait_success(host_service, SERVICE_WAIT_TIMEOUT)
     ext_service = client.wait_success(ext_service, SERVICE_WAIT_TIMEOUT)
     assert host_service.state == "active"
@@ -531,19 +525,18 @@ def test_dns_discoverys_coss_stack_service(
         client):
 
     env = create_env(client)
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
     service_name = "test1"
     service = client.create_service(name=service_name,
                                     stackId=env.id,
                                     launchConfig=launch_config_svc,
                                     scale=2)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    service.activate()
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
 
     port = "424"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     env1 = create_env(client)
     service_name = random_str()
@@ -552,7 +545,6 @@ def test_dns_discoverys_coss_stack_service(
                                      launchConfig=launch_config_svc,
                                      scale=2)
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
@@ -572,19 +564,17 @@ def test_dns_discoverys_coss_stack_service_uppercase(
         client):
 
     env = create_env(client)
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
     service_name = "TEST"
     service = client.create_service(name=service_name,
                                     stackId=env.id,
                                     launchConfig=launch_config_svc,
                                     scale=2)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    service.activate()
-    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
 
     port = "425"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     env1 = create_env(client)
     service_name = random_str()
@@ -592,8 +582,6 @@ def test_dns_discoverys_coss_stack_service_uppercase(
                                      stackId=env1.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
@@ -613,27 +601,24 @@ def test_dns_discoverys_for_containers_by_name_and_fqdn(
         client):
 
     env = create_env(client)
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
     service_name = "TEST"
     service = client.create_service(name=service_name,
                                     stackId=env.id,
                                     launchConfig=launch_config_svc,
                                     scale=2)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    service.activate()
-    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
 
     port = "426"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     service_name = random_str()
     service1 = client.create_service(name=service_name,
                                      stackId=env.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
+
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
@@ -655,20 +640,18 @@ def test_dns_discoverys_for_containers_by_name_and_fqdn_cross_stack(
         client):
 
     env = create_env(client)
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
     service_name = "TEST"
     service = client.create_service(name=service_name,
                                     stackId=env.id,
                                     launchConfig=launch_config_svc,
                                     scale=2)
     service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
-    service.activate()
-    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
     assert service.state == "active"
 
     # Deploy client service
     port = "427"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     env1 = create_env(client)
     service_name = random_str()
@@ -676,8 +659,6 @@ def test_dns_discoverys_for_containers_by_name_and_fqdn_cross_stack(
                                      stackId=env1.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
@@ -719,7 +700,7 @@ def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
 
     # Deploy client service in another environment
     port = "429"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     env1 = create_env(client)
     service_name = random_str()
@@ -727,8 +708,6 @@ def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
                                      stackId=env1.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
 
@@ -766,15 +745,13 @@ def test_dns_discovery_for_service_with_sidekick(client):
 
     # Deploy client service in same environment
     port = "431"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     service_name = random_str()
     service1 = client.create_service(name=service_name,
                                      stackId=env.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
     client_containers = get_service_container_list(client, service1)
@@ -809,7 +786,7 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
 
     # Deploy client service in a different environment
     port = "433"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID, }
+    launch_config_svc = {"image": SSH_IMAGE_UUID, }
     launch_config_svc["ports"] = [port+":"+"22/tcp"]
     service_name = random_str()
     env1 = create_env(client)
@@ -817,8 +794,6 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
                                      stackId=env1.id,
                                      launchConfig=launch_config_svc,
                                      scale=2)
-    service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
-    service1.activate()
     service1 = client.wait_success(service1, SERVICE_WAIT_TIMEOUT)
     assert service1.state == "active"
     client_containers = get_service_container_list(client, service1)
@@ -839,12 +814,12 @@ def validate_for_container_dns_resolution(
     client_containers = get_service_container_list(client, service)
     assert len(client_containers) == service.scale
     for con in client_containers:
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
 
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.agentIpAddress, username="root",
                     password="root", port=int(sshport))
 
         # Validate container name resolution
