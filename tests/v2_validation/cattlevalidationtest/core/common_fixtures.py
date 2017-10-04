@@ -926,6 +926,18 @@ def get_service_container_list(client, service, managed=None):
     return container
 
 
+def get_running_container_names_in_service(client, service, managed=None):
+
+    services = client.list_service(uuid=service.uuid,
+                                   include="instances")
+    assert len(services) == 1
+    container = []
+    for instance in services[0].instances:
+        if instance.state == "running":
+            container.append(instance.externalId[:12])
+    return container
+
+
 def get_service_container_managed_list(client, service, managed=None):
     container = []
     if managed is not None:
@@ -1628,13 +1640,18 @@ def launch_rancher_compose_from_file(client, subdir, docker_compose,
 def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
                                internal=False, stickiness_policy=None,
                                config=None, includePortRule=True,
-                               lb_protocol="http", target_with_certs=False):
-    if not target_with_certs:
-        launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
-        target_port = 80
+                               lb_protocol="http", target_with_certs=False,
+                               launch_config_target=None, target_port=None):
+    if launch_config_target is None and target_port is None:
+        if not target_with_certs:
+            launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+            target_port = 80
+        else:
+            launch_config_svc = {"imageUuid": WEB_SSL_IMAGE1_UUID}
+            target_port = 443
     else:
-        launch_config_svc = {"imageUuid": WEB_SSL_IMAGE1_UUID}
-        target_port = 443
+        launch_config_svc = launch_config_target
+        target_port = target_port
     launch_config_lb = {"imageUuid": get_haproxy_image()}
     if not internal:
         launch_config_lb["ports"] = [port]
@@ -2068,10 +2085,13 @@ def get_http_response(host, port, path):
     url = "http://" + host.ipAddresses()[0].address +\
           ":" + str(port) + path
     logger.info(url)
-
+    start_time = time.time()
     r = requests.get(url)
+    time_taken = time.time() - start_time
+    logger.info("time taken - " + str(time_taken))
     response = r.text.strip("\n")
     logger.info(response)
+    assert r.status_code == 200
     r.close()
     return response
 
