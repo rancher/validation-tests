@@ -376,8 +376,6 @@ def test_dns_add_remove_servicelinks(client):
                                               stackId=env.id,
                                               launchConfig=launch_config,
                                               scale=2)
-
-    consumed_service2 = consumed_service2.activate()
     consumed_service2 = client.wait_success(consumed_service2, 120)
     assert consumed_service2.state == "active"
 
@@ -387,7 +385,7 @@ def test_dns_add_remove_servicelinks(client):
                             {"type": "link", "name": consumed_service.name},
                             {"type": "link", "name": consumed_service1.name},
                             {"type": "link", "name": consumed_service2.name}])
-    dns = client.wait_success(dns)
+    dns = client.wait_success(dns, timeout=60)
     validate_dns_service(
         client, service, [consumed_service, consumed_service1,
                           consumed_service2], port, dns.name)
@@ -398,7 +396,7 @@ def test_dns_add_remove_servicelinks(client):
                             {"type": "link", "name": consumed_service1.name},
                             {"type": "link", "name": consumed_service2.name}])
 
-    dns = client.wait_success(dns)
+    dns = client.wait_success(dns, timeout=60)
     validate_dns_service(
         client, service, [consumed_service1, consumed_service2],
         port, dns.name)
@@ -424,7 +422,6 @@ def test_dns_services_delete_and_add_consumed_service(client):
 
     consumed_service = client.wait_success(client.delete(consumed_service))
     assert consumed_service.state == "removed"
-    validate_remove_service_link(client, dns, consumed_service)
 
     validate_dns_service(client, service, [consumed_service1], port,
                          dns.name)
@@ -441,16 +438,13 @@ def test_dns_services_delete_and_add_consumed_service(client):
                                               launchConfig=launch_config,
                                               scale=1)
     consumed_service2 = client.wait_success(consumed_service2)
-    assert consumed_service2.state == "inactive"
-
-    consumed_service2 = consumed_service2.activate()
-    consumed_service2 = client.wait_success(consumed_service2, 120)
     assert consumed_service2.state == "active"
+
     dns = client.update(dns,
                         serviceLinks=[
-                            {"type": "link", "name": consumed_service.name},
+                            {"type": "link", "name": consumed_service1.name},
                             {"type": "link", "name": consumed_service2.name}])
-    dns = client.wait_success(dns)
+    dns = client.wait_success(dns, timeout=60)
     validate_dns_service(
         client, service, [consumed_service1, consumed_service2], port,
         dns.name)

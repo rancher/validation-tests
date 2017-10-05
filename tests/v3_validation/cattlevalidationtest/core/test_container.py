@@ -45,7 +45,7 @@ def test_sibling_pinging(client, one_per_host):
 def test_dynamic_port(client, test_name):
     c = client.create_container(name=test_name,
                                 networkMode=MANAGED_NETWORK,
-                                imageUuid=TEST_IMAGE_UUID)
+                                image=TEST_IMAGE_UUID)
     c = client.wait_success(c)
 
     ports = c.ports_link()
@@ -76,7 +76,7 @@ def test_linking(client, test_name):
     random_val2 = random_str()
 
     link_server = client.create_container(name=test_name + '-server',
-                                          imageUuid=TEST_IMAGE_UUID,
+                                          image=TEST_IMAGE_UUID,
                                           networkMode=MANAGED_NETWORK,
                                           hostname=test_name + '-server',
                                           environment={
@@ -84,7 +84,7 @@ def test_linking(client, test_name):
                                           },
                                           requestedHostId=hosts[2].id)
     link_server2 = client.create_container(name=test_name + '-server2',
-                                           imageUuid=TEST_IMAGE_UUID,
+                                           image=TEST_IMAGE_UUID,
                                            networkMode=MANAGED_NETWORK,
                                            hostname=test_name + '-server2',
                                            environment={
@@ -92,7 +92,7 @@ def test_linking(client, test_name):
                                            },
                                            requestedHostId=hosts[1].id)
     link_client = client.create_container(name=test_name + '-client',
-                                          imageUuid=TEST_IMAGE_UUID,
+                                          image=TEST_IMAGE_UUID,
                                           networkMode=MANAGED_NETWORK,
                                           ports=['3000:3000'],
                                           hostname=test_name + '-client1',
@@ -124,7 +124,7 @@ def test_ip_inject(client, test_name):
     try:
         cmd = ['/bin/bash', '-c', 'sleep 5; ip addr show eth0']
         container = client.create_container(name=test_name,
-                                            imageUuid=TEST_IMAGE_UUID,
+                                            image=TEST_IMAGE_UUID,
                                             networkMode=MANAGED_NETWORK,
                                             command=cmd)
         cleanup_items.append(container)
@@ -157,7 +157,7 @@ def test_container_execute(client, test_name):
     cleanup_items = []
     try:
         container = client.create_container(name=test_name,
-                                            imageUuid=TEST_IMAGE_UUID,
+                                            image=TEST_IMAGE_UUID,
                                             networkMode=MANAGED_NETWORK,
                                             attachStdin=True,
                                             attachStdout=True,
@@ -198,7 +198,7 @@ def test_container_stats(client, test_name):
     cleanup_items = []
     try:
         container = client.create_container(name=test_name,
-                                            imageUuid=TEST_IMAGE_UUID,
+                                            image=TEST_IMAGE_UUID,
                                             networkMode=MANAGED_NETWORK,
                                             attachStdin=True,
                                             attachStdout=True,

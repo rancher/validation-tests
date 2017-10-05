@@ -22,12 +22,11 @@ def test_rancher_compose_inservice_upgrade_confirm(client,
 
     stack_name = random_str().replace("-", "")
     dc_file = "dc_inservice1_1.yml"
-    rc_file = "rc_inservice1_1.yml"
     dc_file_upgrade = "dc_inservice1_2.yml"
 
     # Create an stack using up
     stack, service = create_stack_using_rancher_cli(
-        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file, rc_file)
+        client, stack_name, "test1", INSERVICE_SUBDIR, dc_file)
 
     check_config_for_service(client, service, {"test1": "value1"}, 1)
 
@@ -37,13 +36,9 @@ def test_rancher_compose_inservice_upgrade_confirm(client,
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
     # Check for default settings
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 2
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 1000
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
-
-    # Confirm upgrade
-    service = confirm_upgrade_stack(
-        client, stack_name, service, dc_file_upgrade)
+    assert service.batchSize == 2
+    assert service.intervalMillis == 1000
+    assert service.startFirst is False
 
     check_config_for_service(client, service, {"test1": "value2"}, 1)
     containers = get_service_container_managed_list(client, service, 0)
@@ -1774,15 +1769,17 @@ def check_for_sidekick_name_in_service(service, sidekick_name):
 
 def upgrade_stack(client, stack_name, service, docker_compose,
                   rancher_compose=None, upgrade_option=None):
-    upgrade_cmd = "up --upgrade -d "
+    upgrade_cmd = "up -d "
     if upgrade_option is not None:
         upgrade_cmd += upgrade_option
     launch_rancher_cli_from_file(
         client, INSERVICE_SUBDIR, stack_name,
-        upgrade_cmd, "Upgrading",
-        docker_compose, rancher_compose)
-    service = client.reload(service)
-    assert service.state == "upgraded"
+        upgrade_cmd, "st",
+        docker_compose)
+    service = wait_for_condition(client, service,
+                                 lambda x: x.state == 'active',
+                                 lambda x: 'State is: ' + x.state)
+    assert service.state == "active"
     return service
 
 
@@ -1791,7 +1788,9 @@ def confirm_upgrade_stack(client, stack_name, service, docker_compose):
         client, INSERVICE_SUBDIR, stack_name,
         "up --confirm-upgrade -d", "Started",
         docker_compose)
-    service = client.reload(service)
+    service = wait_for_condition(client, service,
+                                 lambda x: x.state == 'active',
+                                 lambda x: 'State is: ' + x.state)
     assert service.state == "active"
     return service
 

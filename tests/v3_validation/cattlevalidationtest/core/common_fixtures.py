@@ -930,30 +930,20 @@ def get_service_container_list(client, service):
 
 
 def get_service_container_managed_list(client, service, managed=None):
-    container = []
-    if managed is not None:
-        all_instance_maps = \
-            client.list_serviceExposeMap(serviceId=service.id,
-                                         managed=managed)
-    else:
-        all_instance_maps = \
-            client.list_serviceExposeMap(serviceId=service.id)
-
-    instance_maps = []
-    for instance_map in all_instance_maps:
-        if instance_map.state not in ("removed", "removing"):
-            instance_maps.append(instance_map)
-
-    for instance_map in instance_maps:
-        c = client.by_id('container', instance_map.instanceId)
-        assert c.state in CONTAINER_STATES
-        containers = client.list_container(
-            externalId=c.externalId,
-            include="hosts")
-        assert len(containers) == 1
-        container.append(containers[0])
-
-    return container
+    containers = get_service_container_list(client, service)
+    if managed is None:
+        return containers
+    container_list = []
+    for instance in containers:
+        if managed == 1:
+            if instance.state == "running":
+                assert instance.desired is True
+                container_list.append(instance)
+        else:
+            if instance.state == "stopped":
+                assert instance.desired is False
+                container_list.append(instance)
+    return container_list
 
 
 def link_svc_with_port(client, service, linkservices, port):
@@ -2903,6 +2893,7 @@ def readDataFile(data_dir, name):
 def get_env_service_by_name(client, env_name, service_name):
     env = client.list_stack(name=env_name)
     assert len(env) == 1
+    print env[0].id
     service = client.list_service(name=service_name,
                                   stackId=env[0].id,
                                   removed_null=True)
@@ -3074,8 +3065,10 @@ def check_config_for_service(client, service, labels, managed,
             assert con.labels[key] == labels[key]
         if managed == 1:
             assert con.state == "running"
+            assert con.desired is True
         else:
             assert con.state == "stopped"
+            assert con.desired is False
     if managed:
         for key in labels.keys():
             service_labels = service.launchConfig["labels"]
@@ -3894,10 +3887,13 @@ def create_stack_using_rancher_cli(client, stack_name, service_name,
     # Create an stack using up
     launch_rancher_cli_from_file(
         client, compose_dir, stack_name,
-        "up -d ", "Creating stack",
+        "up -d ", "st",
         docker_compose, rancher_compose)
 
     stack, service = get_env_service_by_name(client, stack_name, service_name)
+    service = wait_for_condition(client, service,
+                                 lambda x: x.state == 'active',
+                                 lambda x: 'State is: ' + x.state)
     assert service.state == "active"
     return stack, service
 
