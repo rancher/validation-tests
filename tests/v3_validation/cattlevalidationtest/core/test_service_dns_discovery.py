@@ -434,7 +434,7 @@ def test_dns_discoverys_with_hostnetwork_2(client):
     validate_linked_service(
         client, service, [consumed_service],
         ssh_port,
-        linkName=consumed_service.name + "." + env.name + RANCHER_FQDN)
+        linkName=consumed_service.name + "." + env.name + "." + RANCHER_FQDN)
 
     delete_all(client, [env])
 
@@ -456,7 +456,7 @@ def test_dns_discoverys_with_hostnetwork_3(client):
         isnetworkModeHost_consumed_svc=False)
     validate_linked_service(
         client, service, [consumed_service], ssh_port,
-        linkName=consumed_service.name + "." + env.name + RANCHER_FQDN)
+        linkName=consumed_service.name + "." + env.name + "." + RANCHER_FQDN)
     delete_all(client, [env])
 
 
@@ -486,7 +486,7 @@ def test_dns_discoverys_with_hostnetwork_externalService(client):
 
     validate_external_service(
         client, host_service, [ext_service], 33, con_list,
-        fqdn="." + env.name + ".default.discover.internal")
+        fqdn="." + env.name + "." + RANCHER_FQDN)
     con_list.append(env)
     delete_all(client, con_list)
 
@@ -832,8 +832,9 @@ def validate_for_container_dns_resolution(
         assert len(response) == 1
         resp = response[0].strip("\n")
         logger.info(resp)
-        print resp
-        assert resp in (container.externalId[:12])
+        assert resp in (
+            container.name.lower() + "-" +
+            container.deploymentUnitUuid.split('-')[0])
 
         # Validate DNS resolution using dig
         cmd = "dig " + dns_name + " +short"

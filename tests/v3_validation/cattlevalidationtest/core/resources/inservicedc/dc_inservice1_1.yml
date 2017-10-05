@@ -5,3 +5,4 @@ test1:
   stdin_open: true
   labels:
     test1: value1
+  scale: 3
