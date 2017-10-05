@@ -6,10 +6,6 @@ TEST_SERVICE_OPT_IMAGE_UUID = 'docker:' + TEST_SERVICE_OPT_IMAGE_LATEST
 LB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 RCLICOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                    'resources/ranchercli')
-RCCOMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 'resources/rccmds')
-RCV2COMMANDS_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                   'resources/rccmds/v2')
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +19,12 @@ def test_cli_create_service(client, rancher_cli_container):
     # This method tests creation of a service
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest1"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc1.yml", "rc1.yml")
+        "up -d", "st", "dc1.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest1")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -50,11 +47,12 @@ def test_cli_create_stop_start_service(client,
     # This method tests starting and stopping a service
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest2"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc2.yml", "rc2.yml")
+        "up -d", "st", "dc2.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest2")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -70,7 +68,7 @@ def test_cli_create_stop_start_service(client,
 
     command = "stop " + service.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    service = client.wait_success(service, 60)
+    service = client.wait_success(service, 90)
     assert service. state == "inactive"
     if service.id in cli_response:
         assert True
@@ -78,12 +76,12 @@ def test_cli_create_stop_start_service(client,
     container_list = get_service_container_list(client, service)
     assert len(container_list) == 2
     for container in container_list:
-        container = client.wait_success(container, 60)
+        container = client.wait_success(container, 90)
         assert container.state == "stopped"
 
     command = "start " + service.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    service = client.wait_success(service, 60)
+    service = client.wait_success(service, 90)
     assert service.state == "active"
     if service.id in cli_response:
         assert True
@@ -102,11 +100,12 @@ def test_cli_create_activate_deactivate_service(client,
 
     # This method tests activate and deactivate commands
     stack_name = random_str().replace("-", "")
+    service_name = "rtest3"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc3.yml", "rc3.yml")
+        "up -d", "st", "dc3.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest3")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -154,11 +153,12 @@ def test_cli_create_restart_service(client,
     # This method restarts a service for a given stack
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest4"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc4.yml", "rc4.yml")
+        "up -d", "st", "dc4.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest4")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -175,7 +175,7 @@ def test_cli_create_restart_service(client,
 
     command = "restart " + stack_name + "/" + service.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    service = client.wait_success(service, 60)
+    service = client.wait_success(service, 90)
     if service.id in cli_response:
         assert True
 
@@ -194,11 +194,12 @@ def test_cli_create_restart_service_batch_interval(client,
     # This method restarts the service given batch-size and interval
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest5"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc5.yml", "rc5.yml")
+        "up -d", "st", "dc5.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest5")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -216,7 +217,7 @@ def test_cli_create_restart_service_batch_interval(client,
     command = "restart --type service --batch-size 2 --interval 1000 " \
               + stack_name + "/" + service.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    service = client.wait_success(service)
+    service = client.wait_success(service, 90)
     if service.id in cli_response:
         assert True
 
@@ -234,24 +235,24 @@ def test_cli_restart_container(client, rancher_cli_container):
     # This method deletes a standalone container
     stack_name = random_str().replace("-", "")
     container = []
-    container = client.create_container(name="test_cont",
+    container = client.create_container(name="test-cont",
                                         networkMode=MANAGED_NETWORK,
                                         image=TEST_IMAGE_UUID)
 
-    container = client.wait_success(container, 60)
+    container = client.wait_success(container, 90)
     assert container.state == "running"
     assert container.startCount == 1
 
     print "The container id is:" + container.id
     command = "restart --type container " + container.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    container = client.wait_success(container, 60)
+    container = client.wait_success(container, 90)
     print "CLI response is"
     print cli_response
     if container.id in cli_response:
         assert True
 
-    container = client.list_container(name="test_cont", removed_null=True)
+    container = client.list_container(name="test-cont", removed_null=True)
     print "The obtained container list is"
     print container
     assert len(container) == 1
@@ -266,11 +267,12 @@ def test_cli_delete_service(client,
 
     # This method deletes a service belonging to a stack
     stack_name = random_str().replace("-", "")
+    service_name = "rtest6"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc6.yml", "rc6.yml")
+        "up -d", "st", "dc6.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest6")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -303,11 +305,12 @@ def test_cli_delete_container(client, rancher_cli_container):
 
     stack_name = random_str().replace("-", "")
     container = []
-    container = client.create_container(name="test_cont_1",
+    container_name = "test-cont" + random_str().replace("-", "")
+    container = client.create_container(name=container_name,
                                         networkMode=MANAGED_NETWORK,
                                         image=TEST_IMAGE_UUID)
 
-    container = client.wait_success(container, 60)
+    container = client.wait_success(container, 90)
 
     print "The container id is:" + container.id
     command = "rm --type container " + container.id
@@ -315,12 +318,12 @@ def test_cli_delete_container(client, rancher_cli_container):
     cli_response = execute_rancher_cli(client, stack_name, command)
     print "The CLI response is"
     print cli_response
-    container = client.wait_success(container, 60)
+    container = client.wait_success(container, 90)
     if container.id in cli_response:
         print container.state
         assert True
 
-    container = client.list_container(name="test_cont_1",
+    container = client.list_container(name=container_name,
                                       removed_null=True)
     assert len(container) == 0
     delete_all(client, container)
@@ -332,11 +335,12 @@ def test_cli_delete_stack(client,
     # This method deletes a stack
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest7"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc7.yml", "rc7.yml")
+        "up -d", "st", "dc7.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest7")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -362,13 +366,22 @@ def test_cli_show_services(client, rancher_cli_container):
     # This method tests displaying the services through "ps -a"
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest8-one"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc8.yml", "rc8.yml")
+        "up -d", "st", "dc8.yml", service_name=service_name)
+    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID}
 
-    stack, service1 = get_env_service_by_name(client, stack_name, "rtest8-one")
-    stack, service2 = get_env_service_by_name(client, stack_name, "rtest8-two")
+    stack, service1 = get_env_service_by_name(client, stack_name, service_name)
 
+    launch_config = {"image": WEB_IMAGE_UUID}
+
+    service2 = client.create_service(name="rtest8-two",
+                                     stackId=stack.id,
+                                     launchConfig=launch_config,
+                                     scale=2)
+
+    service2 = client.wait_success(service2, 120)
     # Confirm service is active and the containers are running
     assert service1.state == "active"
     assert service1.scale == 2
@@ -382,7 +395,7 @@ def test_cli_show_services(client, rancher_cli_container):
     # in ps -a command
     command = "stop " + service2.name
     cli_response = execute_rancher_cli(client, stack_name, command)
-    service = client.wait_success(service2, 60)
+    service = client.wait_success(service2, 90)
     assert service.state == "inactive"
     if service.id in cli_response:
         assert True
@@ -402,11 +415,12 @@ def test_cli_show_containers(client, rancher_cli_container):
     # This method tests displaying the containers through "ps -c"
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest9"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc9.yml", "rc9.yml")
+        "up -d", "st", "dc9.yml", service_name=service_name)
 
-    stack, service1 = get_env_service_by_name(client, stack_name, "rtest9")
+    stack, service1 = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service1.state == "active"
@@ -433,7 +447,7 @@ def test_cli_env_list(client, rancher_cli_container):
     stack_name = random_str().replace("-", "")
 
     command = "env ls"
-    expected_response = ["cattle", "Default"]
+    expected_response = ["Default", "System", "kube-system"]
     cli_response = execute_rancher_cli(client, stack_name, command)
     print "The cli response is \n"
     print cli_response
@@ -455,11 +469,12 @@ def test_cli_increment_scale(client, rancher_cli_container):
     # This method tests incrementing the scale of a service
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest10"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc10.yml", "rc10.yml")
+        "up -d", "st", "dc10.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest10")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -479,7 +494,7 @@ def test_cli_increment_scale(client, rancher_cli_container):
     print cli_response
     if expected_response in cli_response:
         assert True
-    service = client.wait_success(service, 60)
+    service = client.wait_success(service, 90)
     container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for container in container_list:
@@ -493,11 +508,12 @@ def test_cli_decrement_scale(client, rancher_cli_container):
     # This method tests decrementing the scale of a service
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest11"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc11.yml", "rc11.yml")
+        "up -d", "st", "dc11.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest11")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -517,7 +533,7 @@ def test_cli_decrement_scale(client, rancher_cli_container):
     print cli_response
     if expected_response in cli_response:
         assert True
-    service = client.wait_success(service, 60)
+    service = client.wait_success(service, 90)
     container_list = get_service_container_list(client, service)
     assert len(container_list) == 1
     for container in container_list:
@@ -529,13 +545,15 @@ def test_cli_decrement_scale(client, rancher_cli_container):
 def test_cli_inspect_service(client, rancher_cli_container):
 
     # This method tests inspecting a service
+    # Issue #10195
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest12"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc12.yml")
+        "up -d", "st", "dc12.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest12")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -563,8 +581,8 @@ def test_cli_inspect_service(client, rancher_cli_container):
     print cli_response_item
     output = json.loads(cli_response_item)
     assert output['name'] == 'rtest12'
-    assert output['kind'] == 'service'
-    assert output['currentScale'] == 1
+    assert output['baseType'] == 'service'
+    assert output['scale'] == 1
     assert output['healthState'] == 'healthy'
 
     delete_all(client, [stack])
@@ -575,11 +593,12 @@ def test_cli_inspect_container(client, rancher_cli_container):
     # This method tests inspecting a container
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest13"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc13.yml")
+        "up -d", "st", "dc13.yml", service_name=service_name)
 
-    stack, service1 = get_env_service_by_name(client, stack_name, "rtest13")
+    stack, service1 = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service1.state == "active"
@@ -598,7 +617,7 @@ def test_cli_inspect_container(client, rancher_cli_container):
     print cli_response_item
     output = json.loads(cli_response_item)
     assert output['name'] == container_name
-    assert output['kind'] == 'container'
+    assert output['baseType'] == 'instance'
 
     delete_all(client, [stack])
 
@@ -609,11 +628,12 @@ def test_cli_create_restart_containers_of_service(client,
     # This method restarts containers of a service
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest14"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc14.yml", "rc14.yml")
+        "up -d", "st", "dc14.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest14")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -629,9 +649,11 @@ def test_cli_create_restart_containers_of_service(client,
         assert container.startCount == 1
         command = "restart --type container " + container.id
         cli_response = execute_rancher_cli(client, stack_name, command)
-        container = client.wait_success(container, 60)
+        container = client.wait_success(container, 90)
         if container.id in cli_response:
             assert True
+        print "Startcount is"
+        print container.startCount
         assert container.state == "running"
         assert container.startCount == 2
 
@@ -641,13 +663,15 @@ def test_cli_create_restart_containers_of_service(client,
 def test_cli_inspect_stack(client, rancher_cli_container):
 
     # This method tests inspecting a stack
+    # Issue #10195
 
     stack_name = random_str().replace("-", "")
+    service_name = "rtest15"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc15.yml")
+        "up -d", "st", "dc15.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest15")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     assert service.state == "active"
     assert service.scale == 1
@@ -676,7 +700,7 @@ def test_cli_inspect_stack(client, rancher_cli_container):
         if serviceid in serviceidarray:
             assert True
     assert output['name'] == stack_name
-    assert output['kind'] == 'stack'
+    assert output['baseType'] == 'stack'
     assert output['state'] == 'active'
     assert output['healthState'] == 'healthy'
 
@@ -703,7 +727,6 @@ def test_cli_inspect_env(client, rancher_cli_container):
             assert output['name'] == env.name
             assert output['kind'] == 'project'
             assert output['state'] == 'active'
-            assert output['healthState'] == 'healthy'
 
 
 def test_cli_inspect_host(client, rancher_cli_container):
@@ -802,11 +825,12 @@ def test_cli_volume_create_remove(client, rancher_cli_container):
 
     # Create a service which uses the created volume test_vol
     stack_name = random_str().replace("-", "")
+    service_name = "rtest16"
     launch_rancher_cli_from_file(
-        client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc16.yml")
+        client, RCLICOMMANDS_SUBDIR, stack_name, service_name,
+        "up -d", "st", "dc16.yml")
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest16")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -869,11 +893,12 @@ def test_cli_inspect_volume(client, rancher_cli_container):
 
     # Create a service which uses test_insp_vol volume
     stack_name = random_str().replace("-", "")
+    service_name = "rtest17"
     launch_rancher_cli_from_file(
         client, RCLICOMMANDS_SUBDIR, stack_name,
-        "up -d", "Creating stack", "dc17.yml")
+        "up -d", "st", "dc17.yml", service_name=service_name)
 
-    stack, service = get_env_service_by_name(client, stack_name, "rtest17")
+    stack, service = get_env_service_by_name(client, stack_name, service_name)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -922,10 +947,13 @@ def test_cli_inspect_volume(client, rancher_cli_container):
 def test_cli_catalog_list(client, rancher_cli_container):
 
     # This method tests listing catalogs
+    # In CLI version rancher-v1.0.0-alpha2, the list of catalog
+    # items do not match the ones through API.
 
     stack_name = random_str().replace("-", "")
     catalogs = []
     url = os.environ.get('CATTLE_TEST_URL')
+
     community_catalog_url = url + "/v1-catalog/templates?catalog=community"
     library_catalog_url = url + "/v1-catalog/templates?catalog=library"
 
@@ -966,58 +994,15 @@ def test_cli_catalog_list(client, rancher_cli_container):
     assert found
 
 
-def test_cli_env_create_rm_cattle(admin_client, rancher_cli_container):
-
-    # This method tests creating and removing a Cattle environment
-    stack_name = random_str().replace("-", "")
-    env_name = random_str().replace("-", "")
-    orchestration = "cattle"
-    command = "env create " + env_name
-    print "Command is"
-    print command
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The CLI response is \n"
-    print cli_response
-    envid = cli_response
-
-    # Check if the newly created environment is of orchestration "Cattle"
-    command = "env ls"
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The env list CLI response is \n"
-    print cli_response
-    for resp in cli_response:
-        if env_name in resp:
-            envarray = resp
-    print envarray
-    if envarray[2] == orchestration:
-        assert True
-
-    print "The env id is :" + repr(envid)
-    remove_command = "env rm " + env_name
-
-    # Remove the Environment created and ensure it is deleted
-    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
-                                              remove_command)
-    print cli_remove_response
-
-    if envid in cli_remove_response:
-        assert True
-
-    # Verify that the env is removed from the envlist
-    envlist = admin_client.list_project()
-    for env in envlist:
-        if envid == env.id:
-            assert False
-
-
-def test_cli_env_create_rm_kubernetes(admin_client,
-                                      rancher_cli_container):
-    # This method tests creating and removing a Kubernetes environment
+def test_cli_env_create_rm_env(admin_client,
+                               rancher_cli_container):
+    # This method tests creating and removing an environment
+    # within a cluster
 
     stack_name = random_str().replace("-", "")
     env_name = random_str().replace("-", "")
-    orchestration = "kubernetes"
-    command = "env create " + "-t" + " kubernetes " + env_name
+    cluster_name = "Default"
+    command = "env create " + env_name + " --cluster " + cluster_name
     print "Command is"
     print command
     cli_response = execute_rancher_cli(admin_client, stack_name, command)
@@ -1034,10 +1019,9 @@ def test_cli_env_create_rm_kubernetes(admin_client,
         if env_name in resp:
             envarray = resp
     print envarray
-    if envarray[2] == orchestration:
-        assert True
 
     print "The env id is :" + repr(envid)
+    print "Remove the environment"
     remove_command = "env rm " + env_name
 
     # Remove the Environment created and ensure it is deleted
@@ -1053,118 +1037,6 @@ def test_cli_env_create_rm_kubernetes(admin_client,
     for env in envlist:
         if envid == env.id:
             assert False
-
-
-def test_cli_env_create_rm_swarm(admin_client, rancher_cli_container):
-
-    # This method tests creating and removing a Swarm environment
-
-    stack_name = random_str().replace("-", "")
-    env_name = random_str().replace("-", "")
-    orchestration = "swarm"
-    command = "env create " + "-t" + " swarm " + env_name
-    print "Command is"
-    print command
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The CLI response is \n"
-    print cli_response
-    envid = cli_response
-
-    # Check if the newly created environment is of orchestration "Swarm"
-    command = "env ls"
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The env list CLI response is \n"
-    print cli_response
-    for resp in cli_response:
-        if env_name in resp:
-            envarray = resp
-    print envarray
-    if envarray[2] == orchestration:
-        assert True
-
-    print "The env id is :" + repr(envid)
-    remove_command = "env rm " + env_name
-
-    # Remove the Environment created and ensure it is deleted
-    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
-                                              remove_command)
-    print cli_remove_response
-
-    if envid in cli_remove_response:
-        assert True
-
-    # Verify that the env is removed from the envlist
-    envlist = admin_client.list_project()
-    for env in envlist:
-        if envid == env.id:
-            assert False
-
-
-def test_cli_env_create_rm_mesos(admin_client, rancher_cli_container):
-
-    # This method tests creating and removing a Mesos environment
-
-    stack_name = random_str().replace("-", "")
-    env_name = random_str().replace("-", "")
-    orchestration = "mesos"
-    command = "env create " + "-t" + " mesos " + env_name
-    print "Command is"
-    print command
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The CLI response is \n"
-    print cli_response
-    envid = cli_response
-
-    # Check if the newly created environment is of orchestration "Mesos"
-    command = "env ls"
-    cli_response = execute_rancher_cli(admin_client, stack_name, command)
-    print "The env list CLI response is \n"
-    print cli_response
-
-    for resp in cli_response:
-        if env_name in resp:
-            envarray = resp
-    print envarray
-    if envarray[2] == orchestration:
-        assert True
-
-    print "The env id :" + repr(envid)
-    remove_command = "env rm " + env_name
-
-    # Remove the Environment created and ensure it is deleted
-    cli_remove_response = execute_rancher_cli(admin_client, stack_name,
-                                              remove_command)
-    print cli_remove_response
-
-    if envid in cli_remove_response:
-        assert True
-
-    # Verify that the env is removed from the envlist
-    envlist = admin_client.list_project()
-    for env in envlist:
-        if envid == env.id:
-            assert False
-
-
-def test_cli_list_system_services(client, rancher_cli_container):
-
-    # This method tests displaying the services through "ps -s"
-
-    stack_name = random_str().replace("-", "")
-    services_list = client.list_service(system=True)
-    print "The services are"
-    print services_list
-
-    command = "ps -s"
-    cli_response = execute_rancher_cli(client, stack_name, command)
-    print cli_response
-    found = False
-    # Verify the services listed
-    for service in services_list:
-        for resp in cli_response:
-            if service['name'] in resp:
-                found = True
-    assert found
 
 
 def test_cli_env_deactivate_activate(admin_client,
@@ -1179,7 +1051,7 @@ def test_cli_env_deactivate_activate(admin_client,
     inactive_state = "inactive"
 
     # Create an environment
-    command = "env create " + env_name
+    command = "env create " + env_name + " --cluster Default"
     cli_response = execute_rancher_cli(client, stack_name, command)
     print "The CLI response is \n"
     print cli_response
@@ -1242,66 +1114,41 @@ def test_cli_env_deactivate_activate(admin_client,
             assert False
 
 
-def test_rancher_compose_services_log_driver(client,
-                                             rancher_cli_container,
-                                             socat_containers):
-    compose_directory = RCCOMMANDS_SUBDIR
-    check_rancher_compose_services_log_driver(client,
-                                              compose_directory)
-
-
 def test_rancher_compose_v2_services_log_driver(client,
                                                 rancher_cli_container,
                                                 socat_containers):
-    compose_directory = RCV2COMMANDS_SUBDIR
+    # This test case will not work as logging is not implemented
+    # in 2.0. May not be implemented. Issue #10059
+    compose_directory = RCLICOMMANDS_SUBDIR
     check_rancher_compose_services_log_driver(client,
                                               compose_directory)
-
-
-def test_rancher_compose_services_network(client,
-                                          rancher_cli_container,
-                                          socat_containers):
-    compose_directory = RCCOMMANDS_SUBDIR
-    check_rancher_compose_services_network(client,
-                                           compose_directory)
 
 
 def test_rancher_compose_v2_services_network(client,
                                              rancher_cli_container,
                                              socat_containers):
-    compose_directory = RCV2COMMANDS_SUBDIR
+    # This test case will not work as many parameters are not implemented
+    # in 2.0. Issue #10059
+    compose_directory = RCLICOMMANDS_SUBDIR
     check_rancher_compose_services_network(client,
                                            compose_directory)
-
-
-def test_rancher_compose_services_security(client,
-                                           rancher_cli_container,
-                                           socat_containers):
-    compose_directory = RCCOMMANDS_SUBDIR
-    check_rancher_compose_services_security(client,
-                                            compose_directory)
 
 
 def test_rancher_compose_v2_services_security(client,
                                               rancher_cli_container,
                                               socat_containers):
-    compose_directory = RCV2COMMANDS_SUBDIR
+    # Issue #10059
+    compose_directory = RCLICOMMANDS_SUBDIR
     check_rancher_compose_services_security(client,
                                             compose_directory)
-
-
-def test_rancher_compose_services_volume(client,
-                                         rancher_cli_container,
-                                         socat_containers):
-    compose_directory = RCCOMMANDS_SUBDIR
-    check_rancher_compose_services_volume(client,
-                                          compose_directory)
 
 
 def test_rancher_compose_v2_services_volume(client,
                                             rancher_cli_container,
                                             socat_containers):
-    compose_directory = RCV2COMMANDS_SUBDIR
+    # This test case will not work as many parameters are not implemented
+    # in 2.0. Issue #10059
+    compose_directory = RCLICOMMANDS_SUBDIR
     check_rancher_compose_services_network(client,
                                            compose_directory)
 
@@ -1310,11 +1157,10 @@ def check_rancher_compose_services_security(client,
                                             compose_directory):
     # This method tests the options in security tab in the UI
     stack_name = random_str().replace("-", "")
-    dc_file = "dc3.yml"
-    rc_file = "rc3.yml"
+    dc_file = "dc18.yml"
     # Create an environment using up
     stack, service = create_stack_using_rancher_cli(
-        client, stack_name, "test3", compose_directory, dc_file, rc_file)
+        client, stack_name, "test18", compose_directory, dc_file)
     container_list = get_service_container_list(client, service)
     assert len(container_list) == 3
     for con in container_list:
@@ -1323,12 +1169,14 @@ def check_rancher_compose_services_security(client,
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
+        docker_client = get_docker_client(containers[0].host())
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)
         assert inspect["State"]["Running"]
         assert inspect["HostConfig"]["Privileged"]
         assert inspect["HostConfig"]["Memory"] == 104857600
+        print "CPU Shares"
+        print inspect["HostConfig"]["CpuShares"]
         assert inspect["HostConfig"]["CpuShares"] == 256
         assert inspect["HostConfig"]["CapAdd"] == ["AUDIT_CONTROL",
                                                    "AUDIT_WRITE"]
@@ -1346,11 +1194,11 @@ def check_rancher_compose_services_network(client,
     requested_ip = "io.rancher.container.requested_ip"
     stack_name = random_str().replace("-", "")
 
-    dc_file = "dc4.yml"
-    rc_file = "rc4.yml"
+    dc_file = "dc19.yml"
+
     # Create an environment using up
     stack, service = create_stack_using_rancher_cli(
-        client, stack_name, "test4", compose_directory, dc_file, rc_file)
+        client, stack_name, "test19", compose_directory, dc_file)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -1371,7 +1219,7 @@ def check_rancher_compose_services_network(client,
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
+        docker_client = get_docker_client(containers[0].host())
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)
         assert inspect["State"]["Running"]
@@ -1390,17 +1238,18 @@ def check_rancher_compose_services_network(client,
 def check_rancher_compose_services_log_driver(client,
                                               compose_directory):
     stack_name = random_str().replace("-", "")
-    dc_file = "dc3.yml"
-    rc_file = "rc3.yml"
-    compose_directory = RCCOMMANDS_SUBDIR
+    dc_file = "dc18.yml"
+
     # Create an environment using up
     stack, service = create_stack_using_rancher_cli(
-        client, stack_name, "test3", compose_directory, dc_file, rc_file)
+        client, stack_name, "test18", compose_directory, dc_file)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
 
     container_list = get_service_container_list(client, service)
+    print "Length of container list"
+    print len(container_list)
     assert len(container_list) == 3
     for con in container_list:
         assert con.state == "running"
@@ -1408,10 +1257,11 @@ def check_rancher_compose_services_log_driver(client,
             externalId=con.externalId,
             include="hosts",
             removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
+        docker_client = get_docker_client(containers[0].host())
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running" + con.name)
         assert inspect["State"]["Running"]
+        print inspect["HostConfig"]["LogConfig"]["Type"]
         assert inspect["HostConfig"]["LogConfig"]["Type"] == "syslog"
 
     delete_all(client, [stack])
@@ -1421,11 +1271,11 @@ def check_rancher_compose_services_volume(client,
                                           compose_directory):
 
     stack_name = random_str().replace("-", "")
-    dc_file = "dc5.yml"
-    rc_file = "rc5.yml"
+    dc_file = "dc20.yml"
+
     # Create an environment using up
     stack, service = create_stack_using_rancher_cli(
-        client, stack_name, "test5", compose_directory, dc_file, rc_file)
+        client, stack_name, "test20", compose_directory, dc_file)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"

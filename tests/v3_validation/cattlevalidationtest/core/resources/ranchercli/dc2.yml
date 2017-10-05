@@ -1,5 +1,8 @@
-rtest2:
-  labels:
-    rtest2: value2
-  tty: true
-  image: ubuntu:14.04.3
+version: '2'
+services:
+  rtest2:
+    labels:
+      rtest2: value2
+    scale: 2
+    tty: true
+    image: ubuntu:14.04.3

@@ -1,6 +1,6 @@
 version: '2'
 services:
-  test3:
+  test18:
     cap_drop:
     - BLOCK_SUSPEND
     - CHOWN
@@ -12,6 +12,7 @@ services:
     hostname: rancherhost
     pid: host
     image: ubuntu:14.04.3
+    scale: 3
     cpu_shares: 256
     privileged: true
     stdin_open: true

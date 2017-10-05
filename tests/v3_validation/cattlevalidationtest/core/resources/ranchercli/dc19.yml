@@ -1,6 +1,6 @@
 version: '2'
 services:
-  test4:
+  test19:
     domainname: xyz.com
     dns_search:
     - www.google.com
@@ -14,6 +14,7 @@ services:
     tty: true
     hostname: rancherhost
     image: ubuntu:14.04.3
+    scale: 2
     volumes:
     - testvolume:/home
     stdin_open: true
