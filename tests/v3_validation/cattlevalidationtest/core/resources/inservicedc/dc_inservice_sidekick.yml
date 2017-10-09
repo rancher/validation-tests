@@ -1,0 +1,25 @@
+sk2:
+  restart: always
+  tty: true
+  image: sangeetha/testnewhostrouting
+  stdin_open: true
+  labels:
+    testsk2: value1
+  scale: 3
+sk1:
+  restart: always
+  tty: true
+  image: sangeetha/testclient
+  stdin_open: true
+  labels:
+    testsk1: value1
+  scale: 3
+test1:
+  restart: always
+  labels:
+    io.rancher.sidekicks: sk1,sk2
+    test1: value1
+  tty: true
+  image: ubuntu
+  stdin_open: true
+  scale: 3

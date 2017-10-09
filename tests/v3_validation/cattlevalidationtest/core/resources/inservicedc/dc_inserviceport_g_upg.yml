@@ -9,3 +9,4 @@ services:
     labels:
       test1: value2
       io.rancher.scheduler.global: 'true'
+    scale: 3

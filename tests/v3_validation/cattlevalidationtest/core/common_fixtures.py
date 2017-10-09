@@ -888,9 +888,12 @@ def get_container_names_list(client, services):
         containers = get_service_container_list(client, service)
         for c in containers:
             if c.state == "running":
-                container_names.append(
-                    c.name+"-"+c.deploymentUnitUuid.split('-')[0])
+                container_names.append(get_container_hostname(c))
     return container_names
+
+
+def get_container_hostname(container):
+    return container.name+"-"+container.deploymentUnitUuid.split('-')[0]
 
 
 def validate_add_service_link(admin_client, service, consumedService):
@@ -975,15 +978,16 @@ def activate_svc(client, service):
     return service
 
 
-def validate_exposed_port(client, service, public_port):
-    con_list = get_service_container_list(client, service)
-    assert len(con_list) == service.scale
+def validate_exposed_port(client, service, public_port, path="/service.html",
+                          managed=None):
+    con_list = get_service_container_managed_list(client, service, managed)
+    assert len(con_list) == get_service_instance_count(client, service)
     time.sleep(sleep_interval)
     for con in con_list:
         con_host = con.host()
         for port in public_port:
-            response = get_http_response(con_host, port, "/service.html")
-            assert response == con.externalId[:12]
+            response = get_http_response(con_host, port, path)
+            assert response == get_container_hostname(con)
 
 
 def validate_exposed_port_and_container_link(client, con, link_name,
@@ -1073,8 +1077,7 @@ def validate_lb_service_for_external_services(client, lb_service,
                                               hostheader=None, path=None):
     container_names = []
     for con in container_list:
-        container_names.append(
-            con.name+"-"+con.deploymentUnitUuid.split('-')[0])
+        container_names.append(get_container_hostname(con))
 
     validate_lb_service_con_names(client, lb_service, port,
                                   container_names, hostheader, path)
@@ -1262,7 +1265,7 @@ def validate_linked_service(admin_client, service, consumed_services,
                     else:
                         expected_dns_list.append(con.primaryIpAddress)
                         expected_link_response.append(
-                            con.name+"-"+con.deploymentUnitUuid.split('-')[0])
+                            get_container_hostname(con))
 
             logger.info("Expected dig response List" + str(expected_dns_list))
             logger.info("Expected wget response List" +
@@ -1374,8 +1377,7 @@ def validate_dns_service(admin_client, service, consumed_services,
                     expected_link_response.append(host_name)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
-                    expected_link_response.append(
-                        con.name+"-"+con.deploymentUnitUuid.split('-')[0])
+                    expected_link_response.append(get_container_hostname(con))
 
         logger.info("Expected dig response List" + str(expected_dns_list))
         logger.info("Expected wget response List" +
@@ -1437,8 +1439,7 @@ def validate_external_service(admin_client, service, ext_services,
                     print "Excluded from DNS and wget list:" + con.name
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
-                    expected_link_response.append(
-                        con.name+"-"+con.deploymentUnitUuid.split('-')[0])
+                    expected_link_response.append(get_container_hostname(con))
 
             print "Expected dig response List" + str(expected_dns_list)
             print "Expected wget response List" + str(expected_link_response)
@@ -1920,43 +1921,14 @@ def wait_until_instances_get_stopped(client, service, timeout=60):
                 'Timed out waiting for instances to get to stopped state')
 
 
-def get_service_containers_with_name(
-        admin_client, service, name, managed=None):
-
+def get_service_containers_with_name(client, service, name, managed=None):
     nameformat = re.compile(name + FIELD_SEPARATOR + "[0-9]{1,2}")
-    start = time.time()
-    instance_list = []
-
-    while len(instance_list) != service.scale:
-        instance_list = []
-        print "sleep for .5 sec"
-        time.sleep(.5)
-        if managed is not None:
-            all_instance_maps = \
-                admin_client.list_serviceExposeMap(serviceId=service.id,
-                                                   managed=managed)
-        else:
-            all_instance_maps = \
-                admin_client.list_serviceExposeMap(serviceId=service.id)
-        for instance_map in all_instance_maps:
-            if instance_map.state == "active":
-                c = admin_client.by_id('container', instance_map.instanceId)
-                if nameformat.match(c.name) \
-                        and c.state in ("running", "stopped"):
-                    instance_list.append(c)
-                    print c.name
-        if time.time() - start > 30:
-            raise Exception('Timed out waiting for Service Expose map to be ' +
-                            'created for all instances')
-    container = []
-    for instance in instance_list:
-        assert instance.externalId is not None
-        containers = admin_client.list_container(
-            externalId=instance.externalId,
-            include="hosts")
-        assert len(containers) == 1
-        container.append(containers[0])
-    return container
+    containers = get_service_container_managed_list(client, service, managed)
+    con_list = []
+    for con in containers:
+        if nameformat.match(con.name):
+            con_list.append(con)
+    return con_list
 
 
 def wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
@@ -2416,25 +2388,17 @@ def get_env(admin_client, service):
     return e
 
 
-def get_service_container_with_label(admin_client, service, name, label):
-
-    containers = []
+def get_service_container_with_label(client, service, name, label):
     found = False
-    instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+    container_list = get_service_container_list(client, service)
     nameformat = re.compile(name + FIELD_SEPARATOR + "[0-9]{1,2}")
-    for instance_map in instance_maps:
-        c = admin_client.by_id('container', instance_map.instanceId)
-        if nameformat.match(c.name) \
-                and c.labels["io.rancher.service.deployment.unit"] == label:
-            containers = admin_client.list_container(
-                externalId=c.externalId,
-                include="hosts")
-            assert len(containers) == 1
+    for con in container_list:
+        if nameformat.match(con.name) \
+                and con.labels["io.rancher.service.deployment.unit"] == label:
             found = True
             break
     assert found
-    return containers[0]
+    return con
 
 
 def get_side_kick_container(admin_client, container, service, service_name):
@@ -3883,17 +3847,19 @@ def create_stack_with_service_from_config(client, env_name,
 
 def create_stack_using_rancher_cli(client, stack_name, service_name,
                                    compose_dir,
-                                   docker_compose, rancher_compose=None):
+                                   docker_compose, rancher_compose=None,
+                                   timeout=120):
     # Create an stack using up
     launch_rancher_cli_from_file(
         client, compose_dir, stack_name,
         "up -d ", "st",
         docker_compose, rancher_compose)
-
+    time.sleep(5)
     stack, service = get_env_service_by_name(client, stack_name, service_name)
     service = wait_for_condition(client, service,
                                  lambda x: x.state == 'active',
-                                 lambda x: 'State is: ' + x.state)
+                                 lambda x: 'State is: ' + x.state,
+                                 timeout=timeout)
     assert service.state == "active"
     return stack, service
 
