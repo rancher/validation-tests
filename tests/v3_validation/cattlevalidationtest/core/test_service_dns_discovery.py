@@ -684,7 +684,7 @@ def test_dns_discovery_for_sidekick_containers_by_name_and_fqdn_cross_stack(
 
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick(client, service_scale, port)
-    env = env.activateservices()
+
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -729,7 +729,6 @@ def test_dns_discovery_for_service_with_sidekick(client):
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick(client, service_scale, port)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -770,7 +769,6 @@ def test_dns_discovery_for_service_with_sidekick_cross_stack(
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick(client, service_scale, port)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 

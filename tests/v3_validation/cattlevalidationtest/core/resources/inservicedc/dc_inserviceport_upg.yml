@@ -8,3 +8,4 @@ services:
     - 40:80/tcp
     labels:
       test1: value2
+    scale: 3

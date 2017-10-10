@@ -41,7 +41,6 @@ def create_env_with_sidekick(client, service_scale, expose_port, env=None):
     launch_config_consumed_service = {
         "image": WEB_IMAGE_UUID}
 
-    # Adding service anti-affinity rule to workaround bug-1419
     launch_config_service = {
         "image": SSH_IMAGE_UUID,
         "ports": [expose_port+":22/tcp"]
@@ -169,7 +168,7 @@ def create_env_with_multiple_sidekicks(client, service_scale, expose_port):
     )
 
     service = client.wait_success(service)
-    assert service.state == "inactive"
+    assert service.state == "active"
 
     consumed_service_name1 = \
         get_sidekick_service_name(env, service, consumed_service_name1)
@@ -208,7 +207,6 @@ def test_sidekick_activate_env(client):
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick(client, service_scale, exposed_port)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -232,7 +230,6 @@ def test_multiple_sidekick_activate_service(client):
         create_env_with_multiple_sidekicks(
             client, service_scale, exposed_port)
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -290,12 +287,7 @@ def test_sidekick_for_lb(client, socat_containers):
         scale=1, lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
-    assert lb_service.state == "inactive"
-
-    lb_service = lb_service.activate()
-    lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
-
     wait_for_lb_service_to_become_active(client,
                                          [service1, service2], lb_service)
 
@@ -323,7 +315,7 @@ def test_sidekick(client):
     service_scale = 2
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick_for_linking(client, service_scale)
-    env = env.activateservices()
+
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -337,7 +329,7 @@ def test_sidekick_with_anti_affinity(client):
     service_scale = 2
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick_anti_affinity(client, service_scale)
-    env = env.activateservices()
+
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -663,12 +655,6 @@ def test_sidekick_lbactivation_after_linking(client, socat_containers):
         scale=1, lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service)
-    assert lb_service.state == "inactive"
-
-    # Activate LB service
-
-    lb_service = lb_service.activate()
-    lb_service = client.wait_success(lb_service, 120)
     assert lb_service.state == "active"
 
     # After activating LB , add targets
@@ -719,12 +705,12 @@ def validate_sidekick(client, primary_service, service_name,
     # label and make sure that this container is the same host as the
     # primary service container
     for con in containers:
-        pri_host = con.hosts[0].id
+        pri_host = con.host().id
         label = con.labels["io.rancher.service.deployment.unit"]
         print con.name + " - " + label + " - " + pri_host
         secondary_con = get_service_container_with_label(
             client, primary_service, consumed_service_name, label)
-        sec_host = secondary_con.hosts[0].id
+        sec_host = secondary_con.host().id
         print secondary_con.name + " - " + label + " - " + sec_host
         assert sec_host == pri_host
 
@@ -741,7 +727,7 @@ def validate_dns(client, service_containers, consumed_service,
     time.sleep(sleep_interval)
 
     for service_con in service_containers:
-        host = client.by_id('host', service_con.hosts[0].id)
+        host = service_con.host()
 
         expected_dns_list = []
         expected_link_response = []
@@ -751,7 +737,7 @@ def validate_dns(client, service_containers, consumed_service,
 
         for con in consumed_service:
             expected_dns_list.append(con.primaryIpAddress)
-            expected_link_response.append(con.externalId[:12])
+            expected_link_response.append(get_container_hostname(con))
 
         print "Expected dig response List" + str(expected_dns_list)
         print "Expected wget response List" + str(expected_link_response)
@@ -759,7 +745,7 @@ def validate_dns(client, service_containers, consumed_service,
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.agentIpAddress, username="root",
                     password="root", port=int(exposed_port))
 
         # Validate link containers
