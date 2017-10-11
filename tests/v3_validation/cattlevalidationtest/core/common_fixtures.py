@@ -2230,9 +2230,6 @@ def create_env_with_multiple_svc_and_lb(client, scale_svc, scale_lb,
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "active"
 
-    env = env.activateservices()
-    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
-
     if not crosslinking:
         for service in services:
             service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
@@ -2293,9 +2290,6 @@ def create_env_with_multiple_svc_and_ssl_lb(client, scale_svc, scale_lb,
 
     lb_service = client.wait_success(lb_service)
     assert lb_service.state == "active"
-
-    env = env.activateservices()
-    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
 
     for service in services:
         service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
