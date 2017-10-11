@@ -1762,3 +1762,111 @@ def check_rancher_compose_services_volume(client,
         assert inspect["State"]["Running"]
         assert "testvol:/home:rw" in inspect["HostConfig"]["Binds"]
     delete_all(client, [stack])
+
+
+def test_cli_prune_services(client, rancher_cli_container):
+
+    compose_directory = RCLICOMMANDS_SUBDIR
+    cli_create_service(client,
+                       compose_directory, rancher_cli_container)
+
+
+def test_cli_v2_prune_services(client, rancher_cli_container):
+
+    compose_directory = RCLIV2COMMANDS_SUBDIR
+    cli_create_service(client,
+                       compose_directory, rancher_cli_container, v2=True)
+
+
+def cli_prune_services(client, rancher_cli_container):
+    # This method tests remove services through "rancher up --prune"
+
+    stack_name = random_str().replace("-", "")
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR, stack_name,
+        "up -d", "Creating stack", "dc18.yml")
+
+    stack, service1 = get_env_service_by_name(client, stack_name,
+                                              "rtest18-one")
+    stack, service2 = get_env_service_by_name(client, stack_name,
+                                              "rtest18-two")
+    stack, service3 = get_env_service_by_name(client, stack_name,
+                                              "rtest18-three")
+
+    # Confirm service is active and the containers are running
+    assert service1.state == "active"
+    assert service1.name == "rtest18-one"
+
+    assert service2.state == "active"
+    assert service2.name == "rtest18-two"
+
+    assert service3.state == "active"
+    assert service3.name == "rtest18-three"
+
+    container_list = get_service_container_list(client, service1)
+    assert len(container_list) == 1
+    for container in container_list:
+        assert container.state == "running"
+
+    container_list = get_service_container_list(client, service2)
+    assert len(container_list) == 1
+    for container in container_list:
+        assert container.state == "running"
+
+    container_list_3 = get_service_container_list(client, service3)
+    assert len(container_list_3) == 1
+    for container in container_list_3:
+        assert container.state == "running"
+
+    # Prune services using new compose file
+    launch_rancher_cli_from_file(
+        client, RCLICOMMANDS_SUBDIR,
+        stack_name,
+        "up -d --prune", "Creating", "dc19.yml")
+
+    stack, service4 = get_env_service_by_name(client, stack_name,
+                                              "rtest18-four")
+
+    assert service1.state == "active"
+    assert service1.name == "rtest18-one"
+
+    assert service2.state == "active"
+    assert service2.name == "rtest18-two"
+
+    assert service4.state == "active"
+    assert service4.name == "rtest18-four"
+
+    container_list = get_service_container_list(client, service1)
+    assert len(container_list) == 1
+    for container in container_list:
+        assert container.state == "running"
+
+    container_list = get_service_container_list(client, service2)
+    assert len(container_list) == 1
+    for container in container_list:
+        assert container.state == "running"
+
+    container_list = get_service_container_list(client, service4)
+    assert len(container_list) == 1
+    for container in container_list:
+        assert container.state == "running"
+
+    # check service3 and its container are removed
+    service3 = client.wait_success(service3, 60)
+    assert service3.state == "removed"
+    assert service3.name == "rtest18-three"
+
+    mystack = client.list_stack(name=stack_name)
+    service3 = client.list_service(name="rtest18-three",
+                                   environmentId=mystack[0].id,
+                                   removed_null=True)
+    assert len(service3) == 0
+
+    assert len(container_list_3) == 1
+    for container in container_list_3:
+        wait_for_condition(
+            client, container,
+            lambda x: x.state == 'removed')
+        container = client.reload(container)
+        assert container.state == "removed"
+    delete_all(client, [stack])
