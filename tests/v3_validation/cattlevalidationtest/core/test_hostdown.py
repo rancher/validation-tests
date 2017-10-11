@@ -102,7 +102,7 @@ def test_global_service_with_reconnecting_host(
     wait_for_host_agent_state(client, host_down, "reconnecting")
 
     # Create service
-    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID}
+    launch_config = {"image": HEALTH_CHECK_IMAGE_UUID}
     launch_config["labels"] = {"io.rancher.scheduler.global": "true"}
     service, env = create_env_and_svc(client, launch_config)
     service = service.activate()
@@ -138,7 +138,7 @@ def test_global_service_with_inactive_host(
                                    lambda x: 'Host state is ' + x.state
                                    )
     # Create service
-    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID}
+    launch_config = {"image": HEALTH_CHECK_IMAGE_UUID}
     launch_config["labels"] = {"io.rancher.scheduler.global": "true"}
     service, env = create_env_and_svc(client, launch_config)
     service = service.activate()
@@ -291,7 +291,7 @@ def host_down_with_services(admin_client, client, host_down_count,
     check_hosts_state(client)
 
     # Create service
-    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID}
+    launch_config = {"image": HEALTH_CHECK_IMAGE_UUID}
     if globalf:
         launch_config["labels"] = {"io.rancher.scheduler.global": "true"}
         scale = 0
@@ -450,7 +450,7 @@ def env_with_lb_service_with_health_check_enabled_targets(admin_client, client,
                     "unhealthyThreshold": 3,
                     "requestLine": "GET /name.html HTTP/1.0",
                     "port": 80}
-    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID,
+    launch_config = {"image": HEALTH_CHECK_IMAGE_UUID,
                      "healthCheck": health_check
                      }
     lb_launch_config = {"ports": [lb_port+":80"]}

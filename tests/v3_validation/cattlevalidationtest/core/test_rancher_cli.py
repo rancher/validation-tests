@@ -236,7 +236,7 @@ def test_cli_restart_container(client, rancher_cli_container):
     container = []
     container = client.create_container(name="test_cont",
                                         networkMode=MANAGED_NETWORK,
-                                        imageUuid=TEST_IMAGE_UUID)
+                                        image=TEST_IMAGE_UUID)
 
     container = client.wait_success(container, 60)
     assert container.state == "running"
@@ -305,7 +305,7 @@ def test_cli_delete_container(client, rancher_cli_container):
     container = []
     container = client.create_container(name="test_cont_1",
                                         networkMode=MANAGED_NETWORK,
-                                        imageUuid=TEST_IMAGE_UUID)
+                                        image=TEST_IMAGE_UUID)
 
     container = client.wait_success(container, 60)
 

@@ -302,7 +302,7 @@ def test_sidekick_for_lb(client, socat_containers):
     container_names = []
     for c in containers:
         if c.state == "running":
-            container_names.append(c.externalId[:12])
+            container_names.append(get_container_hostname(c))
     assert len(container_names) == target_count
 
     validate_lb_service_con_names(client, lb_service, port,
@@ -679,7 +679,7 @@ def test_sidekick_lbactivation_after_linking(client, socat_containers):
     container_names = []
     for c in containers:
         if c.state == "running":
-            container_names.append(c.externalId[:12])
+            container_names.append(get_container_hostname(c))
     assert len(container_names) == target_count
 
     validate_lb_service_con_names(client, lb_service, port,

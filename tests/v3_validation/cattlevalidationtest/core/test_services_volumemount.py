@@ -44,10 +44,10 @@ def env_with_2_svc_and_volume_mount_with_config(client, service_scale,
 
 def create_env_with_2_svc_and_volume_mount(client, service_scale):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID}
+        "image": SSH_IMAGE_UUID}
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount_with_config(
             client, service_scale,
@@ -60,13 +60,13 @@ def create_env_with_multiple_svcs_and_volume_mounts(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "imageUuid": "docker:redis"}
+        "image": "docker:redis"}
 
     launch_config_consumed_service2 = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID}
+        "image": SSH_IMAGE_UUID}
 
     random_name = random_str()
     consumed_service_name1 = random_name.replace("-", "")
@@ -113,13 +113,13 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "imageUuid": "docker:redis"}
+        "image": "docker:redis"}
 
     launch_config_consumed_service2 = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID}
+        "image": SSH_IMAGE_UUID}
 
     random_name = random_str()
     consumed_service_name1 = random_name.replace("-", "")
@@ -169,13 +169,13 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts_circular(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "imageUuid": "docker:redis"}
+        "image": "docker:redis"}
 
     launch_config_consumed_service2 = {
-        "imageUuid": WEB_IMAGE_UUID}
+        "image": WEB_IMAGE_UUID}
 
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID}
+        "image": SSH_IMAGE_UUID}
 
     random_name = random_str()
     consumed_service_name1 = random_name.replace("-", "")
@@ -702,10 +702,10 @@ def test_volume_mount_services_deactivate_activate(
 
 def test_volume_mount_with_start_once(client, socat_containers):
     launch_config_consumed_service = {
-        "imageUuid": WEB_IMAGE_UUID,
+        "image": WEB_IMAGE_UUID,
         "labels": {"io.rancher.container.start_once": True}}
     launch_config_service = {
-        "imageUuid": SSH_IMAGE_UUID}
+        "image": SSH_IMAGE_UUID}
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount_with_config(
             client, 10,

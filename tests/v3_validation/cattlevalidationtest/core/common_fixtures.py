@@ -3727,7 +3727,7 @@ def validate_connectivity_between_containers(admin_client, con1, con2,
             assert len(std_response) == 1
             resp = std_response[0].strip("\n")
             logger.info("Actual wget Response" + str(resp))
-            assert resp in con2.externalId[:12]
+            assert resp in get_container_hostname(con2)
 
         else:
             # Connection timed out error
@@ -3966,14 +3966,8 @@ def mark_container_healthy(admin_client, con, port):
     stdin, stdout, stderr = ssh.exec_command(cmd)
 
 
-def get_container_host(admin_client, con):
-    containers = admin_client.list_container(
-        externalId=con.externalId,
-        include="host")
-    assert len(containers) == 1
-    print containers[0]
-    print containers[0].host
-    return containers[0].host()
+def get_container_host(client, con):
+    return con.host()
 
 
 def get_container_host_ip(con):

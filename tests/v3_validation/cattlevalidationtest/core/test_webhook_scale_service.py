@@ -5,7 +5,7 @@ def test_webhook_scaleup(client):
 
     # This method tests the service scale up using webhook token
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -53,7 +53,7 @@ def test_webhook_scaleup_beyond_max(client):
 
     # This method tests the service scale up beyond the maximum allowed scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -114,7 +114,7 @@ def test_webhook_scaleup_beyond_max_1(client):
     # This method tests the service scale cannot got up beyond the max scale
     # when the initial request to scale up itself is beyond the max scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 2)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -181,7 +181,7 @@ def test_webhook_scaledown(client):
 
     # This method tests the service scale down using webhook token
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, scale=3)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -231,7 +231,7 @@ def test_webhook_scaledown_below_min(client):
     env = client.wait_success(env)
     assert env.state == "active"
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, scale=3)
     service = client.wait_success(service)
     assert service.state == "inactive"
@@ -295,7 +295,7 @@ def test_webhook_scaledown_below_min_1(client):
     env = client.wait_success(env)
     assert env.state == "active"
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, scale=4)
     service = client.wait_success(service)
     assert service.state == "inactive"
@@ -361,7 +361,7 @@ def test_webhook_invalid_scale_action(client):
 
     # This method tests the use of invalid scale action
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -428,7 +428,7 @@ def test_webhook_scaleup_invalid_zero_amount(client):
 
     # This method tests the scale amount of zero
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -462,7 +462,7 @@ def test_webhook_scaleup_invalid_negative_amount(client):
 
     # This method tests the negative value for scale amount
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -497,7 +497,7 @@ def test_webhook_scaleup_invalid_zero_min(client):
 
     # This method tests the zero value for min scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -533,7 +533,7 @@ def test_webhook_scaleup_invalid_negative_min(client):
 
     # This method tests the negative value for min scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -568,7 +568,7 @@ def test_webhook_scaleup_invalid_zero_max(client):
 
     # This method tests the zero value for max scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -604,7 +604,7 @@ def test_webhook_scaleup_invalid_negative_max(client):
 
     # This method tests the negative value for max scale
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -639,7 +639,7 @@ def test_webhook_duplicatename(client):
 
     # This method tests that a duplicate webhook cannot be generated
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -731,7 +731,7 @@ def test_webhook_global_service(client):
     # This method tests that a global service cannot be
     # scaled up/down using webhook
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     launch_config["labels"] = {"io.rancher.scheduler.global": "true"}
 
     service, env = create_env_and_svc(
@@ -769,7 +769,7 @@ def test_webhook_service_no_image(client):
     # This method tests that a service with no image
     # cannot be scaled up/down using webhook
 
-    launch_config = {"imageUuid": "docker:rancher/none"}
+    launch_config = {"image": "docker:rancher/none"}
 
     env = create_env(client)
 
@@ -817,7 +817,7 @@ def test_webhook_missing_projectid(client):
     # This method tests that executing a webhook with missing
     # project id gives an error message
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -876,7 +876,7 @@ def test_webhook_invalid_projectid(client):
     # This method tests that executing a webhook with an invalid
     # project id gives an error message
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -946,7 +946,7 @@ def test_webhook_invalid_token(client):
     # This method tests that executing a webhook with an
     # invalid token gives an error message
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -1016,7 +1016,7 @@ def test_webhook_execute_deleted_webhook(client):
     # This method tests that executing a deleted webhook gives
     # the appropriate error message
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
@@ -1077,7 +1077,7 @@ def test_webhook_invalid_driver(client):
 
     # This method tests the use of invalid  driver
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"
     service = client.wait_success(service.activate(), 90)
@@ -1111,7 +1111,7 @@ def test_webhook_list_single_webhook(client):
 
     # This method test lists a single webhook
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     service, env = create_env_and_svc(client, launch_config)
     assert service.state == "inactive"

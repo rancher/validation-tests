@@ -11,7 +11,7 @@ def create_services_for_selectors(request, client):
               {"c2": "value4", "c1": "value4"}]
     env = create_env(client)
     for label in labels:
-        launch_config = {"imageUuid": WEB_IMAGE_UUID,
+        launch_config = {"image": WEB_IMAGE_UUID,
                          "labels": label}
         service = client.create_service(name=random_str(),
                                         stackId=env.id,
@@ -26,7 +26,7 @@ def create_services_for_selectors(request, client):
 
 
 def env_with_service_selectorContainer(client, label):
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
 
     # Create Environment
     env = create_env(client)
@@ -48,7 +48,7 @@ def env_with_service_selectorContainer(client, label):
 
     c = client.create_container(name=random_str(),
                                 networkMode=MANAGED_NETWORK,
-                                imageUuid=WEB_IMAGE_UUID,
+                                image=WEB_IMAGE_UUID,
                                 labels={label["name"]: label["value"]}
                                 )
     c = client.wait_success(c)
@@ -83,9 +83,9 @@ def create_env_with_svc_options(client, launch_config_svc,
 def test_selectorLink(client):
     port = "4000"
 
-    launch_config = {"imageUuid": WEB_IMAGE_UUID,
+    launch_config = {"image": WEB_IMAGE_UUID,
                      "labels": {"test1": "bar"}}
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config_svc = {"image": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
 
     env, service = create_env_with_svc_options(client, launch_config_svc,
@@ -108,10 +108,10 @@ def test_selectorLink(client):
 def test_selectorLink_lbservice(client, socat_containers):
     port = "4001"
 
-    launch_config = {"imageUuid": WEB_IMAGE_UUID,
+    launch_config = {"image": WEB_IMAGE_UUID,
                      "labels": {"test2": "bar"}}
     launch_config_lb = {"ports": [port],
-                        "imageUuid": get_haproxy_image()}
+                        "image": get_haproxy_image()}
 
     env = create_env(client)
     lb_service = client.create_loadBalancerService(
@@ -178,10 +178,10 @@ def test_selectorLink_lbservice(client, socat_containers):
 def test_selectorLink_dnsservice(client):
     port = "4002"
 
-    launch_config = {"imageUuid": WEB_IMAGE_UUID,
+    launch_config = {"image": WEB_IMAGE_UUID,
                      "labels": {"test3": "bar"}}
 
-    client_launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    client_launch_config_svc = {"image": SSH_IMAGE_UUID,
                                 "ports": [port+":22/tcp"]}
     env = create_env(client)
     dns = client.create_dnsService(
@@ -233,10 +233,10 @@ def test_selectorLink_dnsservice(client):
 def test__selectorLink_tolinkto_dnsservice(client):
     port = "4003"
 
-    launch_config = {"imageUuid": WEB_IMAGE_UUID,
+    launch_config = {"image": WEB_IMAGE_UUID,
                      "labels": {"test5": "bar"}}
 
-    client_launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    client_launch_config_svc = {"image": SSH_IMAGE_UUID,
                                 "ports": [port+":22/tcp"],
                                 "labels": {"dns": "mydns"}}
 
@@ -302,7 +302,7 @@ def test_selectorContainer_service_link(client):
     env, consumed_service, c = env_with_service_selectorContainer(
         client, labels)
 
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config_svc = {"image": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
 
     # Create Service
@@ -336,24 +336,24 @@ def test_selectorContainer_service_link(client):
 def test_selectorContainer_dns(client):
 
     port = "4010"
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config_svc = {"image": SSH_IMAGE_UUID,
                          "ports": [port+":22/tcp"]}
 
-    launch_config_consumed_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_consumed_svc = {"image": WEB_IMAGE_UUID}
 
     # Create Environment for dns service and client service
     env = create_env(client)
 
     c1 = client.create_container(name=random_str(),
                                  networkMode=MANAGED_NETWORK,
-                                 imageUuid=WEB_IMAGE_UUID,
+                                 image=WEB_IMAGE_UUID,
                                  labels={"dns1": "value1"}
                                  )
     c1 = client.wait_success(c1)
 
     c2 = client.create_container(name=random_str(),
                                  networkMode=MANAGED_NETWORK,
-                                 imageUuid=WEB_IMAGE_UUID,
+                                 image=WEB_IMAGE_UUID,
                                  labels={"dns2": "value2"}
                                  )
     c2 = client.wait_success(c2)
@@ -425,21 +425,21 @@ def test_selectorContainer_lb(client, socat_containers):
     service_scale = 2
     lb_scale = 1
 
-    launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config_svc = {"image": WEB_IMAGE_UUID}
 
-    launch_config_lb = {"imageUuid": get_haproxy_image(),
+    launch_config_lb = {"image": get_haproxy_image(),
                         "ports": port}
 
     c1 = client.create_container(name=random_str(),
                                  networkMode=MANAGED_NETWORK,
-                                 imageUuid=WEB_IMAGE_UUID,
+                                 image=WEB_IMAGE_UUID,
                                  labels={"web1": "lb"}
                                  )
     c1 = client.wait_success(c1)
 
     c2 = client.create_container(name=random_str(),
                                  networkMode=MANAGED_NETWORK,
-                                 imageUuid=WEB_IMAGE_UUID,
+                                 image=WEB_IMAGE_UUID,
                                  labels={"web2": "lb"}
                                  )
     c2 = client.wait_success(c2)
@@ -519,8 +519,8 @@ def test_selectorContainer_lb(client, socat_containers):
     lb_service = client.wait_success(lb_service, 120)
 
     unmanaged_con = {}
-    unmanaged_con[service1.id] = [c1.externalId[:12]]
-    unmanaged_con[service2.id] = [c2.externalId[:12]]
+    unmanaged_con[service1.id] = [get_container_hostname(c1)]
+    unmanaged_con[service2.id] = [get_container_hostname(c2)]
 
     wait_for_lb_service_to_become_active(client,
                                          [service1, service2], lb_service)
@@ -536,9 +536,9 @@ def test_selectorContainer_no_image_with_lb(
 
     lb_scale = 1
 
-    launch_config_svc = {"imageUuid": "docker:rancher/none"}
+    launch_config_svc = {"image": "docker:rancher/none"}
 
-    launch_config_lb = {"imageUuid": get_haproxy_image(),
+    launch_config_lb = {"image": get_haproxy_image(),
                         "ports": [port]}
 
     # Create Environment
@@ -622,7 +622,7 @@ def test_selectorContainer_no_image_with_lb(
 
     service3 = client.create_service(name=random_str(),
                                      stackId=env.id,
-                                     launchConfig={"imageUuid": WEB_IMAGE_UUID,
+                                     launchConfig={"image": WEB_IMAGE_UUID,
                                                    "labels": {"web1": "lbn"}},
                                      scale=1)
     service3 = client.wait_success(service3)
@@ -631,7 +631,7 @@ def test_selectorContainer_no_image_with_lb(
 
     service4 = client.create_service(name=random_str(),
                                      stackId=env.id,
-                                     launchConfig={"imageUuid": WEB_IMAGE_UUID,
+                                     launchConfig={"image": WEB_IMAGE_UUID,
                                                    "labels": {"web2": "lbn"}},
                                      scale=1)
     service4 = client.wait_success(service4)
@@ -851,7 +851,7 @@ def test_selectorContainer_deactivate_activate(
 
 
 def test_selectorLink_in(client):
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config_svc = {"image": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
@@ -863,7 +863,7 @@ def test_selectorLink_in(client):
 
 
 def test_selectorLink_notin(client):
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config_svc = {"image": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
@@ -874,7 +874,7 @@ def test_selectorLink_notin(client):
 
 
 def test_selectorLink_noteq(client):
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config_svc = {"image": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
@@ -886,7 +886,7 @@ def test_selectorLink_noteq(client):
 
 
 def test_selectorLink_name_no_value(client):
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config_svc = {"image": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
@@ -899,7 +899,7 @@ def test_selectorLink_name_no_value(client):
 
 
 def test_selectorLink_multiple(client):
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config_svc = {"image": SSH_IMAGE_UUID}
 
     env, service = \
         create_env_with_svc_options(
@@ -911,7 +911,7 @@ def test_selectorLink_multiple(client):
 
 
 def test_service_with_no_image(client):
-    launch_config_svc = {"imageUuid": "docker:rancher/none"}
+    launch_config_svc = {"image": "docker:rancher/none"}
 
     env = create_env(client)
 
@@ -935,7 +935,7 @@ def test_service_with_no_image(client):
 
     c = client.create_container(name=random_str(),
                                 networkMode=MANAGED_NETWORK,
-                                imageUuid=WEB_IMAGE_UUID,
+                                image=WEB_IMAGE_UUID,
                                 labels={"test": "none"}
                                 )
     c = client.wait_success(c)

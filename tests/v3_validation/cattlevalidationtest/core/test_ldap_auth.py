@@ -1441,7 +1441,7 @@ def test_ldap_create_service_with_restricted_member(admin_client):
                 main_client, 1)
         assert len(host_list) == 1
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     scale = 1
     create_env_and_svc(u2_client, launch_config, scale)
 
@@ -1495,14 +1495,14 @@ def test_ldap_create_new_env_with_readonly_member(admin_client):
     assert "object has no attribute" in str(excinfo.value)
 
     with pytest.raises(AttributeError) as excinfo:
-        launch_config = {"imageUuid": TEST_IMAGE_UUID}
+        launch_config = {"image": TEST_IMAGE_UUID}
         scale = 1
         create_env_and_svc(u2_client, launch_config, scale)
 
     assert "object has no attribute" in str(excinfo.value)
 
     # Create service using main client
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     scale = 1
     service, env = create_env_and_svc(main_client, launch_config, scale)
 

@@ -16,7 +16,7 @@ def test_rancher_compose_service(client,
                                  rancher_cli_container,
                                  socat_containers):
 
-    vol_container = client.create_container(imageUuid=TEST_IMAGE_UUID,
+    vol_container = client.create_container(image=TEST_IMAGE_UUID,
                                             name=random_str(),
                                             labels={"c1": "vol"}
                                             )
@@ -42,7 +42,7 @@ def test_rancher_compose_service(client,
     # Not including "dataVolumesFrom": [vol_container.id] since it is not
     # implemented yet
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"image": TEST_SERVICE_OPT_IMAGE_UUID,
                      "command": command,
                      "dataVolumes": [docker_vol_value],
                      "environment": env_var,
@@ -164,7 +164,7 @@ def test_rancher_compose_service_option_2(client,
     tmp_fs = {"/tmp": "rw"}
     security_opt = ["label=user:USER", "label=role:ROLE"]
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"image": TEST_SERVICE_OPT_IMAGE_UUID,
                      "extraHosts": extraHosts,
                      "privileged": True,
                      "cpuShares": cpu_shares,
@@ -279,7 +279,7 @@ def test_rancher_compose_services_port_and_link_options(
     exposed_port = 9999
 
     link_container = client.create_container(
-        imageUuid=LB_IMAGE_UUID,
+        image=LB_IMAGE_UUID,
         environment={'CONTAINER_NAME': link_name},
         name=random_str(),
         requestedHostId=host.id
@@ -287,7 +287,7 @@ def test_rancher_compose_services_port_and_link_options(
 
     link_container = client.wait_success(link_container)
 
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [str(exposed_port)+":22/tcp"],
                      "instanceLinks": {
                          link_name:
@@ -330,7 +330,7 @@ def test_rancher_compose_lbservice(client,
         client, service_scale, lb_scale, port)
 
     # Add another target to LB service
-    launch_config = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config = {"image": WEB_IMAGE_UUID}
     service_name = random_str()
     service1 = client.create_service(name=service_name,
                                      stackId=env.id,
@@ -384,7 +384,7 @@ def test_rancher_compose_lbservice_internal(client,
     assert len(hosts) > 0
     host = hosts[0]
     client_con = client.create_container(
-        name=random_str(), imageUuid=SSH_IMAGE_UUID,
+        name=random_str(), image=SSH_IMAGE_UUID,
         ports=[con_port+":22/tcp"], requestedHostId=host.id)
     client_con = client.wait_success(client_con, 120)
     assert client_con.state == "running"
@@ -397,7 +397,7 @@ def test_rancher_compose_lbservice_internal(client,
         client, service_scale, lb_scale, port, internal=True)
 
     # Add another target to LB service
-    launch_config = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config = {"image": WEB_IMAGE_UUID}
     service_name = random_str()
     service1 = client.create_service(name=service_name,
                                      stackId=env.id,
