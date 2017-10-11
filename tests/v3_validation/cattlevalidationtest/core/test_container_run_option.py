@@ -36,7 +36,7 @@ def test_container_run_with_options_1(client, test_name,
 
     con_vol = client.create_container(name=test_name + "-forvolume",
                                       networkMode=MANAGED_NETWORK,
-                                      imageUuid=TEST_IMAGE_UUID,
+                                      image=TEST_IMAGE_UUID,
                                       requestedHostId=host.id
                                       )
     con_vol = client.wait_success(con_vol, 120)
@@ -49,7 +49,7 @@ def test_container_run_with_options_1(client, test_name,
 
     c = client.create_container(name=test_name,
                                 networkMode=MANAGED_NETWORK,
-                                imageUuid=TEST_IMAGE_UUID,
+                                image=TEST_IMAGE_UUID,
                                 requestedHostId=host.id,
                                 dataVolumes=docker_vol_value,
                                 dataVolumesFrom=con_vol.id,
@@ -115,7 +115,7 @@ def test_container_run_with_options_2(client, test_name,
 
     c = client.create_container(name=test_name,
                                 networkMode=UNMANAGED_NETWORK,
-                                imageUuid=TEST_IMAGE_UUID,
+                                image=TEST_IMAGE_UUID,
                                 requestedHostId=host.id,
                                 publishAllPorts=True,
                                 privileged=True,

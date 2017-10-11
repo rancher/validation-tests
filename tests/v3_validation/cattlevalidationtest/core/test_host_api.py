@@ -60,7 +60,7 @@ def test_host_api_hoststats(client):
 @pytest.mark.skipif(True, reason="Temporarily disabled - 6757")
 def test_host_api_containerstats(client):
     container = client.create_container(name=random_str(),
-                                        imageUuid=TEST_IMAGE_UUID)
+                                        image=TEST_IMAGE_UUID)
     container = client.wait_success(container, timeout=600)
 
     assert len(container.hosts()) == 1
@@ -81,7 +81,7 @@ def test_host_api_service_containerstats(client):
     assert env.state == "active"
 
     image_uuid = TEST_IMAGE_UUID
-    launch_config = {"imageUuid": image_uuid}
+    launch_config = {"image": image_uuid}
 
     service = client.create_service(name=random_str(),
                                     stackId=env.id,

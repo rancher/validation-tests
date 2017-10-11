@@ -452,7 +452,7 @@ def test_link_add_remove_servicelinks(client):
                             linkName="mylink")
 
     # Add another service to environment
-    launch_config = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config = {"image": WEB_IMAGE_UUID}
 
     random_name = random_str()
     consumed_service_name = random_name.replace("-", "")
@@ -512,7 +512,7 @@ def test_link_services_delete_service_add_service(client):
     port1 = "3180"
 
     # Add another service and link to consumed service
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [port1+":22/tcp"]}
 
     random_name = random_str()
@@ -560,7 +560,7 @@ def test_link_services_delete_and_add_consumed_service(client):
     # Add another consume service and link the service to this newly created
     # service
 
-    launch_config = {"imageUuid": WEB_IMAGE_UUID}
+    launch_config = {"image": WEB_IMAGE_UUID}
 
     random_name = random_str()
     service_name = random_name.replace("-", "")

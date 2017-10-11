@@ -39,7 +39,7 @@ def services_with_shared_vol(client, volume_driver):
     volume_name = random_str()
     path = "/myvol"
     port = "1000"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -85,7 +85,7 @@ def services_with_shared_vol_scaleup(client, volume_driver):
     volume_name = random_str()
     path = "/myvol"
     port = "1001"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -157,7 +157,7 @@ def multiple_services_with_same_shared_vol(client, volume_driver):
     volume_name = random_str()
     path = "/myvol"
     port = "1002"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -194,7 +194,7 @@ def multiple_services_with_same_shared_vol(client, volume_driver):
     # create another service using the same volume
     port = "1003"
     path = "/myvoltest"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -233,7 +233,7 @@ def delete_volume_after_service_deletes(client, volume_driver):
     volume_name = random_str()
     path = "/myvol"
     port = "1004"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
@@ -271,7 +271,7 @@ def delete_volume_after_service_deletes(client, volume_driver):
     # create another service using the same volume
     port = "1005"
     path = "/myvoltest"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "volumeDriver": volume_driver,
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],

@@ -8,7 +8,7 @@ def get_logs(client):
     assert len(hosts) > 0
     in_log = random_str()
     cmd = '/bin/bash -c "echo {}; sleep 2"'.format(in_log)
-    c = client.create_container(imageUuid=TEST_IMAGE_UUID, command=cmd)
+    c = client.create_container(image=TEST_IMAGE_UUID, command=cmd)
     c = client.wait_success(c)
     logs = c.logs()
     return logs, in_log, c

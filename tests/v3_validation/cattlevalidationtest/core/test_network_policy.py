@@ -793,7 +793,7 @@ def create_standalone_containers(client):
         con = client.create_container(
             name=con_name,
             ports=['3001:22'],
-            imageUuid=HEALTH_CHECK_IMAGE_UUID,
+            image=HEALTH_CHECK_IMAGE_UUID,
             networkMode=MANAGED_NETWORK,
             requestedHostId=host.id)
         con = client.wait_success(con)
@@ -805,7 +805,7 @@ def create_standalone_containers(client):
         con = client.create_container(
             name=con_name,
             ports=['3002:22'],
-            imageUuid=HEALTH_CHECK_IMAGE_UUID,
+            image=HEALTH_CHECK_IMAGE_UUID,
             networkMode=MANAGED_NETWORK,
             requestedHostId=host.id,
             labels={"com.rancher.stack.location": "east"})

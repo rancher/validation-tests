@@ -92,7 +92,7 @@ def test_create_container_with_quay_registry_credential(client,
     image_id = "docker:"+quay_creds["serverAddress"]+"/" + quay_creds["image"]
     reg_cred = registry_list[quay_creds["name"]]
     container = client.create_container(name=random_str(),
-                                        imageUuid=image_id,
+                                        image=image_id,
                                         registryCredentialId=reg_cred.id)
     container = client.wait_success(container, 180)
     assert container.state == "running"
@@ -105,7 +105,7 @@ def test_create_services_with_quay_registry_credential(client, admin_client,
                                                        registries):
     image_id = quay_creds["serverAddress"]+"/" + quay_creds["image"]
     cleanup_images(client, [image_id+":latest"]),
-    launch_config = {"imageUuid": "docker:"+image_id}
+    launch_config = {"image": "docker:"+image_id}
 
     scale = 2
 
@@ -130,7 +130,7 @@ def test_create_container_with_docker_registry_credential(client,
 
     reg_cred = registry_list[dockerhub_creds["name"]]
     container = client.create_container(name=random_str(),
-                                        imageUuid="docker:"+image_id,
+                                        image="docker:"+image_id,
                                         registryCredentialId=reg_cred.id,
                                         stdinOpen=True,
                                         tty=True)
@@ -147,7 +147,7 @@ def test_create_services_with_docker_registry_credential(client, admin_client,
     image_id = dockerhub_creds["image"]
     cleanup_images(client, [image_id+":latest"])
 
-    launch_config = {"imageUuid": "docker:"+image_id,
+    launch_config = {"image": "docker:"+image_id,
                      "stdinOpen": "True",
                      "tty": "True"}
 
@@ -173,7 +173,7 @@ def test_create_container_with_quay(client, socat_containers,
 
     image_id = "docker:"+quay_creds["serverAddress"]+"/" + quay_creds["image"]
     container = client.create_container(name=random_str(),
-                                        imageUuid=image_id)
+                                        image=image_id)
     container = client.wait_success(container, 180)
     assert container.state == "running"
     delete_all(client, [container])
@@ -185,7 +185,7 @@ def test_create_container_with_docker(client, socat_containers,
     image_id = dockerhub_creds["image"]
     cleanup_images(client, [image_id+":latest"])
     container = client.create_container(name=random_str(),
-                                        imageUuid="docker:"+image_id,
+                                        image="docker:"+image_id,
                                         stdinOpen=True,
                                         tty=True)
     container = client.wait_success(container, 180)

@@ -50,7 +50,7 @@ def deactivate_activate_service(client, service):
 
 def create_env_and_svc_activate(client, scale, check=True,
                                 retainIp=False):
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc_activate_launch_config(
         client, launch_config, scale, check, retainIp)
     return service, env
@@ -78,7 +78,7 @@ def test_services_docker_options(client, socat_containers):
 
     con_host = hosts[0]
 
-    vol_container = client.create_container(imageUuid=TEST_IMAGE_UUID,
+    vol_container = client.create_container(image=TEST_IMAGE_UUID,
                                             name=random_str(),
                                             requestedHostId=con_host.id
                                             )
@@ -103,7 +103,7 @@ def test_services_docker_options(client, socat_containers):
     cpu_set = "0"
     cpu_shares = 400
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"image": TEST_SERVICE_OPT_IMAGE_UUID,
                      "command": command,
                      "dataVolumes": [docker_vol_value],
                      "dataVolumesFrom": [vol_container.id],
@@ -145,7 +145,7 @@ def test_services_docker_options(client, socat_containers):
     dns_search.append(RANCHER_DNS_SEARCH)
 
     for c in container_list:
-        docker_client = get_docker_client(c.hosts[0])
+        docker_client = get_docker_client(c.host())
         inspect = docker_client.inspect_container(c.externalId)
 
         assert docker_vol_value in inspect["HostConfig"]["Binds"]
@@ -217,7 +217,7 @@ def test_services_docker_options_2(client, socat_containers):
     tmp_fs = {"/tmp": "rw"}
     security_opt = ["label=user:USER", "label=role:ROLE"]
 
-    launch_config = {"imageUuid": TEST_SERVICE_OPT_IMAGE_UUID,
+    launch_config = {"image": TEST_SERVICE_OPT_IMAGE_UUID,
                      "extraHosts": extraHosts,
                      "privileged": True,
                      "cpuShares": cpu_shares,
@@ -263,7 +263,7 @@ def test_services_docker_options_2(client, socat_containers):
     container_list = get_service_container_list(client, service)
 
     for c in container_list:
-        docker_client = get_docker_client(c.hosts[0])
+        docker_client = get_docker_client(c.host())
         inspect = docker_client.inspect_container(c.externalId)
 
         assert inspect["HostConfig"]["ExtraHosts"] == extraHosts
@@ -322,7 +322,7 @@ def test_services_port_and_link_options(client,
     exposed_port = 9999
 
     link_container = client.create_container(
-        imageUuid=LB_IMAGE_UUID,
+        image=LB_IMAGE_UUID,
         environment={'CONTAINER_NAME': link_name},
         name=random_str(),
         requestedHostId=host.id
@@ -330,7 +330,7 @@ def test_services_port_and_link_options(client,
 
     link_container = client.wait_success(link_container)
 
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [str(exposed_port)+":22/tcp"],
                      "instanceLinks": {
                          link_name:
@@ -362,7 +362,7 @@ def test_services_multiple_expose_port(client):
     for i in range(0, len(public_port)):
         port_mapping.append(str(public_port[i])+":" +
                             str(private_port[i]) + "/tcp")
-    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+    launch_config = {"image": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports": port_mapping,
                      }
 
@@ -378,7 +378,7 @@ def test_services_multiple_expose_port(client):
 
 def test_services_random_expose_port(client):
 
-    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+    launch_config = {"image": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports": ["80/tcp", "81/tcp"]
                      }
     service, env = create_env_and_svc(client, launch_config, 3)
@@ -410,7 +410,7 @@ def test_services_random_expose_port_exhaustrange(
         project, servicesPortRange={"startPort": 65500, "endPort": 65505})
     project = wait_success(client, project)
 
-    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+    launch_config = {"image": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports":
                          ["80/tcp", "81/tcp", "82/tcp", "83/tcp", "84/tcp"]
                      }
@@ -438,7 +438,7 @@ def test_services_random_expose_port_exhaustrange(
     # free port available in the random port range
     # Validate that the service gets created with no ports exposed
 
-    launch_config = {"imageUuid": MULTIPLE_EXPOSED_PORT_UUID,
+    launch_config = {"image": MULTIPLE_EXPOSED_PORT_UUID,
                      "ports":
                          ["80/tcp", "81/tcp"]
                      }
@@ -506,7 +506,7 @@ def test_services_random_expose_port_exhaustrange(
 def test_environment_activate_deactivate_delete(client,
                                                 socat_containers):
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     scale = 1
 
@@ -567,7 +567,7 @@ def test_environment_activate_deactivate_delete(client,
 def test_service_activate_deactivate_delete(client,
                                             socat_containers):
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
 
     scale = 2
 
@@ -771,7 +771,7 @@ def test_services_hostname_override_1(client, socat_containers):
     host_name = "test"
     domain_name = "abc.com"
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "domainName": domain_name,
                      "hostname": host_name,
                      "labels":
@@ -794,7 +794,7 @@ def test_services_hostname_override_1(client, socat_containers):
     assert len(container_list) == service.scale
     print container_list
     for c in container_list:
-        docker_client = get_docker_client(c.hosts[0])
+        docker_client = get_docker_client(c.host())
         inspect = docker_client.inspect_container(c.externalId)
 
         assert inspect["Config"]["Hostname"] == c.name
@@ -804,7 +804,7 @@ def test_services_hostname_override_1(client, socat_containers):
 
 def test_services_hostname_override_2(client, socat_containers):
 
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "labels":
                          {"io.rancher.container.hostname_override":
                           "container_name"}
@@ -824,7 +824,7 @@ def test_services_hostname_override_2(client, socat_containers):
     container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
     for c in container_list:
-        docker_client = get_docker_client(c.hosts[0])
+        docker_client = get_docker_client(c.host())
         inspect = docker_client.inspect_container(c.externalId)
 
         assert inspect["Config"]["Hostname"] == c.name
@@ -835,7 +835,7 @@ def test_services_hostname_override_2(client, socat_containers):
 def test_service_reconcile_stop_instance_restart_policy_always(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "always"}}
     service, env = create_env_and_svc_activate_launch_config(
         client, launch_config, scale)
@@ -846,7 +846,7 @@ def test_service_reconcile_stop_instance_restart_policy_always(
 def test_service_reconcile_delete_instance_restart_policy_always(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "always"}}
     service, env = create_env_and_svc_activate_launch_config(
         client, launch_config, scale)
@@ -857,7 +857,7 @@ def test_service_reconcile_delete_instance_restart_policy_always(
 def test_service_reconcile_delete_instance_restart_policy_no(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "labels": {"io.rancher.container.start_once": True}
                      }
     service, env = create_env_and_svc_activate_launch_config(
@@ -869,7 +869,7 @@ def test_service_reconcile_delete_instance_restart_policy_no(
 def test_service_reconcile_stop_instance_restart_policy_no(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "labels": {"io.rancher.container.start_once": True}}
     service, env = create_env_and_svc_activate_launch_config(
         client, launch_config, scale)
@@ -899,7 +899,7 @@ def test_service_reconcile_stop_instance_restart_policy_no(
 def test_service_reconcile_stop_instance_restart_policy_failure(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
@@ -911,7 +911,7 @@ def test_service_reconcile_stop_instance_restart_policy_failure(
 def test_service_reconcile_delete_instance_restart_policy_failure(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"name": "on-failure"}
                      }
     service, env = create_env_and_svc_activate_launch_config(
@@ -923,7 +923,7 @@ def test_service_reconcile_delete_instance_restart_policy_failure(
 def test_service_reconcile_stop_instance_restart_policy_failure_count(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"maximumRetryCount": 5,
                                        "name": "on-failure"}
                      }
@@ -936,7 +936,7 @@ def test_service_reconcile_stop_instance_restart_policy_failure_count(
 def test_service_reconcile_delete_instance_restart_policy_failure_count(
         client, socat_containers):
     scale = 3
-    launch_config = {"imageUuid": TEST_IMAGE_UUID,
+    launch_config = {"image": TEST_IMAGE_UUID,
                      "restartPolicy": {"maximumRetryCount": 5,
                                        "name": "on-failure"}
                      }
@@ -1264,7 +1264,7 @@ def test_dns_service_with_healthcheck_none_container_unhealthy(
                                                     scale, port,
                                                     strategy="none")
     # Create Client Service for DNS access check
-    launch_config_svc = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config_svc = {"image": SSH_IMAGE_UUID,
                          "ports": [str(cport)+":22/tcp"]}
     random_name = random_str()
     service_name = random_name.replace("-", "")
@@ -1378,7 +1378,7 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
     # failure and service reconcile
     container_list = get_service_container_list(client, service)
     con = container_list[1]
-    con_host = client.by_id('host', con.hosts[0].id)
+    con_host = client.by_id('host', con.host().id)
     hostIpAddress = con_host.ipAddresses()[0].address
 
     ssh = paramiko.SSHClient()
@@ -1416,7 +1416,7 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
 @pytest.mark.skipif(True,
                     reason='Service names not editable from 1.6 release')
 def test_service_name_unique(client):
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
 
@@ -1434,7 +1434,7 @@ def test_service_name_unique(client):
 
 
 def test_service_name_unique_create_after_delete(client):
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
     # Should be allowed to create service with name when service name is
@@ -1449,7 +1449,7 @@ def test_service_name_unique_create_after_delete(client):
 
 
 def test_service_name_unique_edit(client):
-    launch_config = {"imageUuid": TEST_IMAGE_UUID}
+    launch_config = {"image": TEST_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 1)
     service_name = service.name
 
@@ -1469,7 +1469,7 @@ def test_service_name_unique_edit(client):
 
 
 def test_service_retain_ip(client):
-    launch_config = {"imageUuid": SSH_IMAGE_UUID}
+    launch_config = {"image": SSH_IMAGE_UUID}
     service, env = create_env_and_svc(client, launch_config, 3, retainIp=True)
     assert service.state == "active"
 
@@ -1500,7 +1500,7 @@ def test_service_retain_ip(client):
 
 def test_services_rolling_strategy(client,
                                    socat_containers):
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      }
     service, env = create_env_and_svc(client, launch_config, 5)
 
@@ -1535,7 +1535,7 @@ def test_services_rolling_strategy(client,
 def test_service_reconcile_on_stop_exposed_port(client,
                                                 socat_containers):
     port = "45"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [port+":22/tcp"]}
     service, env = create_env_and_svc(client, launch_config, scale=3)
     env = env.activateservices()
@@ -1548,7 +1548,7 @@ def test_service_reconcile_on_stop_exposed_port(client,
 def test_service_reconcile_on_restart_exposed_port(client,
                                                    socat_containers):
     port = "46"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [port+":22/tcp"]}
     service, env = create_env_and_svc(client, launch_config, scale=3)
     env = env.activateservices()
@@ -1561,7 +1561,7 @@ def test_service_reconcile_on_restart_exposed_port(client,
 def test_service_reconcile_on_delete_exposed_port(client,
                                                   socat_containers):
     port = "47"
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [port+":22/tcp"]}
     service, env = create_env_and_svc(client, launch_config, scale=3)
     env = env.activateservices()
@@ -1726,7 +1726,7 @@ def check_stopped_container_in_service(client, service):
             externalId=container.externalId,
             include="hosts",
             removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
+        docker_client = get_docker_client(containers[0].host())
         inspect = docker_client.inspect_container(container.externalId)
         logger.info("Checked for container stopped - " + container.name)
         assert inspect["State"]["Running"] is False
@@ -1746,7 +1746,7 @@ def check_container_removed_from_service(client, service,
             containers = client.list_container(name=container.name,
                                                include="hosts")
             assert len(containers) == 1
-            docker_client = get_docker_client(containers[0].hosts[0])
+            docker_client = get_docker_client(containers[0].host())
             inspect = docker_client.inspect_container(container.externalId)
             logger.info("Checked for containers removed from service - " +
                         container.name)
@@ -1854,7 +1854,7 @@ def service_with_healthcheck_enabled(client, scale, port=None,
     health_check = {"name": "check1", "responseTimeout": 2000,
                     "interval": 2000, "healthyThreshold": 2,
                     "unhealthyThreshold": 3}
-    launch_config = {"imageUuid": HEALTH_CHECK_IMAGE_UUID,
+    launch_config = {"image": HEALTH_CHECK_IMAGE_UUID,
                      "healthCheck": health_check
                      }
 

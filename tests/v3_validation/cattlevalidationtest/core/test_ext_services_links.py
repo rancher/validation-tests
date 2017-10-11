@@ -309,7 +309,7 @@ def test_extservice_services_delete_service_add_service(client):
     port1 = "30180"
 
     # Add another service and link to external service
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [port1+":22/tcp"]}
 
     random_name = random_str()
@@ -356,8 +356,8 @@ def test_extservice_delete_and_add_ext_service(client):
     # Add another external service and link the service to this newly created
     # external service
 
-    c1 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
-    c2 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
+    c1 = client.create_container(name=random_str(), image=WEB_IMAGE_UUID)
+    c2 = client.create_container(name=random_str(), image=WEB_IMAGE_UUID)
 
     c1 = client.wait_success(c1, 120)
     assert c1.state == "running"
@@ -460,7 +460,7 @@ def test_extservice_add_and_delete_ips(client):
 
     # Update external Service to add one more ip
 
-    c1 = client.create_container(name=random_str(), imageUuid=WEB_IMAGE_UUID)
+    c1 = client.create_container(name=random_str(), image=WEB_IMAGE_UUID)
     c1 = client.wait_success(c1, 120)
     assert c1.state == "running"
 

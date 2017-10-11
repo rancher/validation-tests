@@ -19,7 +19,7 @@ def test_environment_ebs_volume_on_same_host(client, super_client):
     launch_config = {"volumeDriver": "rancher-ebs",
                      "dataVolumes": [volume_name + ":/test"],
                      "networkMode": "managed",
-                     "imageUuid": "docker:ubuntu:14.04.3",
+                     "image": "docker:ubuntu:14.04.3",
                      "stdinOpen": True
                      }
     scale = 2
@@ -58,7 +58,7 @@ def test_environment_ebs_volume_read_write_data(client, super_client):
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
                      "networkMode": "managed",
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[0].id
                      }
@@ -80,7 +80,7 @@ def test_environment_ebs_volume_read_write_data(client, super_client):
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
                      "networkMode": "managed",
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[0].id
                      }
@@ -126,7 +126,7 @@ def test_ebs_volume_move_same_host(client, super_client):
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
                      "networkMode": "managed",
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[0].id
                      }
@@ -149,7 +149,7 @@ def test_ebs_volume_move_same_host(client, super_client):
                      "dataVolumes": [volume_name + ":/test"],
                      "networkMode": "managed",
                      "ports": [port + ":22/tcp"],
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[0].id
                      }
@@ -196,7 +196,7 @@ def test_ebs_volume_move_diff_hosts(client, super_client):
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
                      "networkMode": "managed",
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[0].id
                      }
@@ -220,7 +220,7 @@ def test_ebs_volume_move_diff_hosts(client, super_client):
                      "dataVolumes": [volume_name + ":" + path],
                      "ports": [port + ":22/tcp"],
                      "networkMode": "managed",
-                     "imageUuid": SSH_IMAGE_UUID,
+                     "image": SSH_IMAGE_UUID,
                      "stdinOpen": True,
                      "requestedHostId": hosts[1].id
                      }

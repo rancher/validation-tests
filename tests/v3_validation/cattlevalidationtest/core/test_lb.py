@@ -23,7 +23,7 @@ def lb_targets(request, client):
         con_name = random_str()
         con1 = client.create_container(name=con_name,
                                        networkMode=MANAGED_NETWORK,
-                                       imageUuid=LB_IMAGE_UUID,
+                                       image=LB_IMAGE_UUID,
                                        environment={'CONTAINER_NAME':
                                                     CONTAINER_HOST_NAMES[n]
                                                     },
@@ -42,7 +42,7 @@ def create_lb_for_container_lifecycle(client, host, port):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
                                                 },
@@ -226,7 +226,7 @@ def test_lb_add_target(client):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
                                                 },
@@ -265,7 +265,7 @@ def test_lb_remove_target(client):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
                                                 },
@@ -631,7 +631,7 @@ def test_lb_add_target_in_different_host(client):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
                                                 },
@@ -764,7 +764,7 @@ def test_reuse_port_after_lb_deletion(client):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[2]
                                                 },
@@ -793,7 +793,7 @@ def test_lb_for_container_with_port_mapping(client):
     port1 = "9002"
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[0]
                                                 },
@@ -805,7 +805,7 @@ def test_lb_for_container_with_port_mapping(client):
     port2 = "9003"
     con2 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=LB_IMAGE_UUID,
+                                   image=LB_IMAGE_UUID,
                                    environment={'CONTAINER_NAME':
                                                 CONTAINER_HOST_NAMES[1]
                                                 },
@@ -929,7 +929,7 @@ def test_lb_with_health_check_with_uri(client):
             )
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=TEST_IMAGE_UUID,
+                                   image=TEST_IMAGE_UUID,
                                    requestedHostId=host.id
                                    )
     con1 = client.wait_success(con1, timeout=180)
@@ -972,7 +972,7 @@ def test_lb_with_health_check_without_uri(client):
 
     con1 = client.create_container(name=random_str(),
                                    networkMode=MANAGED_NETWORK,
-                                   imageUuid=TEST_IMAGE_UUID,
+                                   image=TEST_IMAGE_UUID,
                                    requestedHostId=host.id
                                    )
 

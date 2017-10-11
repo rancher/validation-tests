@@ -369,7 +369,7 @@ def test_native_fields(socat_containers, client, pull_images):
     assert rancher_container.cpuSet == '0'
     assert rancher_container.tty is True
     assert rancher_container.stdinOpen is True
-    assert rancher_container.imageUuid == 'docker:' + NATIVE_TEST_IMAGE
+    assert rancher_container.image == 'docker:' + NATIVE_TEST_IMAGE
     assert rancher_container.workingDir == '/root'
     assert rancher_container.environment['FOO'] == 'BA'
     assert rancher_container.command == ['-c', 'sleep 3']

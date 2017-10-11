@@ -21,7 +21,7 @@ metadata_client_port = 999
 @pytest.fixture(scope='session', autouse=True)
 def create_metadata_client_service(request, client):
     env = create_env(client)
-    launch_config = {"imageUuid": SSH_IMAGE_UUID,
+    launch_config = {"image": SSH_IMAGE_UUID,
                      "ports": [str(metadata_client_port) + ":22/tcp"],
                      "labels": {"io.rancher.scheduler.global": "true"}}
     service = client.create_service(name="metadataclient",
@@ -89,7 +89,7 @@ def test_metadata_self_2016_07_29(
         assert service_metadata["metadata"] == service.metadata
         assert service_metadata["uuid"] == service.uuid
 
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
 
         # Host related metadata
         metadata_str = fetch_rancher_metadata(client, con, port,
@@ -206,7 +206,7 @@ def test_metadata_byname_2016_07_29(
                                               "2016-07-29")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -265,7 +265,7 @@ def test_metadata_self_2015_12_19(
         assert service_metadata["metadata"] == service.metadata
         assert service_metadata["uuid"] == service.uuid
 
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
 
         # Host related metadata
         metadata_str = fetch_rancher_metadata(client, con, port,
@@ -382,7 +382,7 @@ def test_metadata_byname_2015_12_19(
                                               "2015-12-19")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -433,7 +433,7 @@ def test_metadata_self_2015_07_25(
         assert metadata["metadata"] == service.metadata
         assert metadata["uuid"] == service.uuid
 
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
 
         # Host related metadata
         metadata_str = fetch_rancher_metadata(client, con, port,
@@ -534,7 +534,7 @@ def test_metadata_byname_2015_07_25(
                                               "2015-07-25")
         metadata = json.loads(metadata_str)
         assert metadata["create_index"] == con.createIndex
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
         assert metadata["host_uuid"] == host.uuid
         assert metadata["ips"] == [con.primaryIpAddress]
         assert metadata["labels"] == con.labels
@@ -786,7 +786,7 @@ def test_metadata_hostnet(client, rancher_cli_container):
 
     wait_for_metadata_propagation(client)
     for con in service_containers:
-        host = client.by_id('host', con.hosts[0].id)
+        host = con.host()
 
         # Host related metadata
         metadata_str = fetch_rancher_metadata(client, con, port,
@@ -949,7 +949,7 @@ def get_env_service_by_name(client, env_name, service_name):
 
 def fetch_rancher_metadata(client, con, port, command, version=None):
 
-    host = client.by_id('host', con.hosts[0].id)
+    host = con.host()
     if version is None:
         version = "latest"
     rancher_metadata_cmd = \
