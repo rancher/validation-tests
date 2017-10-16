@@ -19,7 +19,7 @@ def test_environment_ebs_volume_on_same_host(client, super_client):
     launch_config = {"volumeDriver": "rancher-ebs",
                      "dataVolumes": [volume_name + ":/test"],
                      "networkMode": "managed",
-                     "image": "docker:ubuntu:14.04.3",
+                     "image": "ubuntu:14.04.3",
                      "stdinOpen": True
                      }
     scale = 2

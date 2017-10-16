@@ -1,10 +1,6 @@
 from common_fixtures import *  # NOQA
 from test_services_volumemount import validate_volume_mount
 
-TEST_SERVICE_OPT_IMAGE = 'ibuildthecloud/helloworld'
-TEST_SERVICE_OPT_IMAGE_LATEST = TEST_SERVICE_OPT_IMAGE + ':latest'
-TEST_SERVICE_OPT_IMAGE_UUID = 'docker:' + TEST_SERVICE_OPT_IMAGE_LATEST
-LB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 INSERVICE_SUBDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                 'resources/inservicedc')
 

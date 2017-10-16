@@ -1,7 +1,7 @@
 from common_fixtures import *  # NOQA
 
-WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
-SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
+WEB_IMAGE_UUID = "sangeetha/testlbsd:latest"
+SSH_IMAGE_UUID = "sangeetha/testclient:latest"
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def create_env_with_multiple_svcs_and_volume_mounts(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "image": "docker:redis"}
+        "image": "redis"}
 
     launch_config_consumed_service2 = {
         "image": WEB_IMAGE_UUID}
@@ -113,7 +113,7 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "image": "docker:redis"}
+        "image": "redis"}
 
     launch_config_consumed_service2 = {
         "image": WEB_IMAGE_UUID}
@@ -169,7 +169,7 @@ def create_env_with_multiple_levels_svcs_and_volume_mounts_circular(
         client, service_scale):
 
     launch_config_consumed_service1 = {
-        "image": "docker:redis"}
+        "image": "redis"}
 
     launch_config_consumed_service2 = {
         "image": WEB_IMAGE_UUID}
