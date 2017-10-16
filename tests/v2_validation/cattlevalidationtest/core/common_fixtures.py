@@ -1641,7 +1641,8 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
                                internal=False, stickiness_policy=None,
                                config=None, includePortRule=True,
                                lb_protocol="http", target_with_certs=False,
-                               launch_config_target=None, target_port=None):
+                               launch_config_target=None, target_port=None,
+                               launch_config_lb={}):
     if launch_config_target is None and target_port is None:
         if not target_with_certs:
             launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -1652,7 +1653,7 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
     else:
         launch_config_svc = launch_config_target
         target_port = target_port
-    launch_config_lb = {"imageUuid": get_haproxy_image()}
+    launch_config_lb["imageUuid"] = get_haproxy_image()
     if not internal:
         launch_config_lb["ports"] = [port]
 
@@ -2105,7 +2106,6 @@ def check_round_robin_access(container_names, host, port,
 
 def check_round_robin_access_lb_ip(container_names, lb_ip, port,
                                    hostheader=None, path="/name.html"):
-
     con_hostname = container_names[:]
     con_hostname_ordered = []
 

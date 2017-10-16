@@ -4,6 +4,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 result = {}
 
+target_service_label = "target=true"
+lb_service_label = "lb=true"
+
+target_host_label = {"target": "true"}
+lb_host_label = {"lb": "true"}
+
+
 if_lb_drain_testing = pytest.mark.skipif(
     os.environ.get('LB_DRAIN_TESTING') != "true",
     reason='LB Drain testing not enabled')
@@ -15,20 +22,20 @@ def create_environment_with_balancer_services(client,
                                               lbcookie_policy=None,
                                               config=None,
                                               launch_config_target=None,
-                                              target_port=None):
+                                              target_port=None,
+                                              launch_config_lb={}):
 
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port, internal,
         lbcookie_policy, config,
         launch_config_target=launch_config_target,
-        target_port=target_port)
+        target_port=target_port, launch_config_lb=launch_config_lb)
 
-    service.activate()
     lb_service.activate()
-
-    service = client.wait_success(service, 180)
     lb_service = client.wait_success(lb_service, 180)
 
+    service.activate()
+    service = client.wait_success(service, 180)
     assert service.state == "active"
     assert lb_service.state == "active"
     wait_for_lb_service_to_become_active(client,
@@ -44,23 +51,52 @@ def test_lb_service_ha_drain_1_scale1(
 
 
 @if_lb_drain_testing
+def test_lb_service_ha_drain_crosshost_1(
+        client, socat_containers):
+
+    set_host_labels(client)
+    label = {"io.rancher.scheduler.affinity:host_label": target_service_label}
+    launch_config_lb = {
+        "labels": {
+            "io.rancher.scheduler.affinity:host_label": lb_service_label}}
+    validate_lb_service_ha_drain(client, "9002", service_scale=2,
+                                 batch_size=2, label=label,
+                                 launch_config_lb=launch_config_lb)
+
+
+@if_lb_drain_testing
+def test_lb_service_ha_drain_crosshost_2(
+        client, socat_containers):
+
+    set_host_labels(client)
+    label = {"io.rancher.scheduler.affinity:host_label": target_service_label}
+    launch_config_lb = {
+        "labels": {
+            "io.rancher.scheduler.affinity:host_label": lb_service_label}}
+    validate_lb_service_ha_drain(client, "9012", service_scale=1,
+                                 batch_size=1, startFirst=True,
+                                 label=label,
+                                 launch_config_lb=launch_config_lb)
+
+
+@if_lb_drain_testing
 def test_lb_service_ha_drain_2(
         client, socat_containers):
-    validate_lb_service_ha_drain(client, "9002", service_scale=4,
+    validate_lb_service_ha_drain(client, "9003", service_scale=4,
                                  batch_size=2, startFirst=True)
 
 
 @if_lb_drain_testing
 def test_lb_service_ha_drain_3(
         client, socat_containers):
-    validate_lb_service_ha_drain(client, "9003", service_scale=4,
+    validate_lb_service_ha_drain(client, "9004", service_scale=4,
                                  batch_size=2, startFirst=False)
 
 
 @if_lb_drain_testing
 def test_lb_service_ha_drain_multiple_clients_startFirst_scale1(
         client, socat_containers):
-    validate_lb_service_ha_drain(client, "9004", service_scale=1,
+    validate_lb_service_ha_drain(client, "9005", service_scale=1,
                                  batch_size=1, startFirst=True,
                                  client_thread_count=10)
 
@@ -68,7 +104,7 @@ def test_lb_service_ha_drain_multiple_clients_startFirst_scale1(
 @if_lb_drain_testing
 def test_lb_service_ha_drain_multiple_clients_startFirst(
         client, socat_containers):
-    validate_lb_service_ha_drain(client, "9005", service_scale=4,
+    validate_lb_service_ha_drain(client, "9006", service_scale=4,
                                  batch_size=2, startFirst=True,
                                  client_thread_count=10)
 
@@ -76,7 +112,7 @@ def test_lb_service_ha_drain_multiple_clients_startFirst(
 @if_lb_drain_testing
 def test_lb_service_ha_drain_multiple_clients_no_start_first(
         client, socat_containers):
-    validate_lb_service_ha_drain(client, "9006", service_scale=1,
+    validate_lb_service_ha_drain(client, "9007", service_scale=1,
                                  upgrade_start_interval=5,
                                  batch_size=1, startFirst=False,
                                  client_thread_count=5,
@@ -135,6 +171,7 @@ def test_drain_target_with_multiple_lbs(client, socat_containers):
         batch_size=1, startFirst=True,
         client_thread_count=3,
         per_client_request_count=3)
+    delete_all(client, [env])
 
 
 def validate_lb_service_ha_drain(client, port, service_scale,
@@ -143,16 +180,20 @@ def validate_lb_service_ha_drain(client, port, service_scale,
                                  client_thread_count=1,
                                  per_client_request_count=5,
                                  response_sleep_time=20000,
-                                 draintime_in_ms=25000):
+                                 draintime_in_ms=25000,
+                                 label=None,
+                                 launch_config_lb={}):
     launch_config_target = {"imageUuid": "docker:prachidamle/testservice",
                             "environment":
                                 {"SLEEP_INTERVAL": response_sleep_time},
-                                "drainTimeoutMs": draintime_in_ms}
+                            "drainTimeoutMs": draintime_in_ms}
+    if label is not None:
+        launch_config_target["labels"] = label
     lb_scale = 1
     env, service, lb_service = create_environment_with_balancer_services(
         client, service_scale, lb_scale, port,
         launch_config_target=launch_config_target,
-        target_port=8094)
+        target_port=8094, launch_config_lb=launch_config_lb)
 
     upgrade_target_service_when_connecting(
         client, service, [lb_service],
@@ -160,6 +201,7 @@ def validate_lb_service_ha_drain(client, port, service_scale,
         batch_size=batch_size, startFirst=startFirst,
         client_thread_count=client_thread_count,
         per_client_request_count=per_client_request_count)
+    delete_all(client, [env])
 
 
 def upgrade_target_service_when_connecting(
@@ -242,3 +284,18 @@ def upgrade_service(
     service = service.finishupgrade()
     service = client.wait_success(service, 180)
     service.state == "active"
+
+
+def set_host_labels(client):
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 2
+    lb_host = hosts[0]
+    lb_host = client.update(lb_host, labels=lb_host_label)
+    lb_host = client.wait_success(lb_host)
+    assert lb_host.state == "active"
+
+    target_host = hosts[1]
+    target_host = client.update(target_host, labels=target_host_label)
+    target_host = client.wait_success(target_host)
+    assert target_host.state == "active"
+    return lb_host, target_host

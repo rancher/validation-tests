@@ -2,7 +2,7 @@ from common_fixtures import *  # NOQA
 
 TEST_IMAGE = 'ibuildthecloud/helloworld'
 TEST_IMAGE_LATEST = TEST_IMAGE + ':latest'
-TEST_IMAGE_UUID = 'docker:' + TEST_IMAGE
+TEST_IMAGE_UUID = TEST_IMAGE
 
 
 def test_container_run_with_options_1(client, test_name,

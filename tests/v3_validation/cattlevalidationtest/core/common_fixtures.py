@@ -78,18 +78,6 @@ if_stress = pytest.mark.skipif(
     STRESS_TEST != "True",
     reason='Not Stress Test Run')
 
-"""
-WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
-WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"
-WEB_SSL_IMAGE2_UUID = "docker:sangeetha/ssllbtarget2:latest"
-SSH_IMAGE_UUID = "docker:sangeetha/testclient:latest"
-LB_HOST_ROUTING_IMAGE_UUID = "docker:sangeetha/testnewhostrouting:latest"
-SSH_IMAGE_UUID_HOSTNET = "docker:sangeetha/testclient33:latest"
-HOST_ACCESS_IMAGE_UUID = "docker:sangeetha/testclient44:latest"
-HEALTH_CHECK_IMAGE_UUID = "docker:sangeetha/testhealthcheck:v2"
-MULTIPLE_EXPOSED_PORT_UUID = "docker:sangeetha/testmultipleport:v1"
-"""
-
 MICROSERVICE_IMAGES = {"haproxy_image_uuid": None}
 
 
@@ -1872,15 +1860,19 @@ def create_env_and_svc(client, launch_config, scale=None, retainIp=False):
     return service, env
 
 
-def check_container_in_service(admin_client, service):
+def check_container_in_service(client, service):
 
     container_list = get_service_container_list(
-        admin_client, service, managed=1)
+        client, service)
     assert len(container_list) == service.scale
 
     for container in container_list:
+        container = wait_for_condition(
+            client, container,
+            lambda x: x.state == "running",
+            lambda x: 'State is: ' + x.state)
         assert container.state == "running"
-        containers = admin_client.list_container(
+        containers = client.list_container(
             externalId=container.externalId,
             include="hosts",
             removed_null=True)
@@ -3608,8 +3600,7 @@ def deploy_and_wait_for_stack_creation(client,
             lambda x: x.state == "active",
             lambda x: 'State is: ' + x.state,
             timeout=600)
-        container_list = get_service_container_list(client, service,
-                                                    managed=1)
+        container_list = get_service_container_list(client, service)
         for container in container_list:
             if 'io.rancher.container.start_once' not in container.labels:
                 assert container.state == "running"

@@ -769,7 +769,7 @@ def test_webhook_service_no_image(client):
     # This method tests that a service with no image
     # cannot be scaled up/down using webhook
 
-    launch_config = {"image": "docker:rancher/none"}
+    launch_config = {"image": "rancher/none"}
 
     env = create_env(client)
 

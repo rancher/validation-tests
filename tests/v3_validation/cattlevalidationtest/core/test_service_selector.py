@@ -536,7 +536,7 @@ def test_selectorContainer_no_image_with_lb(
 
     lb_scale = 1
 
-    launch_config_svc = {"image": "docker:rancher/none"}
+    launch_config_svc = {"image": "rancher/none"}
 
     launch_config_lb = {"image": get_haproxy_image(),
                         "ports": [port]}
@@ -911,7 +911,7 @@ def test_selectorLink_multiple(client):
 
 
 def test_service_with_no_image(client):
-    launch_config_svc = {"image": "docker:rancher/none"}
+    launch_config_svc = {"image": "rancher/none"}
 
     env = create_env(client)
 
