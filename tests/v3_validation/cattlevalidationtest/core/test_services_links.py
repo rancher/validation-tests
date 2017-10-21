@@ -16,18 +16,19 @@ def create_environment_with_linked_services(
             client, service_scale, consumed_service_scale, port, ssh_port,
             isnetworkModeHost_svc, isnetworkModeHost_consumed_svc)
 
-    if linkName is None:
-        linkName = "mylink"
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": linkName}])
     service = client.wait_success(service, 120)
-
     consumed_service = client.wait_success(consumed_service, 120)
-
     assert service.state == "active"
     assert consumed_service.state == "active"
-    validate_add_service_link(client, service, consumed_service)
 
+    if linkName is None:
+        linkName = "mylink"
+
+    service = client.update(
+        service,
+        serviceLinks=[
+            {"type": "link", "name": consumed_service.name, "alias": linkName}
+        ])
     return env, service, consumed_service
 
 
@@ -48,86 +49,6 @@ def test_link_activate_svc_activate_consumed_svc_link(client):
     delete_all(client, [env])
 
 
-def test_link_activate_consumed_svc_link_activate_svc(client):
-
-    port = "302"
-
-    service_scale = 1
-    consumed_service_scale = 2
-
-    env, service, consumed_service = create_env_with_2_svc(
-        client, service_scale, consumed_service_scale, port)
-
-    consumed_service = activate_svc(client, consumed_service)
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
-    service = activate_svc(client, service)
-
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink")
-    delete_all(client, [env])
-
-
-def test_link_activate_svc_link_activate_consumed_svc(client):
-
-    port = "303"
-
-    service_scale = 1
-    consumed_service_scale = 2
-
-    env, service, consumed_service = create_env_with_2_svc(
-        client, service_scale, consumed_service_scale, port)
-
-    service = activate_svc(client, service)
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
-    consumed_service = activate_svc(client, consumed_service)
-
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink")
-    delete_all(client, [env])
-
-
-def test_link_link_activate_consumed_svc_activate_svc(client):
-
-    port = "304"
-
-    service_scale = 1
-    consumed_service_scale = 2
-
-    env, service, consumed_service = create_env_with_2_svc(
-        client, service_scale, consumed_service_scale, port)
-
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
-    consumed_service = activate_svc(client, consumed_service)
-    service = activate_svc(client, service)
-
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink")
-    delete_all(client, [env])
-
-
-def test_link_link_activate_svc_activate_consumed_svc(client):
-
-    port = "305"
-
-    service_scale = 1
-    consumed_service_scale = 2
-
-    env, service, consumed_service = create_env_with_2_svc(
-        client, service_scale, consumed_service_scale, port)
-
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
-    service = activate_svc(client, service)
-    consumed_service = activate_svc(client, consumed_service)
-
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink")
-    delete_all(client, [env])
-
-
 def test_link_link_when_services_still_activating(client):
 
     port = "306"
@@ -138,21 +59,20 @@ def test_link_link_when_services_still_activating(client):
     env, service, consumed_service = create_env_with_2_svc(
         client, service_scale, consumed_service_scale, port)
 
-    service.activate()
-    consumed_service.activate()
-
-    service.setservicelinks(serviceLinks=[{"serviceId": consumed_service.id,
-                                           "name": "mylink"}])
+    linkName = "mylink"
+    service = client.update(
+        service,
+        serviceLinks=[
+            {"type": "link", "name": consumed_service.name, "alias": linkName}
+        ])
     service = client.wait_success(service, 120)
-
     consumed_service = client.wait_success(consumed_service, 120)
 
     assert service.state == "active"
     assert consumed_service.state == "active"
-    validate_add_service_link(client, service, consumed_service)
 
     validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink")
+                            linkName=linkName)
 
     delete_all(client, [env])
 
@@ -461,18 +381,12 @@ def test_link_add_remove_servicelinks(client):
                                               launchConfig=launch_config,
                                               scale=2)
     consumed_service1 = client.wait_success(consumed_service1)
-    assert consumed_service1.state == "inactive"
-
-    consumed_service1 = consumed_service1.activate()
-    consumed_service1 = client.wait_success(consumed_service1, 120)
     assert consumed_service1.state == "active"
 
     # Add another service link
     service.setservicelinks(
         serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"},
                       {"serviceId": consumed_service1.id, "name": "mylink2"}])
-    validate_add_service_link(client, service, consumed_service)
-    validate_add_service_link(client, service, consumed_service1)
 
     validate_linked_service(client, service,
                             [consumed_service], port,
@@ -522,15 +436,10 @@ def test_link_services_delete_service_add_service(client):
                                      launchConfig=launch_config,
                                      scale=1)
     service1 = client.wait_success(service1)
-    assert service1.state == "inactive"
-
-    service1 = service1.activate()
-    service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
     service1.setservicelinks(
         serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
-    validate_add_service_link(client, service1, consumed_service)
 
     validate_linked_service(client, service1, [consumed_service], port1,
                             linkName="mylink")
@@ -569,17 +478,11 @@ def test_link_services_delete_and_add_consumed_service(client):
                                               launchConfig=launch_config,
                                               scale=1)
     consumed_service1 = client.wait_success(consumed_service1)
-    assert consumed_service1.state == "inactive"
-
-    consumed_service1 = consumed_service1.activate()
-    consumed_service1 = client.wait_success(consumed_service1, 120)
     assert consumed_service1.state == "active"
 
     service.setservicelinks(
         serviceLinks=[{"serviceId": consumed_service1.id,
                        "name": "mylink1"}])
-    validate_add_service_link(client, service, consumed_service1)
-
     validate_linked_service(client, service, [consumed_service1], port,
                             linkName="mylink1")
 

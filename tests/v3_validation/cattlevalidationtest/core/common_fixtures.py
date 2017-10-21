@@ -91,7 +91,7 @@ HOST_ACCESS_IMAGE_UUID = "sangeetha/testclient44:latest"
 HEALTH_CHECK_IMAGE_UUID = "sangeetha/testhealthcheck:v2"
 MULTIPLE_EXPOSED_PORT_UUID = "sangeetha/testmultipleport:v1"
 
-DEFAULT_TIMEOUT = 45
+DEFAULT_TIMEOUT = 120
 DEFAULT_MACHINE_TIMEOUT = 900
 RANCHER_DNS_SERVER = "169.254.169.250"
 RANCHER_DNS_SEARCH = "rancher.internal"

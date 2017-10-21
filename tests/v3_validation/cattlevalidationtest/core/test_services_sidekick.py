@@ -713,13 +713,14 @@ def validate_sidekick(client, primary_service, service_name,
         sec_host = secondary_con.host().id
         print secondary_con.name + " - " + label + " - " + sec_host
         assert sec_host == pri_host
-
+    """
     if exposed_port is not None and dnsname is not None:
         # Check for DNS resolution
         secondary_con = get_service_containers_with_name(
             client, primary_service, consumed_service_name)
         validate_dns(client, containers, secondary_con, exposed_port,
                      dnsname)
+    """
 
 
 def validate_dns(client, service_containers, consumed_service,
