@@ -5,3 +5,10 @@ test3:
   stdin_open: true
   labels:
     test1: value1
+  scale: 2
+  metadata:
+    test1:
+      name: t1name
+      value: t1value
+    test2:
+      name: [1,2,3,4]

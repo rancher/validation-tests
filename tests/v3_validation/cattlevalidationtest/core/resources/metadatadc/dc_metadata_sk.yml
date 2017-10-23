@@ -20,3 +20,4 @@ testsk:
   tty: true
   image: sangeetha/testlbsd
   stdin_open: true
+  scale: 3
