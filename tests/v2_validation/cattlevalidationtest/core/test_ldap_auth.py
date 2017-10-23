@@ -141,12 +141,11 @@ def load_config(access_mode="unrestricted"):
     return data
 
 
-def load_test_api_config(auth_config):
-    ldap_main_user = os.environ.get('AD_MAIN_USER')
+def load_test_api_config(auth_config,username=""):
     ldap_main_pass = os.environ.get('AD_MAIN_PASS')
     config = {
         "authConfig": auth_config,
-        "code": ldap_main_user + ":" + ldap_main_pass,
+        "code": username + ":" + ldap_main_pass,
         "type": "testAuthConfig"
     }
     return config
@@ -215,18 +214,20 @@ def turn_on_off_ad_auth(admin_client, request):
 
 
 def reconfigure_ad(admin_client, domain, groupSearchDomain):
-    # Use testlogin api
     ldap_port = os.environ.get('LDAP_PORT')
     if ldap_port == 'True':
+        ldap_main_user = os.environ.get('AD_MAIN_USER')
         auth_config = load_config()
         auth_config['ldapconfig']['domain'] = domain
         auth_config['ldapconfig']['groupSearchDomain'] = groupSearchDomain
-        test_config = load_test_api_config(auth_config)
+        test_config = load_test_api_config(auth_config,ldap_main_user)
         access_key = ADMIN_AD_CLIENT._access_key
         secret_key = ADMIN_AD_CLIENT._secret_key
         auth_url = cattle_url()[:-7] + 'v1-auth/testlogin'
+
         r = requests.post(auth_url, data=json.dumps(test_config),
                           auth=(access_key, secret_key))
+
         assert r.ok
         config = load_config()
         config['ldapconfig']['domain'] = domain
@@ -249,6 +250,27 @@ def reconfigure_ad(admin_client, domain, groupSearchDomain):
     config['groupSearchDomain'] = groupSearchDomain
     admin_client.create_ldapconfig(config)
     return admin_client
+
+
+# 37
+@if_ldap_port
+def test_edit_settings_ui_flow(admin_client):
+    # Use testlogin api's UI flow
+    ldap_main_user = os.environ.get('AD_MAIN_USER')
+    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+
+    auth_config = load_config()
+    test_config = load_test_api_config(auth_config,"")
+    auth_url = cattle_url()[:-7] + 'v1-auth/testlogin'
+
+    token = get_authed_token(username=ldap_main_user,
+                             password=ldap_main_pass)
+    cookies = dict(token=token['jwt'])
+       
+    r = requests.post(auth_url, data=json.dumps(test_config),
+                      cookies=cookies)
+    assert r.ok
+    return
 
 
 # 1
@@ -1853,3 +1875,4 @@ def test_ad_restricted_to_specific_group(admin_client, request):
         reconfigure_ad(ADMIN_AD_CLIENT,
                        os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
     request.addfinalizer(fin)
+
