@@ -230,7 +230,6 @@ def env_with_2_svc_and_volume_mount(client, service_scale):
         create_env_with_2_svc_and_volume_mount(
             client, service_scale)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -249,7 +248,6 @@ def test_volume_mount_activate_env(client, socat_containers):
     env, service, service_name, consumed_service_name = \
         create_env_with_2_svc_and_volume_mount(client, service_scale)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -267,7 +265,6 @@ def test_volume_mount_activate_service(client,
     env, service, service_name, consumed_service_name = \
         create_env_with_2_svc_and_volume_mount(client, service_scale)
 
-    service = service.activate()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -286,7 +283,6 @@ def test_multiple_volume_mount_activate_service(client,
         create_env_with_multiple_svcs_and_volume_mounts(
             client, service_scale)
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -304,7 +300,6 @@ def test_multiple_level_volume_mount_activate_service(client,
         create_env_with_multiple_levels_svcs_and_volume_mounts(
             client, service_scale)
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -324,7 +319,6 @@ def test_multiple_level_volume_mount_delete_services_1(client,
         create_env_with_multiple_levels_svcs_and_volume_mounts(
             client, service_scale)
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -388,7 +382,6 @@ def test_multiple_level_volume_mount_delete_services_2(client,
         create_env_with_multiple_levels_svcs_and_volume_mounts(
             client, service_scale)
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -577,14 +570,14 @@ def test_volume_mount_deactivate_activate_environment(client,
     env, service, service_name, consumed_service_name = \
         env_with_2_svc_and_volume_mount(client, service_scale)
 
-    env = env.deactivateservices()
+    env = env.stopall()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
 
     wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
         client, service)
 
-    env = env.activateservices()
+    env = env.startall()
     service = client.wait_success(service, 120)
     assert service.state == "active"
     time.sleep(restart_sleep_interval)
@@ -710,7 +703,6 @@ def test_volume_mount_with_start_once(client, socat_containers):
         env_with_2_svc_and_volume_mount_with_config(
             client, 10,
             launch_config_consumed_service, launch_config_service)
-    service = service.activate()
     service = client.wait_success(service, 180)
     assert service.state == "active"
 

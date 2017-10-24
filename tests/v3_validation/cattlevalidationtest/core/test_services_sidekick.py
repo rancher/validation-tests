@@ -184,7 +184,6 @@ def env_with_sidekick(client, service_scale, exposed_port):
     env, service, service_name, consumed_service_name = \
         create_env_with_sidekick(client, service_scale, exposed_port)
 
-    env = env.activateservices()
     env = client.wait_success(env, 120)
     assert env.state == "active"
 
@@ -249,7 +248,6 @@ def test_sidekick_for_lb(client, socat_containers):
     port = "7080"
     env, service1, service1_name, consumed_service_name = \
         create_env_with_sidekick_for_linking(client, service_scale)
-    env = env.activateservices()
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
@@ -258,7 +256,7 @@ def test_sidekick_for_lb(client, socat_containers):
 
     env, service2, service2_name, consumed_service_name = \
         create_env_with_sidekick_for_linking(client, service_scale, env)
-    service2 = client.wait_success(service2.activate(), 120)
+    service2 = client.wait_success(service2, 120)
     assert service2.state == "active"
 
     validate_sidekick(client, service2, service2_name,
@@ -351,7 +349,6 @@ def test_service_links_to_sidekick(client):
     service = create_svc(client, env, launch_config, 1)
     link_svc(client, service, [linked_service])
 
-    env = env.activateservices()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -505,14 +502,14 @@ def test_sidekick_deactivate_activate_environment(client):
     env, service, service_name, consumed_service_name = \
         env_with_sidekick(client, service_scale, exposed_port)
 
-    env = env.deactivateservices()
+    env = env.stopall()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
 
     wait_until_instances_get_stopped_for_service_with_sec_launch_configs(
         client, service)
 
-    env = env.activateservices()
+    env = env.startall()
     service = client.wait_success(service, 120)
     assert service.state == "active"
     time.sleep(restart_sleep_interval)
@@ -635,7 +632,6 @@ def test_sidekick_lbactivation_after_linking(client, socat_containers):
     port = "7091"
     env, service1, service1_name, consumed_service_name = \
         create_env_with_sidekick_for_linking(client, service_scale)
-    env = env.activateservices()
     service1 = client.wait_success(service1, 120)
     assert service1.state == "active"
 
