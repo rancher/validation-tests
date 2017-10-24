@@ -1,5 +1,7 @@
-rtest16:
-  labels:
-    rtest16: value16
-  tty: true
-  image: ubuntu:14.04.3
+version: '2'
+services:
+  rtest16:
+    labels:
+      rtest16: value16
+    tty: true
+    image: ubuntu:14.04.3

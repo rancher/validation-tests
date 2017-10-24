@@ -3343,7 +3343,7 @@ def execute_rancher_cli(client, stack_name, command,
 
 def launch_rancher_cli_from_file(client, subdir, env_name, command,
                                  expected_response, docker_compose=None,
-                                 rancher_compose=None):
+                                 rancher_compose=None, service_name=None):
     if docker_compose is not None:
         docker_compose = readDataFile(subdir, docker_compose)
     if rancher_compose is not None:
@@ -3358,6 +3358,12 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
         if expected_response in resp:
             found = True
     assert found
+
+    stack, service = get_env_service_by_name(client, env_name, service_name)
+    wait_for_condition(
+        client, service,
+        lambda x: x.state == "active",
+        lambda x: 'State is: ' + x.state, 90)
 
 
 def create_webhook(projectid, data):
