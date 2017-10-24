@@ -44,8 +44,6 @@ def test_link_activate_svc_activate_consumed_svc_link(client):
 
     validate_linked_service(client, service, [consumed_service], port,
                             linkName="mylink")
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="mylink"+"."+RANCHER_FQDN)
     delete_all(client, [env])
 
 
@@ -337,7 +335,7 @@ def test_link_deactivate_activate_environment(client):
     validate_linked_service(client, service, [consumed_service], port,
                             linkName="mylink")
 
-    env = env.deactivateservices()
+    env = env.stopall()
     service = client.wait_success(service, 120)
     assert service.state == "inactive"
 
@@ -346,7 +344,7 @@ def test_link_deactivate_activate_environment(client):
 
     wait_until_instances_get_stopped(client, consumed_service)
 
-    env = env.activateservices()
+    env = env.startall()
     service = client.wait_success(service, 120)
     assert service.state == "active"
 
@@ -384,9 +382,12 @@ def test_link_add_remove_servicelinks(client):
     assert consumed_service1.state == "active"
 
     # Add another service link
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"},
-                      {"serviceId": consumed_service1.id, "name": "mylink2"}])
+    service = client.update(
+        service,
+        serviceLinks=[
+            {"type": "link", "name": consumed_service.name, "alias": "mylink"},
+            {"type": "link", "name":  consumed_service1.name,
+             "alias": "mylink2"}])
 
     validate_linked_service(client, service,
                             [consumed_service], port,
@@ -396,8 +397,11 @@ def test_link_add_remove_servicelinks(client):
                             linkName="mylink2")
 
     # Remove existing service link to the service
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service1.id, "name": "mylink2"}])
+    service = client.update(
+        service,
+        serviceLinks=[
+            {"type": "link", "name": consumed_service1.name,
+             "alias": "mylink2"}])
 
     validate_linked_service(client, service, [consumed_service1], port,
                             linkName="mylink2")
@@ -421,7 +425,6 @@ def test_link_services_delete_service_add_service(client):
 
     service = client.wait_success(client.delete(service))
     assert service.state == "removed"
-    validate_remove_service_link(client, service, consumed_service)
 
     port1 = "3180"
 
@@ -438,8 +441,11 @@ def test_link_services_delete_service_add_service(client):
     service1 = client.wait_success(service1)
     assert service1.state == "active"
 
-    service1.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service.id, "name": "mylink"}])
+    service1 = client.update(
+        service1,
+        serviceLinks=[
+            {"type": "link", "name": consumed_service.name,
+             "alias": "mylink"}])
 
     validate_linked_service(client, service1, [consumed_service], port1,
                             linkName="mylink")
@@ -464,7 +470,6 @@ def test_link_services_delete_and_add_consumed_service(client):
 
     consumed_service = client.wait_success(client.delete(consumed_service))
     assert consumed_service.state == "removed"
-    validate_remove_service_link(client, service, consumed_service)
 
     # Add another consume service and link the service to this newly created
     # service
@@ -480,9 +485,10 @@ def test_link_services_delete_and_add_consumed_service(client):
     consumed_service1 = client.wait_success(consumed_service1)
     assert consumed_service1.state == "active"
 
-    service.setservicelinks(
-        serviceLinks=[{"serviceId": consumed_service1.id,
-                       "name": "mylink1"}])
+    service = client.update(
+        service,
+        serviceLinks=[{"type": "link", "name": consumed_service1.name,
+                       "alias": "mylink1"}])
     validate_linked_service(client, service, [consumed_service1], port,
                             linkName="mylink1")
 
@@ -592,43 +598,6 @@ def test_links_with_hostnetwork_1(client):
                             linkName="mylink")
     delete_all(client, [env])
 
-"""
-
-def test_links_with_hostnetwork_2(client):
-
-    port = "324"
-
-    service_scale = 1
-    consumed_service_scale = 2
-    ssh_port = "33"
-
-    env, service, consumed_service = create_environment_with_linked_services(
-        client, service_scale, consumed_service_scale, port,
-        ssh_port, isnetworkModeHost_svc=True,
-        isnetworkModeHost_consumed_svc=True)
-    validate_linked_service(
-        client, service, [consumed_service], ssh_port, linkName="mylink")
-
-    delete_all(client, [env])
-
-
-def test_links_with_hostnetwork_3(client):
-
-    port = "325"
-
-    service_scale = 1
-    consumed_service_scale = 2
-    ssh_port = "33"
-
-    env, service, consumed_service = create_environment_with_linked_services(
-        client, service_scale, consumed_service_scale, port,
-        ssh_port, isnetworkModeHost_svc=True,
-        isnetworkModeHost_consumed_svc=False)
-    validate_linked_service(
-        client, service, [consumed_service], ssh_port, linkName="mylink")
-    delete_all(client, [env])
-"""
-
 
 def test_link_name_uppercase(client):
     port = "326"
@@ -642,6 +611,4 @@ def test_link_name_uppercase(client):
 
     validate_linked_service(client, service, [consumed_service], port,
                             linkName="MYUPPERCASELINK")
-    validate_linked_service(client, service, [consumed_service], port,
-                            linkName="MYUPPERCASELINK"+"."+RANCHER_FQDN)
     delete_all(client, [env])

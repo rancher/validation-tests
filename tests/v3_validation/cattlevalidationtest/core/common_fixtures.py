@@ -944,7 +944,6 @@ def link_svc_with_port(client, service, linkservices, port):
             service,
             serviceLinks=[{"type": "link", "name": linkservice.name,
                            "ports": [port]}])
-        validate_add_service_link(client, service, linkservice)
     return service
 
 
@@ -954,7 +953,6 @@ def link_svc(client, service, linkservices):
         linkservice = client.update(
             service,
             serviceLinks=[{"type": "link", "name": linkservice.name}])
-        validate_add_service_link(client, service, linkservice)
     return service
 
 
