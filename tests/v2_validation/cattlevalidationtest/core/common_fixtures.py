@@ -1642,7 +1642,7 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
                                config=None, includePortRule=True,
                                lb_protocol="http", target_with_certs=False,
                                launch_config_target=None, target_port=None,
-                               launch_config_lb={}):
+                               launch_config_lb=None):
     if launch_config_target is None and target_port is None:
         if not target_with_certs:
             launch_config_svc = {"imageUuid": WEB_IMAGE_UUID}
@@ -1653,9 +1653,13 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
     else:
         launch_config_svc = launch_config_target
         target_port = target_port
-    launch_config_lb["imageUuid"] = get_haproxy_image()
+    if launch_config_lb is not None:
+        launch_config_lb_service = launch_config_lb
+    else:
+        launch_config_lb_service = {}
+    launch_config_lb_service["imageUuid"] = get_haproxy_image()
     if not internal:
-        launch_config_lb["ports"] = [port]
+        launch_config_lb_service["ports"] = [port]
 
     # Create Environment
     env = create_env(client)
@@ -1684,7 +1688,7 @@ def create_env_with_svc_and_lb(client, scale_svc, scale_lb, port,
     lb_service = client.create_loadBalancerService(
         name=service_name,
         stackId=env.id,
-        launchConfig=launch_config_lb,
+        launchConfig=launch_config_lb_service,
         scale=scale_lb,
         lbConfig=create_lb_config(
             port_rules, None, None, stickiness_policy, config))

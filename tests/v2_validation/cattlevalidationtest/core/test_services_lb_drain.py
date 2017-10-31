@@ -23,7 +23,7 @@ def create_environment_with_balancer_services(client,
                                               config=None,
                                               launch_config_target=None,
                                               target_port=None,
-                                              launch_config_lb={}):
+                                              launch_config_lb=None):
 
     env, service, lb_service = create_env_with_svc_and_lb(
         client, service_scale, lb_scale, port, internal,
@@ -120,58 +120,116 @@ def test_lb_service_ha_drain_multiple_clients_no_start_first(
 
 
 @if_lb_drain_testing
-def test_drain_target_with_multiple_lbs(client, socat_containers):
-    lb_services = []
+def test_drain_target_with_multiple_lbs_1(client, socat_containers):
     lb_scale = 1
     service_scale = 2
-    lb_port = "9007"
+    lb_ports = ["9107", "9207"]
     response_sleep_time = 10000
     draintime_in_ms = 20000
-    launch_config_target = {"imageUuid": "docker:prachidamle/testservice",
-                            "environment":
-                                {"SLEEP_INTERVAL": response_sleep_time},
-                            "drainTimeoutMs": draintime_in_ms}
-    env, service, lb_service = create_environment_with_balancer_services(
-        client, service_scale, lb_scale, lb_port,
-        launch_config_target=launch_config_target,
-        target_port=8094)
 
-    lb_services.append(lb_service)
-
-    launch_config_lb = {"imageUuid": get_haproxy_image(),
-                        "ports": [lb_port]}
-
-    # Create another LB Service pointing to same target
-    random_name = random_str()
-    lb_service_name = "LB-" + random_name.replace("-", "")
-
-    port_rule = {"serviceId": service.id,
-                 "sourcePort": lb_port,
-                 "targetPort": "8094",
-                 "protocol": "http"
-                 }
-    lb_config = {"portRules": [port_rule]}
-
-    lb_service = client.create_loadBalancerService(
-        name=lb_service_name,
-        stackId=env.id,
-        launchConfig=launch_config_lb,
-        scale=lb_scale,
-        lbConfig=lb_config)
-
-    lb_service = client.wait_success(lb_service)
-    assert lb_service.state == "inactive"
-    lb_service = client.wait_success(lb_service.activate())
-    assert lb_service.state == "active"
-    lb_services.append(lb_service)
-
+    env, lb_services, service = create_multiple_lb_service_to_same_target(
+        client,
+        response_sleep_time,
+        draintime_in_ms,
+        service_scale,
+        lb_scale,
+        lb_ports)
     upgrade_target_service_when_connecting(
         client, service, lb_services,
         upgrade_start_interval=5,
-        batch_size=1, startFirst=True,
+        batch_size=2, startFirst=True,
+        client_thread_count=5,
+        per_client_request_count=3)
+    delete_all(client, [env])
+
+
+@if_lb_drain_testing
+def test_drain_target_with_multiple_lbs_2(client, socat_containers):
+    lb_scale = 1
+    service_scale = 2
+    lb_ports = ["9307", "9407", "9507"]
+    response_sleep_time = 17500
+    draintime_in_ms = 20000
+
+    env, lb_services, service = create_multiple_lb_service_to_same_target(
+        client,
+        response_sleep_time,
+        draintime_in_ms,
+        service_scale,
+        lb_scale,
+        lb_ports)
+    upgrade_target_service_when_connecting(
+        client, service, lb_services,
+        upgrade_start_interval=5,
+        batch_size=1, startFirst=False,
         client_thread_count=3,
         per_client_request_count=3)
     delete_all(client, [env])
+
+
+def create_multiple_lb_service_to_same_target(client,
+                                              service_response_sleep_time,
+                                              service_draintime_in_ms,
+                                              service_scale,
+                                              lb_scale,
+                                              lb_ports):
+    lb_services = []
+    set_host_labels(client)
+    label = {"io.rancher.scheduler.affinity:host_label": target_service_label}
+
+    launch_config_lb = {
+        "labels": {
+            "io.rancher.scheduler.affinity:host_label": lb_service_label}}
+
+    launch_config_target = {"imageUuid": "docker:prachidamle/testservice",
+                            "environment":
+                                {"SLEEP_INTERVAL":
+                                 service_response_sleep_time},
+                            "drainTimeoutMs": service_draintime_in_ms}
+    launch_config_target["labels"] = label
+
+    env, service, lb_service = create_environment_with_balancer_services(
+        client, service_scale, lb_scale, lb_ports[0],
+        launch_config_target=launch_config_target,
+        target_port=8094,
+        launch_config_lb=launch_config_lb)
+
+    lb_services.append(lb_service)
+
+    for i in range(1, len(lb_ports)):
+        # Create another LB Service pointing to same target
+        launch_config_lb = {"imageUuid": get_haproxy_image(),
+                            "ports": lb_ports[i],
+                            "labels": {
+                                "io.rancher.scheduler.affinity:host_label":
+                                    lb_service_label}}
+
+        random_name = random_str()
+        lb_service_name = "LB-" + random_name.replace("-", "")
+
+        port_rule = {"serviceId": service.id,
+                     "sourcePort": lb_ports[i],
+                     "targetPort": "8094",
+                     "protocol": "http"
+                     }
+        lb_config = {"portRules": [port_rule]}
+
+        lb_service = client.create_loadBalancerService(
+            name=lb_service_name,
+            stackId=env.id,
+            launchConfig=launch_config_lb,
+            scale=lb_scale,
+            lbConfig=lb_config)
+
+        lb_service = client.wait_success(lb_service)
+        assert lb_service.state == "inactive"
+        lb_service = client.wait_success(lb_service.activate())
+        assert lb_service.state == "active"
+        lb_services.append(lb_service)
+        wait_for_lb_service_to_become_active(client,
+                                             [service], lb_service)
+
+    return env, lb_services, service
 
 
 def validate_lb_service_ha_drain(client, port, service_scale,
