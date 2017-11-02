@@ -143,6 +143,7 @@ k8s_base_external_port = os.environ.get("BASE_EXTERNAL_PORT", "300")
 k8s_base_node_port = os.environ.get("BASE_NODE_PORT", "310")
 k8s_base_ingress_port = os.environ.get("BASE_INGRESS_PORT", "8")
 k8s_base_lb_node_port = os.environ.get("BASE_LB_NODE_PORT", "320")
+k8s_skip_restart_check = os.environ.get("SKIP_RESTART_CHECK", "false")
 
 
 @pytest.fixture(scope='session')
@@ -4290,7 +4291,8 @@ def k8s_validate_stack(input_config):
     assert pod['status']['phase'] == "Running"
     container = pod['status']['containerStatuses'][0]
     assert "husseingalal/nginx-curl" in container['image']
-    assert container['restartCount'] == 0
+    if k8s_skip_restart_check != "true":
+        assert container['restartCount'] == 0
     assert container['ready']
     assert container['name'] == "nginx"
 
