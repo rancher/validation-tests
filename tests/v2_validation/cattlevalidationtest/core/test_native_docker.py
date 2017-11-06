@@ -384,3 +384,71 @@ def test_native_fields(socat_containers, client, pull_images):
     assert rancher_container.restartPolicy["name"] == u"on-failure"
     assert rancher_container.restartPolicy["maximumRetryCount"] == 5
     assert rancher_container.devices == ['/dev/null:/dev/xnull:rw']
+
+
+def test_native_net_with_network_label_blank(client, socat_containers):
+    validate_native_containers_with_network_label(client)
+
+
+def test_native_net_with_network_label_bridge(client, socat_containers):
+    validate_native_containers_with_network_label(client, "bridge")
+
+
+def test_native_net_with_network_label_none(client, socat_containers):
+    validate_native_containers_with_network_label(client, "none")
+
+
+def test_native_net_with_network_label_host(client, socat_containers):
+    validate_native_containers_with_network_label(client, "host")
+
+
+def validate_native_containers_with_network_label(client, network_mode=None):
+    hosts = client.list_host(kind='docker', removed_null=True)
+    assert len(hosts) > 1
+    docker_client = get_docker_client(hosts[0])
+
+    if network_mode is None:
+        network_mode_str = "blank"
+    else:
+        network_mode_str = "blank"
+    primary_con_name = "test-native-"+network_mode_str+"-label-"+random_str()
+
+    if network_mode is not None:
+        host_config = docker_client.create_host_config(
+            network_mode=network_mode)
+        docker_container = docker_client.create_container(
+            SSH_IMAGE_UUID_HOSTNET[7:],
+            name=primary_con_name,
+            labels={'io.rancher.container.network': 'true'},
+            host_config=host_config)
+    else:
+        docker_container = docker_client.create_container(
+            SSH_IMAGE_UUID_HOSTNET[7:],
+            name=primary_con_name,
+            labels={'io.rancher.container.network': 'true'})
+    primary_container, docker_container = start_and_wait(client,
+                                                         docker_container,
+                                                         docker_client,
+                                                         primary_con_name)
+
+    sec_con_name = "test-native-side-"+network_mode_str+"-label-"+random_str()
+    host_config = docker_client.create_host_config(
+        network_mode='container:'+primary_con_name)
+    docker_container = docker_client.create_container(
+        WEB_IMAGE_UUID[7:],
+        name=sec_con_name,
+        labels={'io.rancher.container.network': 'true'},
+        host_config=host_config
+        )
+    sidekick_container, docker_container = start_and_wait(client,
+                                                          docker_container,
+                                                          docker_client,
+                                                          sec_con_name)
+    if network_mode is None:
+        network_mode = "default"
+    validate_container_network_settings_for_native_containers(
+        client,
+        primary_container,
+        sidekick_container,
+        network_mode)
+    delete_all(client, [primary_container, sidekick_container])

@@ -120,6 +120,51 @@ def test_linking(client, admin_client, test_name):
     delete_all(client, [link_client, link_server, link_server2])
 
 
+def test_network_modes_with_lables_managed(client, socat_containers):
+    validate_container_with_labels(client, "managed")
+
+
+def test_network_modes_with_lables_none(client, socat_containers):
+    validate_container_with_labels(client, "none")
+
+
+def test_network_modes_with_lables_default(client, socat_containers):
+    validate_container_with_labels(client, "default")
+
+
+def test_network_modes_with_lables_host(client, socat_containers):
+    validate_container_with_labels(client, "host")
+
+
+def validate_container_with_labels(client, network_mode):
+    primary_container = client.create_container(
+        name="test-managed-label-"+random_str(),
+        imageUuid=SSH_IMAGE_UUID_HOSTNET,
+        networkMode=network_mode,
+        labels={"io.rancher.container.network": "true"})
+    primary_container = client.wait_success(primary_container)
+
+    sidekick_container = client.create_container(
+        name="test-con-managed-label-"+random_str(),
+        imageUuid=LB_HOST_ROUTING_IMAGE_UUID,
+        networkMode="container",
+        networkContainerId=primary_container.id,
+        labels={"io.rancher.container.network": "true"})
+
+    sidekick_container = client.wait_success(sidekick_container)
+
+    assert "io.rancher.container.network" not in \
+           primary_container.labels.keys()
+    assert "io.rancher.container.network" not in \
+           sidekick_container.labels.keys()
+
+    validate_container_network_settings(client,
+                                        primary_container,
+                                        sidekick_container,
+                                        network_mode)
+    delete_all(client, [primary_container, sidekick_container])
+
+
 def test_ip_inject(client, test_name):
     cleanup_items = []
     try:
@@ -142,6 +187,7 @@ def assert_ip_inject(container):
     conn = ws.create_connection(logs.url + '?token=' + logs.token, timeout=10)
     count = 0
     found_ip = False
+    time.sleep(5)
     while count <= 100:
         count += 1
         try:

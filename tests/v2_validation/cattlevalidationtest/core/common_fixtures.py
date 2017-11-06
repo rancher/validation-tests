@@ -13,7 +13,7 @@ import json
 import base64
 import jinja2
 import docker
-
+import websocket as ws
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -4068,8 +4068,8 @@ def mark_container_healthy(admin_client, con, port):
     stdin, stdout, stderr = ssh.exec_command(cmd)
 
 
-def get_container_host(admin_client, con):
-    containers = admin_client.list_container(
+def get_container_host(client, con):
+    containers = client.list_container(
         externalId=con.externalId,
         include="hosts")
     assert len(containers) == 1
@@ -4635,3 +4635,85 @@ def k8s_check_cluster_health(input_config=None):
     k8s_validate_stack(input_config)
     k8s_modify_stack(input_config)
     time.sleep(120)
+
+
+def get_injected_ip_str(container):
+    assert container.state == "running"
+    execute_val = container.execute(
+        attachStdin=True,
+        attachStdout=True,
+        command=['/bin/bash', '-c', "ip addr show | grep eth0 | grep inet"],
+        tty=True)
+    conn = ws.create_connection(execute_val.url + '?token=' +
+                                execute_val.token,
+                                timeout=10)
+    msg = conn.recv()
+    conn.close()
+    result = base64.b64decode(msg)
+    return result
+
+
+def validate_container_network_settings(client,
+                                        primary_container,
+                                        sidekick_container,
+                                        networkMode):
+    # Validate Allocated ip address
+    primary_ip_address = primary_container.primaryIpAddress
+    sec_ip_address = sidekick_container.primaryIpAddress
+    if networkMode in ("bridge"):
+        assert primary_ip_address.startswith("172.17")
+    if networkMode in ("managed"):
+        assert primary_ip_address.startswith("10.42")
+    if networkMode in ("host", "none"):
+        assert primary_ip_address is None
+    assert sec_ip_address is None
+
+    # Validate ip address assigned to eth0
+    if networkMode is ("managed", "bridge"):
+        assert primary_ip_address in get_injected_ip_str(primary_container)
+        assert primary_ip_address in get_injected_ip_str(sidekick_container)
+
+    # Validate Network Mode
+    docker_client = get_docker_client(
+        get_container_host(client, primary_container))
+    inspect = docker_client.inspect_container(primary_container.externalId)
+    if networkMode in ("bridge"):
+        assert "default" in inspect["HostConfig"]["NetworkMode"]
+    if networkMode in ("host"):
+        assert "host" in inspect["HostConfig"]["NetworkMode"]
+    if networkMode in ("managed", "none"):
+        assert "none" in inspect["HostConfig"]["NetworkMode"]
+
+    inspect = docker_client.inspect_container(sidekick_container.externalId)
+    assert "container:" + primary_container.externalId\
+           in inspect["HostConfig"]["NetworkMode"]
+
+
+def validate_container_network_settings_for_native_containers(
+        client,
+        primary_container,
+        sidekick_container,
+        networkMode):
+    # Validate Allocated ip address
+    primary_ip_address = primary_container.primaryIpAddress
+    sec_ip_address = sidekick_container.primaryIpAddress
+    if networkMode in ("bridge", "none", "default"):
+        assert primary_ip_address.startswith("10.42")
+    if networkMode in ("host"):
+        assert primary_ip_address is None
+    assert sec_ip_address is None
+
+    # Validate ip address assigned to eth0
+    if networkMode is ("bridge", "none", "default"):
+        assert primary_ip_address in get_injected_ip_str(primary_container)
+        assert primary_ip_address in get_injected_ip_str(sidekick_container)
+
+    # Validate Network Mode
+    docker_client = get_docker_client(
+        get_container_host(client, primary_container))
+    inspect = docker_client.inspect_container(primary_container.externalId)
+    assert networkMode in inspect["HostConfig"]["NetworkMode"]
+
+    inspect = docker_client.inspect_container(sidekick_container.externalId)
+    assert "container:" + primary_container.externalId\
+           in inspect["HostConfig"]["NetworkMode"]

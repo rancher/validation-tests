@@ -24,8 +24,13 @@ def env_with_sidekick_config(client, service_scale,
     consumed_service_name = random_name.replace("-", "")
 
     launch_config_consumed_service["name"] = consumed_service_name
+
     random_name = random_str()
     service_name = random_name.replace("-", "")
+
+    if "networkMode" in launch_config_consumed_service.keys() \
+            and launch_config_consumed_service["networkMode"] == "container":
+        launch_config_consumed_service["networkLaunchConfig"] = service_name
     service = client.create_service(
         name=service_name, stackId=env.id,
         launchConfig=launch_config_service, scale=service_scale,

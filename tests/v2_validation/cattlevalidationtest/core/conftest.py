@@ -41,6 +41,7 @@ def cleanup():
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
                         i.name.startswith("socat-test") or \
+                        i.name.startswith("test-") or \
                         i.name.startswith("host-test") or \
                         i.name.startswith("native-test") or \
                         i.name.startswith("target-native-test-") or \

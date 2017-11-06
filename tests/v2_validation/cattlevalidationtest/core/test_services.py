@@ -1,7 +1,7 @@
 from common_fixtures import *  # NOQA
 from cattle import ApiError
 from test_services_lb_balancer import create_environment_with_balancer_services
-
+from test_services_sidekick import env_with_sidekick_config
 
 TEST_SERVICE_OPT_IMAGE = 'ibuildthecloud/helloworld'
 TEST_SERVICE_OPT_IMAGE_LATEST = TEST_SERVICE_OPT_IMAGE + ':latest'
@@ -56,6 +56,68 @@ def create_env_and_svc_activate(client, scale, check=True,
     service, env = create_env_and_svc_activate_launch_config(
         client, launch_config, scale, check, retainIp)
     return service, env
+
+
+def test_network_modes_with_lables_managed(client, socat_containers):
+    validate_network_modes_with_lables(client, "managed")
+
+
+def test_network_modes_with_lables_bridge(client, socat_containers):
+    validate_network_modes_with_lables(client, "bridge")
+
+
+def test_network_modes_with_lables_none(client, socat_containers):
+    validate_network_modes_with_lables(client, "none")
+
+
+def test_network_modes_with_lables_host(client, socat_containers):
+    validate_network_modes_with_lables(client, "host")
+
+
+def validate_network_modes_with_lables(client, networkMode):
+    env = client.create_stack(name="test-"+networkMode+"-network")
+    env = client.wait_success(env)
+    assert env.state == "active"
+
+    launch_config_service = {
+        "imageUuid": SSH_IMAGE_UUID_HOSTNET,
+        "labels": {"io.rancher.container.network": "true"},
+        "networkMode": networkMode,
+        }
+
+    launch_config_consumed_service = {
+        "imageUuid": WEB_IMAGE_UUID,
+        "networkMode": "container",
+        "labels": {"io.rancher.container.network": "true"}}
+
+    env, service, service_name, consumed_service_name = \
+        env_with_sidekick_config(client, 1,
+                                 launch_config_consumed_service,
+                                 launch_config_service,
+                                 env)
+    env = env.activateservices()
+    env = client.wait_success(env, SERVICE_WAIT_TIMEOUT)
+    service = client.wait_success(service, SERVICE_WAIT_TIMEOUT)
+    assert service.state == "active"
+
+    container_name = get_container_name(env, service, "1")
+    containers = client.list_container(name=container_name,
+                                       include="hosts")
+    assert len(containers) == 1
+    primary_container = containers[0]
+    assert "io.rancher.container.network" not in \
+           primary_container.labels.keys()
+
+    sidekick_container = get_side_kick_container(
+        client, primary_container, service, consumed_service_name)
+    assert "io.rancher.container.network" not in \
+           sidekick_container.labels.keys()
+
+    validate_container_network_settings(client,
+                                        primary_container,
+                                        sidekick_container,
+                                        networkMode)
+    delete_all(client, [env])
 
 
 def create_env_and_svc_activate_launch_config(
