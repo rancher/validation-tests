@@ -13,6 +13,10 @@ if_ldap_port = pytest.mark.skipif(
     os.environ.get('LDAP_PORT') != 'True',
     reason="LDAP_PORT is not True")
 
+if_disabled_account = pytest.mark.skipif(
+    not os.environ.get('AD_DISABLED_USER'),
+    reason="Disabled user account not set")
+
 ADMIN_AD_CLIENT = None
 ADMIN_TOKEN = None
 
@@ -1853,3 +1857,69 @@ def test_ad_restricted_to_specific_group(admin_client, request):
         reconfigure_ad(ADMIN_AD_CLIENT,
                        os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
     request.addfinalizer(fin)
+
+
+@if_test_ad
+@if_disabled_account
+def test_ad_restricted_access_with_disabled_account(admin_client, request):
+    ldap_main_user = os.environ.get('AD_MAIN_USER')
+    ldap_main_pass = os.environ.get('AD_MAIN_PASS')
+    ldap_user2 = os.environ.get('AD_USER2')
+    ldap_pass2 = os.environ.get('AD_PASS2')
+    ldap_disabled_user = os.environ.get('AD_DISABLED_USER')
+    ldap_disabled_pass = os.environ.get('AD_DISABLED_PASS')
+    ldap_port = os.environ.get('LDAP_PORT')
+
+    user = ADMIN_TOKEN['userIdentity']
+    allowed_identities = []
+    allowed_identities.append(user)
+    user2_identity = ADMIN_AD_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ast.literal_eval(str(user2_identity))
+    allowed_identities.append(user2_identity)
+    disabled_user_identity = ADMIN_AD_CLIENT.list_identity(name=ldap_disabled_user)[0]
+    disabled_user_identity = ast.literal_eval(str(disabled_user_identity))
+    allowed_identities.append(disabled_user_identity)
+
+    # Enable new configuration
+    config = load_config(access_mode='restricted')
+    config['enabled'] = True
+    config['allowedIdentities'] = allowed_identities
+    if ldap_port == 'True':
+        access_key = ADMIN_AD_CLIENT._access_key
+        secret_key = ADMIN_AD_CLIENT._secret_key
+        auth_url = cattle_url()[:-7] + 'v1-auth/config'
+        r = requests.post(auth_url, data=json.dumps(config),
+                          auth=(access_key, secret_key))
+        assert r.ok
+    else:
+        ADMIN_AD_CLIENT.create_ldapconfig(config)
+
+
+    # Try to login with user1 and user2 and disabled account
+    token1 = get_authed_token(username=ldap_main_user,
+                              password=ldap_main_pass)
+
+    token2 = get_authed_token(username=ldap_user2,
+                              password=ldap_pass2)
+
+    try:
+        get_authed_token(username=ldap_disabled_user,
+                         password=ldap_disabled_pass)
+    except AssertionError as e:
+        assert '401' in str(e)
+
+    cookies = dict(token=token1['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    cookies = dict(token=token2['jwt'])
+    good_auth = requests.get(cattle_url() + "schemas", cookies=cookies)
+    assert good_auth.status_code == 200
+
+    def fin():
+        reconfigure_ad(ADMIN_AD_CLIENT,
+                       os.environ.get('API_AUTH_AD_SEARCH_BASE'), '')
+    request.addfinalizer(fin)
+
+
+
