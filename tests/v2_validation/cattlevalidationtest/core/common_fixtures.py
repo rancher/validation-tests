@@ -65,6 +65,9 @@ RANCHER_EBS = os.environ.get(
 STRESS_TEST = os.environ.get(
     'STRESS_TEST', "false")
 
+ONTAG_RUNS = os.environ.get(
+    'ONTAG_RUNS', "false")
+
 ACCESS_KEY = os.environ.get('ACCESS_KEY')
 SECRET_KEY = os.environ.get('SECRET_KEY')
 PROJECT_ID = os.environ.get('PROJECT_ID', "1a5")
@@ -78,6 +81,9 @@ if_stress = pytest.mark.skipif(
     STRESS_TEST != "True",
     reason='Not Stress Test Run')
 
+if_ontag = pytest.mark.skipif(
+    ONTAG_RUNS == "True",
+    reason='Skipped for onTag runs')
 
 WEB_IMAGE_UUID = "docker:sangeetha/testlbsd:latest"
 WEB_SSL_IMAGE1_UUID = "docker:sangeetha/ssllbtarget1:latest"

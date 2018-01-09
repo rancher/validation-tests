@@ -1237,6 +1237,7 @@ def cli_inspect_volume(client, compose_directory,
         assert False
 
 
+@if_ontag
 def test_cli_catalog_list(client, rancher_cli_container):
 
     # This method tests listing catalogs

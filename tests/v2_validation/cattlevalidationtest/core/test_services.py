@@ -672,6 +672,7 @@ def test_service_scale_down(client, socat_containers):
     check_service_scale(client, socat_containers, 4, 2, 2)
 
 
+@if_ontag
 def test_service_activate_stop_instance_scale_up(
         client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -696,6 +697,7 @@ def test_service_activate_delete_instance_scale_down(
         client, socat_containers, 4, 1, [1], 3)
 
 
+@if_ontag
 def test_service_activate_stop_instance_scale_up_1(
         client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -721,6 +723,7 @@ def test_service_activate_delete_instance_scale_down_1(
                                                  4, 1, [4], 3)
 
 
+@if_ontag
 def test_service_activate_stop_instance_scale_up_2(
         client, socat_containers):
     check_service_activate_stop_instance_scale(
@@ -745,6 +748,7 @@ def test_service_activate_delete_instance_scale_down_2(
         client, socat_containers, 4, 1, [1, 2, 3, 4])
 
 
+@if_ontag
 def test_service_activate_stop_instance_scale_up_3(
         client, socat_containers):
     check_service_activate_stop_instance_scale(

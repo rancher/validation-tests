@@ -1230,6 +1230,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
     delete_all(client, [stack])
 
 
+@if_ontag
 @if_compose_data_files
 # known issue 5476
 def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
@@ -1352,6 +1353,7 @@ def test_rancher_compose_inservice_upgrade_remove_sk(
     delete_all(client, [stack])
 
 
+@if_ontag
 @if_compose_data_files
 # Known issue #6380
 def test_rancher_compose_inservice_upgrade_remove_sk_rollback(
