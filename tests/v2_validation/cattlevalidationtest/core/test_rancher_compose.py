@@ -435,6 +435,7 @@ def test_rancher_compose_lbservice_internal(client,
     rancher_service1 = get_rancher_compose_service(
         client, rancher_env.id, service1)
     client.wait_success(rancher_service1)
+    time.sleep(20)
     validate_internal_lb(client, rancher_lb_service,
                          [rancher_service, rancher_service1],
                          host, con_port, port)
