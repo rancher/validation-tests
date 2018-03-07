@@ -68,6 +68,21 @@ def test_dynamic_port(client, test_name):
     delete_all(client, [c])
 
 
+def test_container_multi_private_port_mapping(client, test_name):
+    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    assert len(hosts) > 0
+    con1 = client.create_container(name=test_name + "-scheduler",
+                                   networkMode=MANAGED_NETWORK,
+                                   imageUuid=TEST_IMAGE_UUID,
+                                   ports=["9000:8080/tcp", "9001:8080/tcp"])
+    con1 = client.wait_success(con1, 120)
+    assert con1.state == "running"
+    assert sorted(con1.ports) == \
+        sorted(["0.0.0.0:9000:8080/tcp", "0.0.0.0:9001:8080/tcp"])
+
+    delete_all(client, [con1])
+
+
 def test_linking(client, admin_client, test_name):
 
     hosts = client.list_host(kind='docker', removed_null=True)
