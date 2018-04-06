@@ -4,7 +4,7 @@ clusters:
 - cluster:
     api-version: v1
     insecure-skip-tls-verify: true
-    server: "https://$server:8080/r/projects/$pid/kubernetes"
+    server: "https://$server:8080/r/projects/$pid/kubernetes:6443"
   name: $environment
 contexts:
 - context:
@@ -15,5 +15,4 @@ current-context: $environment
 users:
 - name: $environment
   user:
-    username: $username
-    password: $password
+    token: $token
