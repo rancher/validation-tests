@@ -2781,32 +2781,21 @@ def create_kubectl_client_container(client, port,
     assert c.state == "running"
     time.sleep(sleep_interval)
 
-    k8s_version = float(kubectl_version[1:4])
     if cattle_url().startswith("https"):
         server_ip = rancher_server_url()
-        if k8s_version >= 1.6:
-            config_file = "config-ssl-k8s16.txt"
-        else:
-            config_file = "config-ssl.txt"
+        config_file = "config-ssl.txt"
     else:
         server_ip = cattle_url()[cattle_url().index("//") +
                                  2:cattle_url().index(":8080")]
-        if k8s_version >= 1.6:
-            config_file = "config-k8s16.txt"
-        else:
-            config_file = "config.txt"
+        config_file = "config.txt"
 
     kube_config = readDataFile(K8_SUBDIR, config_file)
-    if k8s_version >= 1.6:
-        token = base64.standard_b64encode(
-                    "Basic " + base64.standard_b64encode(
-                                    client._access_key +
-                                    ":" +
-                                    client._secret_key))
-        kube_config = kube_config.replace("$token", token)
-    else:
-        kube_config = kube_config.replace("$username", client._access_key)
-        kube_config = kube_config.replace("$password", client._secret_key)
+    token = base64.standard_b64encode(
+                "Basic " + base64.standard_b64encode(
+                                client._access_key +
+                                ":" +
+                                client._secret_key))
+    kube_config = kube_config.replace("$token", token)
     kube_config = kube_config.replace("$environment", project_name)
     kube_config = kube_config.replace("$pid", project_id)
 
