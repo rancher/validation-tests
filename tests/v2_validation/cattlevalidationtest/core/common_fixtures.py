@@ -3258,8 +3258,8 @@ def get_pod_names_for_selector(selector_name, namespace, scale=2):
 # Collect names of the pods in the service1
 def create_ingress(file_name, ingress_name, namespace, ing_scale=1,
                    wait_for_ingress=True):
-
-    expected_result = ['ingress "'+ingress_name+'" created']
+    # expected_result = ['ingress "' + ingress_name + '" created']
+    expected_result = [ingress_name+'" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace, expected_result,
         file_name=file_name)
@@ -3300,7 +3300,8 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
 # Delete an ingress
 def delete_ingress(ingress_name, namespace):
     timeout = 0
-    expected_result = ['ingress "'+ingress_name+'" deleted']
+    # expected_result = ['ingress "'+ingress_name+'" deleted']
+    expected_result = [ingress_name + '" deleted']
     execute_kubectl_cmds(
         "delete ing " + ingress_name + " --namespace=" +
         namespace, expected_result)
