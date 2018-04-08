@@ -532,7 +532,8 @@ def test_k8s_ingress_11(kube_hosts):
     # Replace the ingress with http.port=98
     port_new = "98"
     ingress_file_name_new = "ingress_11_replace.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
@@ -791,7 +792,8 @@ def test_k8s_ingress_15(kube_hosts):
     # Replace the ingress with to point to a
     # different target service k8test15-two
     ingress_file_name_new = "ingress_15_new.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
@@ -859,7 +861,8 @@ def test_k8s_ingress_16(kube_hosts):
     # port number, host-header and service
     port_new = "101"
     ingress_file_name_new = "ingress_16_new.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
@@ -1192,7 +1195,8 @@ def test_k8s_ingress_21(kube_hosts):
 
     # Replace the ingress to point to a different service
     ingress_file_name_new = "ingress_21_new.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
@@ -1415,7 +1419,8 @@ def test_k8s_ingress_24(kube_hosts):
 
     # Replace the ingress by increasing the scale to two
     ingress_file_name_new = "ingress_24_new.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
@@ -1481,7 +1486,8 @@ def test_k8s_ingress_25(kube_hosts):
 
     # Replace the ingress by updating the hostheader to "bar.foo.com"
     ingress_file_name_new = "ingress_25_new.yml"
-    expected_result = ['ingress "' + ingress_name + '" replaced']
+    # expected_result = ['ingress "' + ingress_name + '" replaced']
+    expected_result = ['"' + ingress_name + '" replaced']
     execute_kubectl_cmds(
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
