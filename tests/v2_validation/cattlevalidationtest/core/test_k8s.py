@@ -382,8 +382,7 @@ def test_k8s_env_resourceQuota(kube_hosts):
     # Verify that creation failed
     describe_response = execute_kubectl_cmds(
         "describe rc testnginx --namespace="+namespace)
-    failed_str = 'Error creating: pods "testnginx-" '
-    'is forbidden: Exceeded quota: quota'
+    failed_str = 'forbidden: exceeded quota'
     assert failed_str in describe_response
     teardown_ns(namespace)
 
@@ -394,7 +393,8 @@ def test_k8s_env_deployments(kube_hosts):
     create_ns(namespace)
     name = "nginx-deployment"
     # Create deployment
-    expected_result = ['deployment "'+name+'" created']
+    # expected_result = ['deployment "'+name+'" created']
+    expected_result = ['"' + name + '" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace,
         expected_result, file_name="nginx-deployment.yml")
@@ -419,7 +419,8 @@ def test_k8s_env_deployments_rollback(kube_hosts):
     create_ns(namespace)
     name = "nginx-deployment"
     # Create deployment
-    expected_result = ['deployment "'+name+'" created']
+    # expected_result = ['deployment "'+name+'" created']
+    expected_result = ['"' + name + '" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace,
         expected_result, file_name="nginx-deployment.yml")
@@ -437,7 +438,8 @@ def test_k8s_env_deployments_rollback(kube_hosts):
     containers = deployment["spec"]["template"]["spec"]["containers"]
     assert containers[0]["image"] == "nginx:1.7.9"
     # Update deployment
-    expected_result = ['deployment "'+name+'" configured']
+    # expected_result = ['deployment "'+name+'" configured']
+    expected_result = ['"' + name + '" configured']
     execute_kubectl_cmds(
         "apply --namespace="+namespace,
         expected_result, file_name="nginx-deploymentv2.yml")
@@ -454,9 +456,13 @@ def test_k8s_env_deployments_rollback(kube_hosts):
     containers = deployment["spec"]["template"]["spec"]["containers"]
     assert containers[0]["image"] == "nginx:1.9.1"
     # Rollback deployment
-    expected_result = ['deployment "nginx-deployment" rolled back']
+    expected_result = ['"nginx-deployment"']
     execute_kubectl_cmds(
         "rollout undo --namespace="+namespace+" deployment/"+name,
+        expected_result)
+    expected_result = ['"' + name + '" successfully rolled out']
+    execute_kubectl_cmds(
+        "rollout status --namespace="+namespace+" deployment/"+name,
         expected_result)
     waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
     get_response = execute_kubectl_cmds(
@@ -478,7 +484,8 @@ def test_k8s_env_jobs(kube_hosts):
     create_ns(namespace)
     name = "pitest"
     # Create deployment
-    expected_result = ['job "'+name+'" created']
+    # expected_result = ['job "'+name+'" created']
+    expected_result = ['"' + name + '" created']
     execute_kubectl_cmds(
         "create --namespace="+namespace, expected_result, file_name="job.yml")
     waitfor_pods(
@@ -542,7 +549,8 @@ def test_k8s_env_daemonsets(kube_hosts):
     create_ns(namespace)
     name = "daemonset"
     # Create daemonset
-    expected_result = ['daemonset "'+name+'" created']
+    # expected_result = ['daemonset "'+name+'" created']
+    expected_result = ['"' + name + '" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="daemonset.yml")
     waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=3)
@@ -572,7 +580,8 @@ def test_k8s_env_replicasets(kube_hosts):
     create_ns(namespace)
     name = "rs"
     # Create daemonset
-    expected_result = ['replicaset "'+name+'" created']
+    # expected_result = ['replicaset "'+name+'" created']
+    expected_result = ['"' + name + '" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="replicaset.yml")
     waitfor_pods(selector="app=nginx", namespace=namespace, number=3)
@@ -1193,7 +1202,8 @@ def test_k8s_env_podspec_hostnetwork(kube_hosts):
     # Checking interconnectivity between pods
     ds_name = "daemonset"
     # Create daemonset
-    expected_result = ['daemonset "'+ds_name+'" created']
+    # expected_result = ['daemonset "'+ds_name+'" created']
+    expected_result = ['"' + ds_name + '" created']
     execute_kubectl_cmds("create --namespace="+namespace, expected_result,
                          file_name="daemonset_hostnet.yml")
     waitfor_pods(selector="app=daemonset-nginx", namespace=namespace, number=3)
