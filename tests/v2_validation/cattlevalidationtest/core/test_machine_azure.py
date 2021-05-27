@@ -66,7 +66,7 @@ def azure_machine_life_cycle(client, configs, expected_values):
 
     # Wait until host shows up with some physicalHostId
     machine = wait_for_host(client, machine)
-    host = machine.hosts()[0]
+    host = machine.hosts().data[0]
     assert host.state == 'active'
     assert machine.accountId == host.accountId
     # Remove the machine and make sure that the host
@@ -75,7 +75,7 @@ def azure_machine_life_cycle(client, configs, expected_values):
     machine = client.wait_success(machine.remove())
     assert machine.state == 'removed'
 
-    host = client.reload(machine.hosts()[0])
+    host = client.reload(machine.hosts().data[0])
     assert host.state == 'removed'
 
 
@@ -87,7 +87,7 @@ def wait_for_host(client, machine):
                                  str(len(x.hosts())),
                        DEFAULT_TIMEOUT)
 
-    host = machine.hosts()[0]
+    host = machine.hosts().data[0]
     host = wait_for_condition(client,
                               host,
                               lambda x: x.state == 'active',

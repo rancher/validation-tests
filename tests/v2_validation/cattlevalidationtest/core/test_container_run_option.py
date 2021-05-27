@@ -8,7 +8,7 @@ TEST_IMAGE_UUID = 'docker:' + TEST_IMAGE
 def test_container_run_with_options_1(client, test_name,
                                       socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -78,7 +78,7 @@ def test_container_run_with_options_1(client, test_name,
 
     docker_client = get_docker_client(host)
     inspect = docker_client.inspect_container(c.externalId)
-    print inspect
+    print(inspect)
 
     dns_name.append(RANCHER_DNS_SERVER)
     dns_search.append(RANCHER_DNS_SEARCH)
@@ -109,7 +109,7 @@ def test_container_run_with_options_1(client, test_name,
 def test_container_run_with_options_2(client, test_name,
                                       socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) >= 1
     host = hosts[0]
 

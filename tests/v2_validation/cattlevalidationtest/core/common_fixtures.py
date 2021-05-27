@@ -126,7 +126,7 @@ catalog_host_count = 3
 rancher_compose_con = {"container": None, "host": None, "port": "7878"}
 kubectl_client_con = {"container": None, "host": None, "port": "9999"}
 rancher_cli_con = {"container": None, "host": None, "port": "7879"}
-kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.4.6")
+kubectl_version = os.environ.get('KUBECTL_VERSION', "v1.10.0")
 helm_version = os.environ.get('HELM_VERSION', "v2.1.3")
 CONTAINER_STATES = ["running", "stopped", "stopping"]
 check_connectivity_by_wget = True
@@ -219,7 +219,7 @@ def create_user(admin_client, user_name, kind=None):
 
 
 def acc_id(client):
-    obj = client.list_api_key()[0]
+    obj = client.list_api_key().data[0]
     return obj.account().id
 
 
@@ -265,7 +265,7 @@ def create_type_by_uuid(admin_client, type, uuid, activate=True, validate=True,
     opts = dict(kw)
     opts['uuid'] = uuid
 
-    objs = admin_client.list(type, uuid=uuid)
+    objs = admin_client.list(type, uuid=uuid).data
     obj = None
     if len(objs) == 0:
         obj = admin_client.create(type, **opts)
@@ -295,7 +295,7 @@ def accounts():
                                         kind=user_name)
 
     result['admin'] = create_user(admin_client, 'admin')
-    system_account = admin_client.list_account(kind='system', uuid='system')[0]
+    system_account = admin_client.list_account(kind='system', uuid='system').data[0]
     result['system'] = [None, None, system_account]
 
     return result
@@ -309,7 +309,7 @@ def client(admin_client):
                 ACCESS_KEY, SECRET_KEY, PROJECT_ID)
     else:
         client = client_for_project(
-            admin_client.list_project(uuid="adminProject")[0])
+            admin_client.list_project(uuid="adminProject").data[0])
         assert client.valid()
     return client
 
@@ -329,11 +329,11 @@ def admin_client():
 
 @pytest.fixture(scope='session')
 def admin_user_client(super_client):
-    admin_account = super_client.list_account(kind='admin', uuid='admin')[0]
+    admin_account = super_client.list_account(kind='admin', uuid='admin').data[0]
     key = super_client.create_api_key(accountId=admin_account.id)
     super_client.wait_success(key)
     client = api_client(key.publicValue, key.secretValue,
-                        super_client.list_project(uuid="adminProject")[0].id)
+                        super_client.list_project(uuid="adminProject").data[0].id)
     init(client)
     return client
 
@@ -358,7 +358,7 @@ def api_client(access_key, secret_key, project_id=None):
 
 @pytest.fixture(scope='function')
 def new_k8s_context(admin_user_client, name):
-    templates = admin_user_client.list_project_template(name="Kubernetes")
+    templates = admin_user_client.list_project_template(name="Kubernetes").data
     assert len(templates) == 1
     ctx = create_context(admin_user_client, create_project=True,
                          add_host=False, name=name,
@@ -392,7 +392,7 @@ def create_context(admin_user_client, create_project=False, add_host=False,
         # The account type can't see the account obj
         pass
 
-    templates = admin_user_client.list_project_template(name=project_template)
+    templates = admin_user_client.list_project_template(name=project_template).data
     assert len(templates) == 1
     project_template_id = templates[0].id
 
@@ -455,7 +455,7 @@ def wait_all_success(client, items, timeout=DEFAULT_TIMEOUT):
 
 @pytest.fixture
 def managed_network(client):
-    networks = client.list_network(uuid='managed-docker0')
+    networks = client.list_network(uuid='managed-docker0').data
     assert len(networks) == 1
 
     return networks[0]
@@ -463,7 +463,7 @@ def managed_network(client):
 
 @pytest.fixture(scope='session')
 def unmanaged_network(client):
-    networks = client.list_network(uuid='unmanaged')
+    networks = client.list_network(uuid='unmanaged').data
     assert len(networks) == 1
 
     return networks[0]
@@ -472,7 +472,7 @@ def unmanaged_network(client):
 @pytest.fixture
 def one_per_host(client, test_name):
     instances = []
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 2
 
     for host in hosts:
@@ -487,7 +487,7 @@ def one_per_host(client, test_name):
         client, instances, timeout=SERVICE_WAIT_TIMEOUT)
 
     for i in instances:
-        ports = i.ports_link()
+        ports = i.ports_link().data
         assert len(ports) == 1
         port = ports[0]
 
@@ -528,7 +528,7 @@ def get_port_content(port, path, params={}):
     for i in range(60):
         try:
             r = requests.get(url, params=params, timeout=5)
-            print r.url
+            print(r.url)
             return r.text
         except Exception as e1:
             e = e1
@@ -548,8 +548,8 @@ def ping_port(port):
 
 
 def ping_link(src, link_name, var=None, value=None):
-    src_port = src.ports_link()[0]
-    links = src.instanceLinks()
+    src_port = src.ports_link().data[0]
+    links = src.instanceLinks().data
 
     assert len(links) == 1
     assert len(links[0].ports) == 1
@@ -587,7 +587,7 @@ def host_ssh_containers(request, client):
     host_key = keys[0]
     os.system("echo '" + host_key + "' >" + PRIVATE_KEY_FILENAME)
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
 
     ssh_containers = []
     for host in hosts:
@@ -623,7 +623,7 @@ def get_ssh_to_host_ssh_container(host):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    ssh.connect(host.ipAddresses()[0].address, username=HOST_SSH_TEST_ACCOUNT,
+    ssh.connect(host.ipAddresses().data[0].address, username=HOST_SSH_TEST_ACCOUNT,
                 key_filename=PRIVATE_KEY_FILENAME, port=HOST_SSH_PUBLIC_PORT)
 
     return ssh
@@ -667,7 +667,7 @@ def wait_for(callback, timeout=DEFAULT_TIMEOUT, timeout_message=None):
 def ha_hosts(client, admin_client):
     hosts = client.list_host(
         kind='docker', removed_null=True, state="active",
-        include="physicalHost")
+        include="physicalHost").data
     do_host_count = 0
     if len(hosts) >= ha_host_count:
         for i in range(0, len(hosts)):
@@ -715,7 +715,7 @@ def kube_hosts(admin_client, client, request):
         # If there are not enough hosts in the set up , deploy hosts from DO
         hosts = k8s_client.list_host(
             kind='docker', removed_null=True, state="active",
-            include="physicalHost")
+            include="physicalHost").data
         host_count = len(hosts)
         if host_count >= kube_host_count:
             for i in range(0, host_count):
@@ -727,10 +727,10 @@ def kube_hosts(admin_client, client, request):
                     docker_version=docker_version)
             kube_host_list.extend(host_list)
 
-        env = k8s_client.list_stack(name=k8s_stackname)
+        env = k8s_client.list_stack(name=k8s_stackname).data
         assert len(env) == 1
         environment = env[0]
-        print environment.id
+        print(environment.id)
         wait_for_condition(
             k8s_client, environment,
             lambda x: x.healthState == "healthy",
@@ -768,10 +768,11 @@ def socat_containers(client, request):
 
 
 def generate_socat_certificates(hosts):
-    hosts_names = ["IP:"+host.ipAddresses()[0].address for host in hosts]
-    print hosts_names
+    hosts_names = ["IP:"+host.ipAddresses().data[0].address for host in hosts]
+    print(hosts_names)
     hosts_names = ",".join(hosts_names)
     os.environ["SAN"] = hosts_names
+    
     cmd = 'openssl req -new -x509 -days 365 -nodes' + \
         ' -out "' + SSLCERT_SUBDIR + '/socat-crt.pem"' + \
         ' -keyout "' + SSLCERT_SUBDIR + '/socat-key.pem"' + \
@@ -795,7 +796,7 @@ def create_socat_containers(client):
 
     if len(socat_container_list) != 0:
         return
-    hosts = client.list_host(kind='docker', removed_null=True, state='active')
+    hosts = client.list_host(kind='docker', removed_null=True, state='active').data
     crts = generate_socat_certificates(hosts)
     env_var = {"SOCAT_SSL": "true",
                "SOCAT_CA_CRT": crts['socat_crt'],
@@ -843,7 +844,7 @@ def create_socat_containers(client):
 
 
 def get_docker_client(host):
-    ip = host.ipAddresses()[0].address
+    ip = host.ipAddresses().data[0].address
     port = '2375'
 
     tls_config = docker.tls.TLSConfig(
@@ -859,14 +860,14 @@ def wait_for_scale_to_adjust(admin_client, service, timeout=DEFAULT_TIMEOUT):
     service = wait_state(admin_client, service, "active", timeout)
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
                                                        state="active",
-                                                       managed=1)
+                                                       managed=1).data
     start = time.time()
 
     while len(instance_maps) != \
             get_service_instance_count(admin_client, service):
         time.sleep(.5)
         instance_maps = admin_client.list_serviceExposeMap(
-            serviceId=service.id, state="active")
+            serviceId=service.id, state="active").data
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
@@ -882,7 +883,7 @@ def wait_for_scale_to_adjust(admin_client, service, timeout=DEFAULT_TIMEOUT):
 def check_service_map(admin_client, service, instance, state):
     instance_service_map = admin_client.\
         list_serviceExposeMap(serviceId=service.id, instanceId=instance.id,
-                              state=state)
+                              state=state).data
     assert len(instance_service_map) == 1
 
 
@@ -899,7 +900,7 @@ def get_container_names_list(client, services):
 def validate_add_service_link(admin_client, service, consumedService):
     service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
+                               consumedServiceId=consumedService.id).data
     assert len(service_maps) == 1
     service_map = service_maps[0]
     wait_for_condition(
@@ -911,7 +912,7 @@ def validate_add_service_link(admin_client, service, consumedService):
 def validate_remove_service_link(admin_client, service, consumedService):
     service_maps = admin_client. \
         list_serviceConsumeMap(serviceId=service.id,
-                               consumedServiceId=consumedService.id)
+                               consumedServiceId=consumedService.id).data
     if len(service_maps) == 1:
         service_maps[0].state == "removing"
     else:
@@ -921,13 +922,14 @@ def validate_remove_service_link(admin_client, service, consumedService):
 def get_service_container_list(client, service, managed=None):
 
     services = client.list_service(uuid=service.uuid,
-                                   include="instances")
+                                   include="instances").data
     assert len(services) == 1
+    print(services)
     container = []
     for instance in services[0].instances:
         if instance.state != "error":
             containers = client.list_container(externalId=instance.externalId,
-                                               include="hosts")
+                                               include="hosts").data
             assert len(containers) == 1
             container.append(containers[0])
     return container
@@ -936,7 +938,7 @@ def get_service_container_list(client, service, managed=None):
 def get_running_container_names_in_service(client, service, managed=None):
 
     services = client.list_service(uuid=service.uuid,
-                                   include="instances")
+                                   include="instances").data
     assert len(services) == 1
     container = []
     for instance in services[0].instances:
@@ -950,10 +952,10 @@ def get_service_container_managed_list(client, service, managed=None):
     if managed is not None:
         all_instance_maps = \
             client.list_serviceExposeMap(serviceId=service.id,
-                                         managed=managed)
+                                         managed=managed).data
     else:
         all_instance_maps = \
-            client.list_serviceExposeMap(serviceId=service.id)
+            client.list_serviceExposeMap(serviceId=service.id).data
 
     instance_maps = []
     for instance_map in all_instance_maps:
@@ -965,7 +967,7 @@ def get_service_container_managed_list(client, service, managed=None):
         assert c.state in CONTAINER_STATES
         containers = client.list_container(
             externalId=c.externalId,
-            include="hosts")
+            include="hosts").data
         assert len(containers) == 1
         container.append(containers[0])
 
@@ -1016,7 +1018,7 @@ def validate_exposed_port_and_container_link(client, con, link_name,
     # set
     containers = client.list_container(externalId=con.externalId,
                                        include="hosts",
-                                       removed_null=True)
+                                       removed_null=True).data
     assert len(containers) == 1
     con = containers[0]
     host = con.hosts[0]
@@ -1043,7 +1045,7 @@ def validate_exposed_port_and_container_link(client, con, link_name,
     # Validate port mapping
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=exposed_port)
 
     # Validate link containers
@@ -1066,28 +1068,29 @@ def wait_for_lb_service_to_become_active(client, service, lb_service):
     lb_containers = get_service_container_list(client, lb_service)
     assert len(lb_containers) == lb_service.scale
 
-    # Get haproxy config from Lb Agents
-    for lb_con in lb_containers:
-        host = lb_con.hosts[0]
-        docker_client = get_docker_client(host)
-        haproxy_tar = docker_client.get_archive(lb_con.externalId,
-                                                "/etc/haproxy/haproxy.cfg")
-        haproxy = haproxy_tar[0].read()
-        print "haproxy: " + haproxy
+    # # Get haproxy config from Lb Agents
+    # for lb_con in lb_containers:
+    #     host = lb_con.hosts[0]
+    #     docker_client = get_docker_client(host)
+    #     haproxy_tar = docker_client.get_archive(lb_con.externalId,
+    #                                             "/etc/haproxy/haproxy.cfg")
+    #     print(haproxy_tar)
+    #     haproxy = haproxy_tar[0].read()
+    #     print("haproxy: " + haproxy)
 
-        # Get iptable entries from host
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
-                    password="root", port=44)
+    #     # Get iptable entries from host
+    #     ssh = paramiko.SSHClient()
+    #     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    #     ssh.connect(host.ipAddresses().data[0].address, username="root",
+    #                 password="root", port=44)
 
-        cmd = "iptables-save"
-        logger.info(cmd)
-        stdin, stdout, stderr = ssh.exec_command(cmd)
+    #     cmd = "iptables-save"
+    #     logger.info(cmd)
+    #     stdin, stdout, stderr = ssh.exec_command(cmd)
 
-        responses = stdout.readlines()
-        for response in responses:
-            print response
+    #     responses = stdout.readlines()
+    #     for response in responses:
+    #         print(response)
 
 
 def validate_lb_service_for_external_services(client, lb_service,
@@ -1176,7 +1179,7 @@ def wait_until_lb_is_active(host, port, timeout=30, is_ssl=False):
     start = time.time()
     while check_for_no_access(host, port, is_ssl):
         time.sleep(.5)
-        print "No access yet"
+        print("No access yet")
         if time.time() - start > timeout:
             raise Exception('Timed out waiting for LB to become active')
     return
@@ -1188,7 +1191,7 @@ def check_for_no_access(host, port, is_ssl=False):
     else:
         protocol = "http://"
     try:
-        url = protocol+host.ipAddresses()[0].address+":"+port+"/name.html"
+        url = protocol+host.ipAddresses().data[0].address+":"+port+"/name.html"
         requests.get(url)
         return False
     except requests.ConnectionError:
@@ -1200,7 +1203,7 @@ def wait_until_lb_ip_is_active(lb_ip, port, timeout=30, is_ssl=False):
     start = time.time()
     while check_for_no_access_ip(lb_ip, port, is_ssl):
         time.sleep(.5)
-        print "No access yet"
+        print("No access yet")
         if time.time() - start > timeout:
             raise Exception('Timed out waiting for LB to become active')
     time.sleep(10)
@@ -1250,7 +1253,7 @@ def validate_linked_service(admin_client, service, consumed_services,
                         len(consumed_containers) == \
                         consumed_service.scale + len(unmanaged_con_list)
                     for con in unmanaged_con_list:
-                        print "Checking for container : " + con.name
+                        print("Checking for container : " + con.name)
                         found = False
                         for consumed_con in consumed_containers:
                             if con.id == consumed_con.id:
@@ -1268,9 +1271,9 @@ def validate_linked_service(admin_client, service, consumed_services,
                     if con.networkMode == "host":
                         con_host = con.hosts[0]
                         expected_dns_list.append(
-                            con_host.ipAddresses()[0].address)
+                            con_host.ipAddresses().data[0].address)
                         host_name = con_host.hostname
-                        host_os = con_host.info["osInfo"]["operatingSystem"]
+                        host_os = con_host.info.get("osInfo").get("operatingSystem")
                         if host_os.startswith("Ubuntu") \
                            or host_os.startswith("CentOS"):
                             # If host name is fqdn , get only the hostname
@@ -1289,7 +1292,7 @@ def validate_linked_service(admin_client, service, consumed_services,
             # Validate port mapping
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host.ipAddresses()[0].address, username="root",
+            ssh.connect(host.ipAddresses().data[0].address, username="root",
                         password="root", port=int(exposed_port))
 
             if linkName is None:
@@ -1363,7 +1366,7 @@ def validate_dns_service(admin_client, service, consumed_services,
                             consumed_service.scale + \
                             len(unmanaged_con_list)
                     for con in unmanaged_con_list:
-                        print "Checking for container : " + con.name
+                        print("Checking for container : " + con.name)
                         found = False
                         for consumed_con in cons:
                             if con.id == consumed_con.id:
@@ -1380,9 +1383,9 @@ def validate_dns_service(admin_client, service, consumed_services,
             else:
                 if con.networkMode == "host":
                     con_host = con.hosts[0]
-                    expected_dns_list.append(con_host.ipAddresses()[0].address)
+                    expected_dns_list.append(con_host.ipAddresses().data[0].address)
                     host_name = con_host.hostname
-                    host_os = con_host.info["osInfo"]["operatingSystem"]
+                    host_os = con_host.info.get("osInfo").get("operatingSystem")
                     if host_os.startswith("Ubuntu") \
                             or host_os.startswith("CentOS"):
                         # If host name is fqdn , get only the hostname
@@ -1401,7 +1404,7 @@ def validate_dns_service(admin_client, service, consumed_services,
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.ipAddresses().data[0].address, username="root",
                     password="root", port=int(exposed_port))
 
         # Validate link containers
@@ -1442,7 +1445,7 @@ def validate_external_service(admin_client, service, ext_services,
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
     for container in containers:
-        print "Validation for container -" + str(container.name)
+        print("Validation for container -" + str(container.name))
         host = container.hosts[0]
         for ext_service in ext_services:
             expected_dns_list = []
@@ -1451,18 +1454,18 @@ def validate_external_service(admin_client, service, ext_services,
             for con in container_list:
                 if (exclude_instance is not None) \
                         and (con.id == exclude_instance.id):
-                    print "Excluded from DNS and wget list:" + con.name
+                    print("Excluded from DNS and wget list:" + con.name)
                 else:
                     expected_dns_list.append(con.primaryIpAddress)
                     expected_link_response.append(con.externalId[:12])
 
-            print "Expected dig response List" + str(expected_dns_list)
-            print "Expected wget response List" + str(expected_link_response)
+            print("Expected dig response List" + str(expected_dns_list))
+            print("Expected wget response List" + str(expected_link_response))
 
             # Validate port mapping
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host.ipAddresses()[0].address, username="root",
+            ssh.connect(host.ipAddresses().data[0].address, username="root",
                         password="root", port=int(exposed_port))
 
             ext_service_name = ext_service.name
@@ -1471,22 +1474,22 @@ def validate_external_service(admin_client, service, ext_services,
             # Validate link containers
             cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
                   ext_service_name + ":80/name.html;cat result.txt"
-            print cmd
+            print(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
             response = stdout.readlines()
             assert len(response) == 1
             resp = response[0].strip("\n")
-            print "Actual wget Response" + str(resp)
+            print("Actual wget Response" + str(resp))
             assert resp in (expected_link_response)
 
             # Validate DNS resolution using dig
             cmd = "dig " + ext_service_name + " +short"
-            print cmd
+            print(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
 
             response = stdout.readlines()
-            print "Actual dig Response" + str(response)
+            print("Actual dig Response" + str(response))
 
             expected_entries_dig = len(container_list)
             if exclude_instance is not None:
@@ -1509,20 +1512,20 @@ def validate_external_service_for_hostname(admin_client, service, ext_services,
     containers = get_service_container_list(admin_client, service)
     assert len(containers) == service.scale
     for container in containers:
-        print "Validation for container -" + str(container.name)
+        print("Validation for container -" + str(container.name))
         host = container.hosts[0]
         for ext_service in ext_services:
             # Validate port mapping
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(host.ipAddresses()[0].address, username="root",
+            ssh.connect(host.ipAddresses().data[0].address, username="root",
                         password="root", port=int(exposed_port))
             cmd = "ping -c 2 " + ext_service.name + \
                   "> result.txt;cat result.txt"
-            print cmd
+            print(cmd)
             stdin, stdout, stderr = ssh.exec_command(cmd)
             response = stdout.readlines()
-            print "Actual wget Response" + str(response)
+            print("Actual wget Response" + str(response))
             assert ext_service.hostname in str(response) and \
                 "0% packet loss" in str(response)
 
@@ -1541,7 +1544,7 @@ def rancher_compose_container(admin_client, client, request):
     cmd1 = "wget " + rancher_compose_url
     cmd2 = "tar xvf " + compose_file
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
     port = rancher_compose_con["port"]
@@ -1558,10 +1561,10 @@ def rancher_compose_container(admin_client, client, request):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=int(port))
     cmd = cmd1+";"+cmd2
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     found = False
@@ -1579,13 +1582,13 @@ def rancher_compose_container(admin_client, client, request):
 
 def launch_rancher_compose(client, env):
     compose_configs = env.exportconfig()
-    docker_compose = compose_configs["dockerComposeConfig"]
-    rancher_compose = compose_configs["rancherComposeConfig"]
+    docker_compose = compose_configs.get("dockerComposeConfig")
+    rancher_compose = compose_configs.get("rancherComposeConfig")
     response = execute_rancher_cli(client, env.name + "rancher", "up -d",
                                    docker_compose, rancher_compose)
     expected_resp = "Creating stack"
-    print "Obtained Response: " + str(response)
-    print "Expected Response: " + expected_resp
+    print("Obtained Response: " + str(response))
+    print("Expected Response: " + expected_resp)
     found = False
     for resp in response:
         if expected_resp in resp:
@@ -1619,16 +1622,16 @@ def execute_rancher_compose(client, env_name, docker_compose,
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        rancher_compose_con["host"].ipAddresses()[0].address, username="root",
+        rancher_compose_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(rancher_compose_con["port"]))
     cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
-    print "Obtained Response: " + str(response)
-    print "Expected Response: " + expected_resp
+    print("Obtained Response: " + str(response))
+    print("Expected Response: " + expected_resp)
     found = False
-    for resp in response:
+    for resp in response.data:
         if expected_resp in resp:
             found = True
     assert found
@@ -1970,7 +1973,7 @@ def check_container_in_service(admin_client, service):
         containers = admin_client.list_container(
             externalId=container.externalId,
             include="hosts",
-            removed_null=True)
+            removed_null=True).data
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(container.externalId)
         logger.info("Checked for containers running - " + container.name)
@@ -2017,22 +2020,22 @@ def get_service_containers_with_name(
 
     while len(instance_list) != service.scale:
         instance_list = []
-        print "sleep for .5 sec"
+        print("sleep for .5 sec")
         time.sleep(.5)
         if managed is not None:
             all_instance_maps = \
                 admin_client.list_serviceExposeMap(serviceId=service.id,
-                                                   managed=managed)
+                                                   managed=managed).data
         else:
             all_instance_maps = \
-                admin_client.list_serviceExposeMap(serviceId=service.id)
+                admin_client.list_serviceExposeMap(serviceId=service.id).data
         for instance_map in all_instance_maps:
             if instance_map.state == "active":
                 c = admin_client.by_id('container', instance_map.instanceId)
                 if nameformat.match(c.name) \
                         and c.state in ("running", "stopped"):
                     instance_list.append(c)
-                    print c.name
+                    print(c.name)
         if time.time() - start > 30:
             raise Exception('Timed out waiting for Service Expose map to be ' +
                             'created for all instances')
@@ -2041,7 +2044,7 @@ def get_service_containers_with_name(
         assert instance.externalId is not None
         containers = admin_client.list_container(
             externalId=instance.externalId,
-            include="hosts")
+            include="hosts").data
         assert len(containers) == 1
         container.append(containers[0])
     return container
@@ -2076,7 +2079,7 @@ def validate_lb_service_for_no_access(client, lb_service, port,
 
 def check_for_service_unavailable(host, port, hostheader, path):
 
-    url = "http://" + host.ipAddresses()[0].address +\
+    url = "http://" + host.ipAddresses().data[0].address +\
           ":" + port + path
     logger.info(url)
 
@@ -2094,7 +2097,7 @@ def check_for_service_unavailable(host, port, hostheader, path):
 
 def get_http_response(host, port, path):
 
-    url = "http://" + host.ipAddresses()[0].address +\
+    url = "http://" + host.ipAddresses().data[0].address +\
           ":" + str(port) + path
     logger.info(url)
     start_time = time.time()
@@ -2111,7 +2114,7 @@ def get_http_response(host, port, path):
 def check_round_robin_access(container_names, host, port,
                              hostheader=None, path="/name.html"):
     check_round_robin_access_lb_ip(container_names,
-                                   host.ipAddresses()[0].address, port,
+                                   host.ipAddresses().data[0].address, port,
                                    hostheader=hostheader, path=path)
 
 
@@ -2164,11 +2167,11 @@ def check_cert_using_openssl(host, port, domain, test_ssl_client_con):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        test_ssl_client_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(test_ssl_client_con["port"]))
 
     cmd = "openssl s_client" + \
-          " -connect " + host.ipAddresses()[0].address + ":" + port + \
+          " -connect " + host.ipAddresses().data[0].address + ":" + port + \
           " -servername " + domain + "</dev/null > result.out;cat result.out"
     logger.info(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -2184,7 +2187,7 @@ def check_round_robin_access_for_ssl(container_names, host, port, domain,
                                      hostheader=None, path="/name.html"):
 
     check_round_robin_access_for_ssl_lb_ip(container_names,
-                                           host.ipAddresses()[0].address,
+                                           host.ipAddresses().data[0].address,
                                            port, domain,
                                            test_ssl_client_con,
                                            hostheader, path)
@@ -2198,7 +2201,7 @@ def check_round_robin_access_for_ssl_lb_ip(container_names, lb_ip,
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        test_ssl_client_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(test_ssl_client_con["port"]))
 
     cmd = "echo '" + lb_ip + \
@@ -2245,10 +2248,10 @@ def check_for_cert_error(host, port, domain, default_domain, cert,
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        test_ssl_client_con["host"].ipAddresses()[0].address, username="root",
+        test_ssl_client_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(test_ssl_client_con["port"]))
 
-    cmd = "echo '" + host.ipAddresses()[0].address + \
+    cmd = "echo '" + host.ipAddresses().data[0].address + \
           " " + domain + "'> /etc/hosts;grep " + domain + " /etc/hosts"
     response = execute_command(ssh, cmd)
     logger.info(response)
@@ -2258,7 +2261,7 @@ def check_for_cert_error(host, port, domain, default_domain, cert,
     url_str = " https://" + domain + ":" + port + path
     cmd = "wget -O result.txt --timeout=20 --tries=1" + \
           cert_str + url_str + ";cat result.txt"
-    print cmd
+    print(cmd)
     if strict_sni_check:
         error_string = "Unable to establish SSL connection"
     else:
@@ -2279,7 +2282,7 @@ def check_for_cert_error(host, port, domain, default_domain, cert,
             "' doesn't match requested host name '"+domain + "'"
 
         found_error = False
-        print default_domain_presented
+        print(default_domain_presented)
         for error in errors:
             if default_domain_presented in error:
                 found_error = True
@@ -2433,11 +2436,11 @@ def wait_for_config_propagation(admin_client, lb_service, timeout=30):
         assert agent is not None
         item = get_config_item(agent, "haproxy")
         start = time.time()
-        print "requested_version " + str(item.requestedVersion)
-        print "applied_version " + str(item.appliedVersion)
+        print("requested_version " + str(item.requestedVersion))
+        print("applied_version " + str(item.appliedVersion))
         while item.requestedVersion != item.appliedVersion:
-            print "requested_version " + str(item.requestedVersion)
-            print "applied_version " + str(item.appliedVersion)
+            print("requested_version " + str(item.requestedVersion))
+            print("applied_version " + str(item.appliedVersion))
             time.sleep(.1)
             agent = admin_client.reload(agent)
             item = get_config_item(agent, "haproxy")
@@ -2487,7 +2490,7 @@ def get_plain_id(admin_client, obj=None):
         obj = admin_client
         admin_client = super_client(None)
 
-    ret = admin_client.list(obj.type, uuid=obj.uuid, _plainId='true')
+    ret = admin_client.list(obj.type, uuid=obj.uuid, _plainId='true').data
     assert len(ret) == 1
     return ret[0].id
 
@@ -2511,15 +2514,15 @@ def get_service_container_with_label(admin_client, service, name, label):
     containers = []
     found = False
     instance_maps = admin_client.list_serviceExposeMap(serviceId=service.id,
-                                                       state="active")
+                                                       state="active").data
     nameformat = re.compile(name + FIELD_SEPARATOR + "[0-9]{1,2}")
     for instance_map in instance_maps:
         c = admin_client.by_id('container', instance_map.instanceId)
         if nameformat.match(c.name) \
-                and c.labels["io.rancher.service.deployment.unit"] == label:
+                and c.labels.get("io.rancher.service.deployment.unit") == label:
             containers = admin_client.list_container(
                 externalId=c.externalId,
-                include="hosts")
+                include="hosts").data
             assert len(containers) == 1
             found = True
             break
@@ -2528,8 +2531,8 @@ def get_service_container_with_label(admin_client, service, name, label):
 
 
 def get_side_kick_container(admin_client, container, service, service_name):
-    label = container.labels["io.rancher.service.deployment.unit"]
-    print container.name + " - " + label
+    label = container.labels.get("io.rancher.service.deployment.unit")
+    print(container.name + " - " + label)
     secondary_con = get_service_container_with_label(
         admin_client, service, service_name, label)
     return secondary_con
@@ -2551,7 +2554,7 @@ def validate_internal_lb(admin_client, lb_service, services,
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.ipAddresses().data[0].address, username="root",
                     password="root", port=int(con_port))
 
         # Validate lb service from this container using LB agent's ip address
@@ -2644,7 +2647,7 @@ def create_env_with_2_svc_dns_hostnetwork(
     assert service.state == "inactive"
 
     # Force containers of 2 different services to be in different hosts
-    hosts = client.list_host(kind='docker', removed_null=True, state='active')
+    hosts = client.list_host(kind='docker', removed_null=True, state='active').data
     assert len(hosts) > 1
     # Create Consumed Service1
     if cross_linking:
@@ -2689,15 +2692,15 @@ def create_env_with_2_svc_dns_hostnetwork(
 
 
 def cleanup_images(client, delete_images):
-    hosts = client.list_host(kind='docker', removed_null=True, state='active')
-    print "To delete" + delete_images[0]
+    hosts = client.list_host(kind='docker', removed_null=True, state='active').data
+    print("To delete" + delete_images[0])
     for host in hosts:
         docker_client = get_docker_client(host)
         images = docker_client.images()
         for image in images:
-            print image["RepoTags"][0]
+            print(image["RepoTags"][0])
             if image["RepoTags"][0] in delete_images:
-                print "Found Match"
+                print("Found Match")
                 docker_client.remove_image(image, True)
         images = docker_client.images()
         for image in images:
@@ -2711,7 +2714,7 @@ def certs(client, admin_client, request):
         return
 
     domain_list = get_domains()
-    print domain_list
+    print(domain_list)
     for domain in domain_list:
         cert = create_cert(client, domain)
         cert_list[domain] = cert
@@ -2728,7 +2731,7 @@ def get_cert(domain):
 def create_client_container_for_ssh(client, port):
     test_client_con = {}
     domain_list = get_domains()
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
     c = client.create_container(name="lb-test-client" + port,
@@ -2743,7 +2746,7 @@ def create_client_container_for_ssh(client, port):
     time.sleep(sleep_interval)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=int(port))
     cmd = ""
     for domain in domain_list:
@@ -2754,10 +2757,10 @@ def create_client_container_for_ssh(client, port):
             cp_cmd_cert = "echo '"+cert+"' >  "+domain+".crt;"
 
         cmd = cmd + cp_cmd_cert
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    print response
+    print(response)
     test_client_con["container"] = c
     test_client_con["host"] = host
     test_client_con["port"] = port
@@ -2768,7 +2771,7 @@ def create_kubectl_client_container(client, port,
                                     project_name="Default",
                                     project_id="1a5"):
     test_kubectl_client_con = {}
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
     c = client.create_container(name="test-kubctl-client",
@@ -2791,10 +2794,10 @@ def create_kubectl_client_container(client, port,
 
     kube_config = readDataFile(K8_SUBDIR, config_file)
     token = base64.standard_b64encode(
-                "Basic " + base64.standard_b64encode(
-                                client._access_key +
-                                ":" +
-                                client._secret_key))
+                b"Basic " + base64.standard_b64encode(
+                                client._access_key.encode('ascii') +
+                                b":" +
+                                client._secret_key.encode('ascii'))).decode('ascii')
     kube_config = kube_config.replace("$token", token)
     kube_config = kube_config.replace("$environment", project_name)
     kube_config = kube_config.replace("$pid", project_id)
@@ -2803,7 +2806,7 @@ def create_kubectl_client_container(client, port,
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=int(port))
     cmd1 = "wget https://storage.googleapis.com/kubernetes-release" + \
            "/release/"+kubectl_version+"/bin/linux/amd64/kubectl"
@@ -2821,7 +2824,7 @@ def create_kubectl_client_container(client, port,
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     ssh.close()
-    print response
+    print(response)
     test_kubectl_client_con["container"] = c
     test_kubectl_client_con["host"] = host
     test_kubectl_client_con["port"] = port
@@ -2839,9 +2842,9 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        kubectl_client_con["host"].ipAddresses()[0].address, username="root",
+        kubectl_client_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(kubectl_client_con["port"]))
-    print cmd
+    print(cmd)
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
@@ -2851,7 +2854,7 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
     str_response = ""
     for resp in response:
         str_response += resp
-    print "Obtained Response: " + str_response
+    print("Obtained Response: " + str_response)
 
     # Validate Expected Response
     if expected_resps is not None:
@@ -2859,12 +2862,12 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
         for resp in response:
             for exp_resp in expected_resps:
                 if exp_resp in resp:
-                    print "Found in response " + exp_resp
+                    print("Found in response " + exp_resp)
                     expected_resps.remove(exp_resp)
         if len(expected_resps) == 0:
             found = True
         else:
-            print "Not found in response " + str(expected_resps)
+            print("Not found in response " + str(expected_resps))
         assert found
 
     if expected_error is not None:
@@ -2872,7 +2875,7 @@ def execute_kubectl_cmds(command, expected_resps=None, file_name=None,
         for err_str in error:
             if expected_error in err_str:
                 found = True
-                print "Found in Error Response " + err_str
+                print("Found in Error Response " + err_str)
         assert found
     return str_response
 
@@ -2884,9 +2887,9 @@ def execute_helm_cmds(command, chdir=None, expected_resps=None):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        kubectl_client_con["host"].ipAddresses()[0].address, username="root",
+        kubectl_client_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(kubectl_client_con["port"]))
-    print cmd
+    print(cmd)
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
@@ -2894,12 +2897,12 @@ def execute_helm_cmds(command, chdir=None, expected_resps=None):
     str_error = ""
     for err in error:
         str_error += err
-    print "Error in response" + str(str_error)
+    print("Error in response" + str(str_error))
 
     str_response = ""
     for resp in response:
         str_response += resp
-    print "Obtained Response: " + str_response
+    print("Obtained Response: " + str_response)
     return str_response
 
 
@@ -2946,7 +2949,7 @@ def base_url():
 
 def readDataFile(data_dir, name):
     fname = os.path.join(data_dir, name)
-    print fname
+    print(fname)
     is_file = os.path.isfile(fname)
     assert is_file
     with open(fname) as f:
@@ -2954,11 +2957,11 @@ def readDataFile(data_dir, name):
 
 
 def get_env_service_by_name(client, env_name, service_name):
-    env = client.list_stack(name=env_name)
+    env = client.list_stack(name=env_name).data
     assert len(env) == 1
     service = client.list_service(name=service_name,
                                   stackId=env[0].id,
-                                  removed_null=True)
+                                  removed_null=True).data
     assert len(service) == 1
     return env[0], service[0]
 
@@ -2966,7 +2969,7 @@ def get_env_service_by_name(client, env_name, service_name):
 def get_service_by_name(client, env,  service_name):
     service = client.list_service(name=service_name,
                                   stackId=env.id,
-                                  removed_null=True)
+                                  removed_null=True).data
     assert len(service) == 1
     return service[0]
 
@@ -2979,7 +2982,7 @@ def check_for_appcookie_policy(admin_client, client, lb_service, port,
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
-        url = "http://" + host.ipAddresses()[0].address + \
+        url = "http://" + host.ipAddresses().data[0].address + \
               ":" + port + "/name.html"
         headers = {"Cookie": cookie_name + "=test123"}
 
@@ -2994,7 +2997,7 @@ def check_for_lbcookie_policy(client, lb_service, port,
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
-        url = "http://" + host.ipAddresses()[0].address + \
+        url = "http://" + host.ipAddresses().data[0].address + \
               ":" + port + "/name.html"
 
         session = requests.Session()
@@ -3022,7 +3025,7 @@ def check_for_balancer_first(client, lb_service, port,
     for lb_con in lb_containers:
         host = client.by_id('host', lb_con.hosts[0].id)
 
-        url = "http://" + host.ipAddresses()[0].address + \
+        url = "http://" + host.ipAddresses().data[0].address + \
               ":" + port + "/" + path
         check_for_stickiness(url, container_names, headers)
 
@@ -3078,7 +3081,7 @@ def wait_for_host(client, machine):
                                  str(len(x.hosts())),
                        DEFAULT_MACHINE_TIMEOUT)
 
-    host = machine.hosts()[0]
+    host = machine.hosts().data[0]
     host = wait_for_condition(client,
                               host,
                               lambda x: x.state == 'active',
@@ -3100,15 +3103,15 @@ def get_service_instance_count(client, service):
     scale = service.scale
     # Check for Global Service
     if "labels" in service.launchConfig.keys():
-        labels = service.launchConfig["labels"]
+        labels = service.launchConfig.get("labels")
         if "io.rancher.scheduler.global" in labels.keys():
-            if labels["io.rancher.scheduler.global"] == "true":
+            if labels.get("io.rancher.scheduler.global") == "true":
                 active_hosts = client.list_host(
                     kind='docker', removed_null=True, agentState="active",
-                    state="active")
+                    state="active").data
                 hosts = client.list_host(
                     kind='docker', removed_null=True, agentState_null=True,
-                    state="active")
+                    state="active").data
             scale = len(hosts) + len(active_hosts)
     return scale
 
@@ -3118,21 +3121,26 @@ def check_config_for_service(client, service, labels, managed,
     containers = get_service_container_managed_list(client, service, managed)
     if is_global:
         hosts = client.list_host(
-            kind='docker', removed_null=True, state="active")
+            kind='docker', removed_null=True, state="active").data
         assert len(containers) == len(hosts)
     else:
         assert len(containers) == service.scale
     for con in containers:
         for key in labels.keys():
-            assert con.labels[key] == labels[key]
+            print(key)
+            print(con.labels)
+            print(labels)
+            print(labels.get(key))
+            print(con.labels.get(key))
+            assert con.labels.get(key) == labels.get(key)
         if managed == 1:
             assert con.state == "running"
         else:
             assert con.state == "stopped"
     if managed:
         for key in labels.keys():
-            service_labels = service.launchConfig["labels"]
-            assert service_labels[key] == labels[key]
+            service_labels = service.launchConfig.get("labels")
+            assert service_labels.get(key) == labels.get(key)
 
 
 # Creating Environment namespace
@@ -3284,16 +3292,16 @@ def wait_for_ingress_to_become_active(ingress_name, namespace, ing_scale):
         ingress_response = execute_kubectl_cmds(
             "get ingress "+ingress_name+" -o json --namespace="+namespace)
         ingress = json.loads(ingress_response)
-        print ingress
+        print(ingress)
         if "ingress" in ingress["status"]["loadBalancer"]:
             for item in ingress["status"]["loadBalancer"]["ingress"]:
-                print item["ip"]
-                print "Array is:"
-                print lb_ip
+                print(item["ip"])
+                print("Array is:")
+                print(lb_ip)
                 lb_ip.append(item["ip"])
         time.sleep(.5)
-    print "Length of lb_ip"
-    print len(lb_ip)
+    print("Length of lb_ip")
+    print(len(lb_ip))
     return lb_ip
 
 
@@ -3374,9 +3382,9 @@ def rancher_cli_container(admin_client, client, request):
     rancher_cli_file = rancher_cli_url.split("/")[-1]
 
     cmd2 = "tar xvf " + rancher_cli_file
-    print cmd2
+    print(cmd2)
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
     port = rancher_cli_con["port"]
@@ -3392,13 +3400,13 @@ def rancher_cli_container(admin_client, client, request):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=int(port))
     cmd = cmd1 + ";" + cmd2
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
-    print response
+    print(response)
     found = False
     for resp in response:
         if "/rancher" in resp:
@@ -3443,10 +3451,10 @@ def execute_rancher_cli(client, stack_name, command,
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(
-        rancher_cli_con["host"].ipAddresses()[0].address, username="root",
+        rancher_cli_con["host"].ipAddresses().data[0].address, username="root",
         password="root", port=int(rancher_cli_con["port"]))
     cmd = cmd1+";"+cmd2+";"+cmd3+";"+cmd4+";"+cmd5+";"+cmd6+cmd7
-    print "Final Command \n" + cmd
+    print("Final Command \n" + cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
     response = stdout.readlines()
     return response
@@ -3462,8 +3470,8 @@ def launch_rancher_cli_from_file(client, subdir, env_name, command,
     cli_response = execute_rancher_cli(client, env_name, command,
                                        docker_compose, rancher_compose,
                                        timeout=150)
-    print "Obtained Response: " + str(cli_response)
-    print "Expected Response: " + str(expected_response)
+    print("Obtained Response: " + str(cli_response))
+    print("Expected Response: " + str(expected_response))
     found = False
     for resp in cli_response:
         if expected_response in resp:
@@ -3478,8 +3486,8 @@ def create_webhook(projectid, data):
     url = webhook_url() + "?projectId=" + projectid
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
-    print "Url is \n"
-    print url
+    print("Url is \n")
+    print(url)
     if SECRET_KEY is not None and ACCESS_KEY is not None:
         auth = (ACCESS_KEY, SECRET_KEY)
         response = requests.post(
@@ -3495,7 +3503,7 @@ def delete_webhook_verify(projectid, webhook_id):
     # it has been deleted in the webhook list
 
     url = webhook_url() + "/" + webhook_id+"?projectId=" + projectid
-    print "Delete URL is " + url
+    print("Delete URL is " + url)
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
     if SECRET_KEY is not None and ACCESS_KEY is not None:
@@ -3508,10 +3516,10 @@ def delete_webhook_verify(projectid, webhook_id):
     # List the webhooks and ensure deletion is successful
     webhook_list = list_webhook(projectid)
 
-    print webhook_list
+    print(webhook_list)
     for dictitem in webhook_list:
         if dictitem["id"] == webhook_id:
-            print "Webhook Deletion Unsuccessful"
+            print("Webhook Deletion Unsuccessful")
             assert False
 
 
@@ -3522,7 +3530,7 @@ def list_webhook(projectid, webhook_id=None):
         url = webhook_url() + "/" + webhook_id + "?projectId=" + projectid
     else:
         url = webhook_url() + "?projectId=" + projectid
-    print "List URL is " + url
+    print("List URL is " + url)
     headers = {"Content-Type": "application/json",
                "Accept": "application/json"}
     if SECRET_KEY is not None and ACCESS_KEY is not None:
@@ -3579,7 +3587,7 @@ class Context(object):
 
         networks = filter(lambda x: x.kind == 'hostOnlyNetwork' and
                           x.accountId == self.project.id,
-                          self.client.list_network(kind='hostOnlyNetwork'))
+                          self.client.list_network(kind='hostOnlyNetwork').data)
         assert len(networks) == 1
         nsps = super_client(None).reload(networks[0]).networkServiceProviders()
         assert len(nsps) == 1
@@ -3726,7 +3734,7 @@ def deploy_and_wait_for_stack_creation(client,
 @pytest.fixture(scope='session')
 def remove_catalog_template(client, request, t_name):
     def remove():
-        env = client.list_stack(name=t_name)
+        env = client.list_stack(name=t_name).data
         for i in range(len(env)):
             delete_all(client, [env[i]])
     request.addfinalizer(remove)
@@ -3736,7 +3744,7 @@ def remove_catalog_template(client, request, t_name):
 def catalog_hosts(request, client, super_client, admin_client):
     hosts = client.list_host(
         kind='docker', removed_null=True, state="active",
-        include="physicalHost")
+        include="physicalHost").data
     if len(hosts) < catalog_host_count:
         add_digital_ocean_hosts(
             client, catalog_host_count - len(hosts), "4gb")
@@ -3758,7 +3766,7 @@ def validate_connectivity_between_con_to_services(admin_client, container,
                                                   service_list,
                                                   connection="allow"):
     containers = admin_client.list_container(externalId=container.externalId,
-                                             include="hosts")
+                                             include="hosts").data
     assert len(containers) == 1
     container = containers[0]
     for service in service_list:
@@ -3780,11 +3788,11 @@ def validate_connectivity_between_container_list(admin_client, con1,
 
 def validate_connectivity_between_containers(admin_client, con1, con2,
                                              connection="allow"):
-    print time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     if con1.id == con2.id:
-        print "Skip testing connectivity between same containers"
+        print("Skip testing connectivity between same containers")
         return
-    print "Checking connectivity between " + con1.name + " and " + con2.name
+    print("Checking connectivity between " + con1.name + " and " + con2.name)
     # Exec into the con1 using the exposed port
     host = con1.hosts[0]
     assert len(con1.userPorts) >= 1
@@ -3794,7 +3802,7 @@ def validate_connectivity_between_containers(admin_client, con1, con2,
         exposed_port = exposed_port[port_str.index(":")+1:]
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host.ipAddresses()[0].address, username="root",
+    ssh.connect(host.ipAddresses().data[0].address, username="root",
                 password="root", port=int(exposed_port))
 
     linkName = con2.name
@@ -3850,28 +3858,28 @@ def validate_connectivity_between_containers(admin_client, con1, con2,
         cmd = "ping -c 1 -W 1 " + linkName + \
               "> result.txt;cat result.txt"
         cmd = "ping -c 1 -W 1 " + linkName
-        print cmd
-        print time
+        print(cmd)
+        print(time)
         start_time = time.time()
         stdin, stdout, stderr = ssh.exec_command(cmd)
         time_taken = time.time() - start_time
-        print "time taken - " + str(time_taken)
+        print("time taken - " + str(time_taken))
         response = stdout.readlines()
-        print "Actual ping Response" + str(response)
+        print("Actual ping Response" + str(response))
         if connection == "allow":
             assert con2.primaryIpAddress in str(response) and \
                 " 0% packet loss" in str(response)
         else:
             assert con2.primaryIpAddress in str(response) and \
                 "100% packet loss" in str(response)
-    print time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    print "Done Checking connectivity between " + \
-          con1.name + " and " + con2.name
+    print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    print("Done Checking connectivity between " + \
+          con1.name + " and " + con2.name)
 
 
 def get_container_by_name(admin_client, con_name):
     containers = admin_client.list_container(name=con_name,
-                                             include="hosts")
+                                             include="hosts").data
     assert len(containers) == 1
     return containers[0]
 
@@ -3880,7 +3888,7 @@ def stop_service_instances(client, env, service, stop_instance_index):
     # Stop instance
     for i in stop_instance_index:
         container_name = get_container_name(env, service, str(i))
-        containers = client.list_container(name=container_name)
+        containers = client.list_container(name=container_name).data
         assert len(containers) == 1
         container = containers[0]
         stop_container_from_host(admin_client, container)
@@ -3893,7 +3901,7 @@ def delete_service_instances(client, env, service, remove_instance_index):
     # Delete instance
     for i in remove_instance_index:
         container_name = get_container_name(env, service, str(i))
-        containers = client.list_container(name=container_name)
+        containers = client.list_container(name=container_name).data
         assert len(containers) == 1
         container = containers[0]
         container = client.wait_success(client.delete(container))
@@ -3906,7 +3914,7 @@ def restart_service_instances(client, env, service, restart_instance_index):
     # Restart instance
     for i in restart_instance_index:
         container_name = get_container_name(env, service, str(i))
-        containers = client.list_container(name=container_name)
+        containers = client.list_container(name=container_name).data
         assert len(containers) == 1
         container = containers[0]
         container = client.wait_success(container.restart(), 120)
@@ -3977,7 +3985,7 @@ def create_stack_with_multiple_service_using_rancher_cli(
 
 def stop_container_from_host(client, container):
         containers = client.list_container(
-            externalId=container.externalId, include="hosts")
+            externalId=container.externalId, include="hosts").data
         assert len(containers) == 1
         container = containers[0]
         host = container.hosts[0]
@@ -4039,7 +4047,7 @@ def create_sa_container(client, stack=None, healthcheck=False, port=None,
 
 def mark_container_unhealthy(admin_client, con, port):
     con_host = get_container_host(admin_client, con)
-    hostIpAddress = con_host.ipAddresses()[0].address
+    hostIpAddress = con_host.ipAddresses().data[0].address
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(hostIpAddress, username="root",
@@ -4052,7 +4060,7 @@ def mark_container_unhealthy(admin_client, con, port):
 
 def mark_container_healthy(admin_client, con, port):
     con_host = get_container_host(admin_client, con)
-    hostIpAddress = con_host.ipAddresses()[0].address
+    hostIpAddress = con_host.ipAddresses().data[0].address
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -4067,7 +4075,7 @@ def mark_container_healthy(admin_client, con, port):
 def get_container_host(admin_client, con):
     containers = admin_client.list_container(
         externalId=con.externalId,
-        include="hosts")
+        include="hosts").data
     assert len(containers) == 1
     return containers[0].hosts[0]
 
@@ -4085,8 +4093,8 @@ def write_data(con, port, dir, file, content):
     ssh = paramiko.SSHClient()
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    print hostIpAddress
-    print str(port)
+    print(hostIpAddress)
+    print(str(port))
     ssh.connect(hostIpAddress, username="root",
                 password="root", port=port)
     cmd1 = "cd " + dir
@@ -4103,12 +4111,12 @@ def read_data(con, port, dir, file):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    print hostIpAddress
-    print str(port)
+    print(hostIpAddress)
+    print(str(port))
 
     ssh.connect(hostIpAddress, username="root",
                 password="root", port=port)
-    print ssh
+    print(ssh)
     cmd1 = "cd " + dir
     cmd2 = "cat " + file
     cmd = cmd1 + ";" + cmd2
@@ -4469,7 +4477,7 @@ def jinja2_render(tpl_path, context):
 
 def k8s_check_dashboard():
     k8s_client = kubectl_client_con["k8s_client"]
-    project_id = k8s_client.list_project()[0].id
+    project_id = k8s_client.list_project().data[0].id
     dashboard_url = rancher_server_url() + \
         '/r/projects/' + \
         project_id + \
@@ -4508,7 +4516,7 @@ def k8s_force_upgrade_stack(stack_name):
 
     try:
         ssh.connect(
-            rancher_cli_con["host"].ipAddresses()[0].address, username="root",
+            rancher_cli_con["host"].ipAddresses().data[0].address, username="root",
             password="root", port=int(rancher_cli_con["port"]))
     except Exception as e:
         logger.info("SSH Connection Error")
@@ -4521,7 +4529,7 @@ def k8s_force_upgrade_stack(stack_name):
     logger.info(response)
     logger.info(error)
 
-    env = k8s_client.list_stack(name=stack_name)
+    env = k8s_client.list_stack(name=stack_name).data
     assert len(env) == 1
     environment = env[0]
     wait_for_condition(
@@ -4540,7 +4548,7 @@ def k8s_waitfor_infra_stacks():
             "kubernetes"
             ]
     for stack_name in infra_stacks:
-        env = k8s_client.list_stack(name=stack_name)
+        env = k8s_client.list_stack(name=stack_name).data
         assert len(env) == 1
         environment = env[0]
         wait_for_condition(
@@ -4577,19 +4585,19 @@ def k8s_validate_kubectl():
 
 def k8s_validate_helm():
     response = execute_helm_cmds("create test-nginx")
-    print response
+    print(response)
     get_response = execute_helm_cmds("install test-nginx \
         --name stresstest --namespace stresstest-ns --replace")
 
     if "STATUS: DEPLOYED" not in get_response:
-        print "dies at install"
+        print("dies at install")
         return False
     time.sleep(10)
 
     get_response = execute_kubectl_cmds(
                     "get svc stresstest-test-nginx --namespace \
                     stresstest-ns -o json")
-    print get_response
+    print(get_response)
     service = json.loads(get_response)
     assert service['metadata']['name'] == "stresstest-test-nginx"
 
@@ -4606,10 +4614,10 @@ def k8s_validate_helm():
 
     # Remove the release
     response = execute_helm_cmds("delete --purge stresstest")
-    print response
+    print(response)
     time.sleep(10)
     response = execute_helm_cmds("ls -q stresstest")
-    assert response is ''
+    assert response == ''
     return True
 
 

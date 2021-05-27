@@ -60,7 +60,7 @@ def create_ldap_client(username=None,
     client.reload_schema()
     assert client.valid()
 
-    identities = client.list_identity()
+    identities = client.list_identity().data
     assert len(identities) > 0
 
     return client
@@ -233,7 +233,7 @@ def test_ldap_user_with_new_env(admin_client):
 
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == ldap_user3 + "-Default":
@@ -251,7 +251,7 @@ def test_ldap_create_new_env(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -265,7 +265,7 @@ def test_ldap_create_new_env(admin_client):
     u3_client.wait_success(project)
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -287,7 +287,7 @@ def test_ldap_create_new_env_add_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -295,7 +295,7 @@ def test_ldap_create_new_env_add_member(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -309,7 +309,7 @@ def test_ldap_create_new_env_add_member(admin_client):
     u2_client.wait_success(project)
     assert u2_client.by_id('project', project.id) is not None
 
-    projects = u2_client.list_project()
+    projects = u2_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -330,7 +330,7 @@ def test_ldap_create_new_env_add_member(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -360,7 +360,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -368,7 +368,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -376,7 +376,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     u4_client = create_ldap_client(username=ldap_user4,
                                    password=ldap_pass4)
     u4_identity = None
-    for obj in u4_client.list_identity():
+    for obj in u4_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u4_identity = obj
             break
@@ -390,7 +390,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     u2_client.wait_success(project)
     assert u2_client.by_id('project', project.id) is not None
 
-    projects = u2_client.list_project()
+    projects = u2_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -411,7 +411,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -427,7 +427,7 @@ def test_ldap_create_new_env_add_owner(admin_client):
     same_project = u3_client.by_id('project', project.id)
     same_project.setmembers(members=new_members)
 
-    projects = u4_client.list_project()
+    projects = u4_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -449,7 +449,7 @@ def test_ldap_create_new_env_add_group_member(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -464,7 +464,7 @@ def test_ldap_create_new_env_add_group_member(admin_client):
     assert main_client.by_id('project', project.id) is not None
 
     # Add new group as member
-    group_identity = main_client.list_identity(name=group)[0]
+    group_identity = main_client.list_identity(name=group).data[0]
     new_members = [
         idToMember(main_identity, 'owner'),
         idToMember(group_identity, 'member')
@@ -475,7 +475,7 @@ def test_ldap_create_new_env_add_group_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
 
-    projects = u2_client.list_project()
+    projects = u2_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -503,7 +503,7 @@ def test_ldap_create_new_env_add_group_owner(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -518,7 +518,7 @@ def test_ldap_create_new_env_add_group_owner(admin_client):
     assert main_client.by_id('project', project.id) is not None
 
     # Add new group as owner
-    group_identity = main_client.list_identity(name=group)[0]
+    group_identity = main_client.list_identity(name=group).data[0]
     new_members = [
         idToMember(main_identity, 'owner'),
         idToMember(group_identity, 'owner')
@@ -527,14 +527,14 @@ def test_ldap_create_new_env_add_group_owner(admin_client):
     project.setmembers(members=new_members)
 
     project = main_client.by_id('project', project.id)
-    project_member = project.projectMembers()[1]
+    project_member = project.projectMembers().data[1]
     assert project_member['name'] == group
     assert project_member['role'] == 'owner'
 
     # Make sure user2 has the privileges to edit the env
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
-    projects = u2_client.list_project()
+    projects = u2_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -557,13 +557,13 @@ def test_ldap_group_search_domain(admin_client):
     # Narrow down domain to OU=dev, so that group search fails
     reconfigure_ldap(main_client, 'ou=dev,dc=us-west-2,dc=compute,\
         dc=internal', '')
-    assert len(main_client.list_identity(name=group)) == 0
+    assert len(main_client.list_identity(name=group).data) == 0
 
     # Set groupSearchDomain so group search works
     reconfigure_ldap(main_client, 'ou=dev,dc=us-west-2,dc=compute,\
         dc=internal', 'ou=groups,dc=us-west-2,dc=compute,dc=internal')
-    assert len(main_client.list_identity(name=group)) == 1
-    assert main_client.list_identity(name=group)[0]['login'] == group
+    assert len(main_client.list_identity(name=group).data) == 1
+    assert main_client.list_identity(name=group).data[0]['login'] == group
 
     # Set domain back to original value
     reconfigure_ldap(main_client,
@@ -576,7 +576,7 @@ def test_ldap_group_search_domain(admin_client):
     # Set groupSearchDomain such that caringQA from only OU=groups is returned
     reconfigure_ldap(main_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
                      'ou=groups,dc=us-west-2,dc=compute,dc=internal')
-    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    groups_searched = main_client.list_identity(name=duplicate_name_group).data
     assert len(groups_searched) == 1
     assert groups_searched[0]['externalId'] == \
         'cn=caringQA,ou=groups,dc=us-west-2,dc=compute,dc=internal'
@@ -585,7 +585,7 @@ def test_ldap_group_search_domain(admin_client):
     # caringQA from only OU=groupsDuplicate is returned
     reconfigure_ldap(main_client, os.environ.get('API_AUTH_LDAP_SEARCH_BASE'),
                      'ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal')
-    groups_searched = main_client.list_identity(name=duplicate_name_group)
+    groups_searched = main_client.list_identity(name=duplicate_name_group).data
     assert len(groups_searched) == 1
     assert groups_searched[0]['externalId'] == \
         'cn=caringQA,ou=groupsDuplicate,dc=us-west-2,dc=compute,dc=internal'
@@ -609,7 +609,7 @@ def test_ldap_create_new_env_change_owner_to_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -617,7 +617,7 @@ def test_ldap_create_new_env_change_owner_to_member(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -642,7 +642,7 @@ def test_ldap_create_new_env_change_owner_to_member(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -676,7 +676,7 @@ def test_ldap_create_new_env_change_member_to_owner(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -684,7 +684,7 @@ def test_ldap_create_new_env_change_member_to_owner(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -709,7 +709,7 @@ def test_ldap_create_new_env_change_member_to_owner(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -731,7 +731,7 @@ def test_ldap_create_new_env_change_member_to_owner(admin_client):
     same_project = u3_client.by_id('project', project.id)
     same_project.setmembers(members=new_members)
 
-    projects = u2_client.list_project()
+    projects = u2_client.list_project().data
     found = True
     for p in projects:
         if p['name'] == project_name:
@@ -751,7 +751,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -759,7 +759,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -784,7 +784,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -798,7 +798,7 @@ def test_ldap_create_new_env_remove_existing_owner(admin_client):
     same_project = u2_client.by_id('project', project.id)
     same_project.setmembers(members=new_members)
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = True
     for p in projects:
         if p['name'] == project_name:
@@ -820,7 +820,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -828,7 +828,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -853,7 +853,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -867,7 +867,7 @@ def test_ldap_create_new_env_remove_existing_member(admin_client):
     same_project = u2_client.by_id('project', project.id)
     same_project.setmembers(members=new_members)
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = True
     for p in projects:
         if p['name'] == project_name:
@@ -889,7 +889,7 @@ def test_ldap_deactivate_activate_env(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -897,7 +897,7 @@ def test_ldap_deactivate_activate_env(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -922,7 +922,7 @@ def test_ldap_deactivate_activate_env(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -936,7 +936,7 @@ def test_ldap_deactivate_activate_env(admin_client):
     assert dec_project['state'] == 'inactive'
 
     # Owners should see the env in their "Manage Environment" Tab
-    projects = u2_client.list_project(all=True)
+    projects = u2_client.list_project(all=True).data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -974,7 +974,7 @@ def test_ldap_remove_deactivated_env(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -982,7 +982,7 @@ def test_ldap_remove_deactivated_env(admin_client):
     u3_client = create_ldap_client(username=ldap_user3,
                                    password=ldap_pass3)
     u3_identity = None
-    for obj in u3_client.list_identity():
+    for obj in u3_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u3_identity = obj
             break
@@ -1007,7 +1007,7 @@ def test_ldap_remove_deactivated_env(admin_client):
     assert u2_client.by_id('project', project.id) is not None
     assert u3_client.by_id('project', project.id) is not None
 
-    projects = u3_client.list_project()
+    projects = u3_client.list_project().data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -1021,7 +1021,7 @@ def test_ldap_remove_deactivated_env(admin_client):
     assert dec_project['state'] == 'inactive'
 
     # Owners should see the env in their "Manage Environment" Tab
-    projects = u2_client.list_project(all=True)
+    projects = u2_client.list_project(all=True).data
     found = False
     for p in projects:
         if p['name'] == project_name:
@@ -1063,7 +1063,7 @@ def test_ldap_activate_deactivate_account(admin_client):
 
     # Deactivate the user2 account
     ldap_u2_name = u2_token['userIdentity']['name']
-    u2_account = main_client.list_account(name=ldap_u2_name)[0]
+    u2_account = main_client.list_account(name=ldap_u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     u2_account.deactivate()
     main_client.wait_success(u2_account)
@@ -1098,7 +1098,7 @@ def test_ldap_purge_account(admin_client):
     u2_name = u2_token['userIdentity']['name']
 
     # Purge user2 account
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     u2_account.deactivate()
     main_client.wait_success(u2_account)
@@ -1109,7 +1109,7 @@ def test_ldap_purge_account(admin_client):
     main_client.wait_success(u2_account)
     assert u2_account.removed is not None
 
-    projects = main_client.list_project(all=True)
+    projects = main_client.list_project(all=True).data
     for p in projects:
         project = main_client.by_id('project', p.id)
         project_members = project.projectMembers()
@@ -1130,7 +1130,7 @@ def test_ldap_member_permissions(admin_client):
                                      password=ldap_main_pass)
 
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -1138,7 +1138,7 @@ def test_ldap_member_permissions(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -1194,7 +1194,7 @@ def test_ldap_change_user_to_admin(admin_client):
     u2_token = get_authed_token(username=ldap_user2,
                                 password=ldap_pass2)
     u2_name = u2_token['userIdentity']['name']
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     u2_account.deactivate()
     main_client.wait_success(u2_account)
@@ -1217,17 +1217,17 @@ def test_ldap_change_user_to_admin(admin_client):
     assert "is not a valid type" in str(excinfo.value)
 
     # change account from user to admin
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='admin')
 
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
-    assert u2_client.list_openldapconfig() is not None
+    assert u2_client.list_openldapconfig().data is not None
 
     # change account from admin to user
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='user')
@@ -1248,7 +1248,7 @@ def test_ldap_admin_list_all_env(admin_client):
     u2_token = get_authed_token(username=ldap_user2,
                                 password=ldap_pass2)
     u2_name = u2_token['userIdentity']['name']
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     u2_account.deactivate()
     main_client.wait_success(u2_account)
@@ -1264,7 +1264,7 @@ def test_ldap_admin_list_all_env(admin_client):
     u2_name = u2_token['userIdentity']['name']
 
     # change account from user to admin
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='admin')
@@ -1283,7 +1283,7 @@ def test_ldap_admin_list_all_env(admin_client):
         assert access.ok
 
     # change account from admin to user
-    u2_account = main_client.list_account(name=u2_name)[0]
+    u2_account = main_client.list_account(name=u2_name).data[0]
     u2_account = main_client.by_id("account", u2_account.id)
     main_client.wait_success(u2_account)
     main_client.update_by_id_account(u2_account.id, kind='user')
@@ -1301,7 +1301,7 @@ def test_ldap_member_add_host(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -1309,7 +1309,7 @@ def test_ldap_member_add_host(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
@@ -1334,11 +1334,11 @@ def test_ldap_member_add_host(admin_client):
     assert len(host_list) == 1
 
     # Remove host
-    host = u2_client.list_host()[0]
+    host = u2_client.list_host().data[0]
     deactivated_host = host.deactivate()
     u2_client.wait_success(deactivated_host)
 
-    deactivated_host = u2_client.list_host()[0]
+    deactivated_host = u2_client.list_host().data[0]
     deactivated_host.remove()
 
 
@@ -1354,7 +1354,7 @@ def test_ldap_create_new_env_with_restricted_member(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -1362,13 +1362,13 @@ def test_ldap_create_new_env_with_restricted_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
     # test creation of new env
-    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_prj_id = main_client.list_project(name='Default').data[0].id
     default_project = main_client.by_id('project', default_prj_id)
     default_project.setmembers(members=[
         idToMember(main_identity, 'owner'),
@@ -1400,7 +1400,7 @@ def test_ldap_create_service_with_restricted_member(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -1408,13 +1408,13 @@ def test_ldap_create_service_with_restricted_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
     # test creation of new env
-    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_prj_id = main_client.list_project(name='Default').data[0].id
     default_project = main_client.by_id('project', default_prj_id)
     default_project.setmembers(members=[
         idToMember(main_identity, 'owner'),
@@ -1430,7 +1430,7 @@ def test_ldap_create_service_with_restricted_member(admin_client):
                                    project_id=default_prj_id)
     # Add new host
     hosts = u2_client.list_host(
-                kind='docker', removed_null=True, state="active")
+                kind='docker', removed_null=True, state="active").data
     if len(hosts) == 0:
         host_list = \
             add_digital_ocean_hosts(
@@ -1454,7 +1454,7 @@ def test_ldap_create_new_env_with_readonly_member(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
     main_identity = None
-    for obj in main_client.list_identity():
+    for obj in main_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             main_identity = obj
             break
@@ -1462,13 +1462,13 @@ def test_ldap_create_new_env_with_readonly_member(admin_client):
     u2_client = create_ldap_client(username=ldap_user2,
                                    password=ldap_pass2)
     u2_identity = None
-    for obj in u2_client.list_identity():
+    for obj in u2_client.list_identity().data:
         if obj.externalIdType == 'openldap_user':
             u2_identity = obj
             break
 
     # test creation of new env
-    default_prj_id = main_client.list_project(name='Default')[0].id
+    default_prj_id = main_client.list_project(name='Default').data[0].id
     default_project = main_client.by_id('project', default_prj_id)
     default_project.setmembers(members=[
         idToMember(main_identity, 'owner'),
@@ -1506,7 +1506,7 @@ def test_ldap_create_new_env_with_readonly_member(admin_client):
     # List service using user1 client
     service = u2_client.list_service(name=service.name,
                                      stackId=env.id,
-                                     removed_null=True)
+                                     removed_null=True).data
     assert len(service) == 1
 
 
@@ -1518,7 +1518,7 @@ def test_ldap_list_identities(admin_client):
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
 
-    identities = main_client.list_identity()
+    identities = main_client.list_identity().data
 
     user_found = 0
     authenticated_user = 0
@@ -1564,11 +1564,11 @@ def test_ldap_required_to_specific_user(admin_client, request):
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
-    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+    main_identity = main_client.list_identity(name=ldap_main_user).data[0]
 
     allowed_identities = []
     allowed_identities.append(main_identity)
-    user2_identity = ADMIN_LDAP_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ADMIN_LDAP_CLIENT.list_identity(name=ldap_user2).data[0]
     user2_identity = ast.literal_eval(str(user2_identity))
     allowed_identities.append(user2_identity)
 
@@ -1623,11 +1623,11 @@ def test_ldap_required_to_specific_group(admin_client, request):
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
-    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+    main_identity = main_client.list_identity(name=ldap_main_user).data[0]
     allowed_identities = []
     allowed_identities.append(main_identity)
 
-    group_identity = ADMIN_LDAP_CLIENT.list_identity(name=group)[0]
+    group_identity = ADMIN_LDAP_CLIENT.list_identity(name=group).data[0]
     group_identity_dict = ast.literal_eval(str(group_identity))
     allowed_identities.append(group_identity_dict)
 
@@ -1681,11 +1681,11 @@ def test_ldap_restricted_to_specific_user(admin_client, request):
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
-    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+    main_identity = main_client.list_identity(name=ldap_main_user).data[0]
 
     allowed_identities = []
     allowed_identities.append(main_identity)
-    user2_identity = ADMIN_LDAP_CLIENT.list_identity(name=ldap_user2)[0]
+    user2_identity = ADMIN_LDAP_CLIENT.list_identity(name=ldap_user2).data[0]
     user2_identity = ast.literal_eval(str(user2_identity))
     allowed_identities.append(user2_identity)
 
@@ -1740,11 +1740,11 @@ def test_ldap_restricted_to_specific_group(admin_client, request):
 
     main_client = create_ldap_client(username=ldap_main_user,
                                      password=ldap_main_pass)
-    main_identity = main_client.list_identity(name=ldap_main_user)[0]
+    main_identity = main_client.list_identity(name=ldap_main_user).data[0]
     allowed_identities = []
     allowed_identities.append(main_identity)
 
-    group_identity = ADMIN_LDAP_CLIENT.list_identity(name=group)[0]
+    group_identity = ADMIN_LDAP_CLIENT.list_identity(name=group).data[0]
     group_identity_dict = ast.literal_eval(str(group_identity))
     allowed_identities.append(group_identity_dict)
 

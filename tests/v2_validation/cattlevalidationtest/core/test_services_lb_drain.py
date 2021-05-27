@@ -345,7 +345,7 @@ def upgrade_service(
 
 
 def set_host_labels(client):
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 2
     lb_host = hosts[0]
     lb_host = client.update(lb_host, labels=lb_host_label)

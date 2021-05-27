@@ -4,7 +4,7 @@ import pytest
 
 
 def test_host_api_token(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     # valid token and a url to the websocket
@@ -16,7 +16,7 @@ def test_host_api_token(client):
 
 
 def test_host_api_no_token(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     # Pass No token
@@ -27,7 +27,7 @@ def test_host_api_no_token(client):
 
 
 def test_host_api_garbage_token(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     # pass garbage token
@@ -38,7 +38,7 @@ def test_host_api_garbage_token(client):
 
 
 def test_host_api_hoststats(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     stats = hosts[0].hostStats()
@@ -48,7 +48,7 @@ def test_host_api_hoststats(client):
     assert result is not None
     assert result.startswith('[')
 
-    project = client.list_project(uuid="adminProject")[0]
+    project = client.list_project(uuid="adminProject").data[0]
     stats = project.hostStats()
     conn = ws.create_connection(stats.url + '?token=' + stats.token)
     result = conn.recv()

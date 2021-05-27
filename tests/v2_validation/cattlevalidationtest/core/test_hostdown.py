@@ -27,25 +27,25 @@ def get_host_droplets(ha_hosts, socat_containers):
 @pytest.fixture
 def check_host_state_power_on(client):
 
-    print "Power on hosts that are in disconnected or reconnecting state"
-    print ha_droplets
+    print("Power on hosts that are in disconnected or reconnecting state")
+    print(ha_droplets)
     inactive_hosts = client.list_host(
-        kind='docker', removed_null=True, agentState="disconnected")
+        kind='docker', removed_null=True, agentState="disconnected").data
 
-    print "Disconnected hosts:"
-    print inactive_hosts
+    print("Disconnected hosts:")
+    print(inactive_hosts)
     reconn_hosts = client.list_host(
-        kind='docker', removed_null=True, agentState="reconnecting")
+        kind='docker', removed_null=True, agentState="reconnecting").data
 
-    print "Reconnecting hosts:"
-    print reconn_hosts
+    print("Reconnecting hosts:")
+    print(reconn_hosts)
 
     inactive_hosts_dropletids = []
     inactive_hosts_list = []
     # Get droplet Id and hosts from disconnected hosts
     for host in inactive_hosts:
         host_name = host.hostname
-        print host_name
+        print(host_name)
         droplet_id = ha_droplets[0][host_name]
         inactive_hosts_dropletids.append(droplet_id)
         inactive_hosts_list.append(host)
@@ -54,23 +54,23 @@ def check_host_state_power_on(client):
     # and append to the inactive host/droplet lists
     for host in reconn_hosts:
         host_name = host.hostname
-        print host_name
+        print(host_name)
         droplet_id = ha_droplets[0][host_name]
         inactive_hosts_dropletids.append(droplet_id)
         inactive_hosts_list.append(host)
 
-    print "List of all disconnected/reconnecting hosts"
-    print inactive_hosts_list
-    print inactive_hosts_dropletids
+    print("List of all disconnected/reconnecting hosts")
+    print(inactive_hosts_list)
+    print(inactive_hosts_dropletids)
 
     # Power on the droplets
     for dropletid in inactive_hosts_dropletids:
-        print "Power on droplet " + str(droplet_id)
+        print("Power on droplet " + str(droplet_id))
         action_on_digital_ocean_machine(dropletid, "power_on")
 
     # Wait for the host agent state to become active
     for host in inactive_hosts_list:
-        print "In host wait method"
+        print("In host wait method")
         wait_for_host_agent_state(client, host, "active", 600)
 
 
@@ -179,7 +179,7 @@ def global_service_with_reconn_disconn_host(client, state):
     # Pick one of the host and power down hosts
     host_down = ha_host_list[0]
     host_name = ha_host_list[0].hostname
-    print "power down- " + host_name
+    print("power down- " + host_name)
     action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_off")
     wait_for_host_agent_state(client, host_down, state,
                               HOST_ACTIVE_DISCONN_TIMEOUT)
@@ -215,7 +215,7 @@ def test_global_service_with_inactive_host(
     # Pick one of the host and deactivate this host
     host_down = ha_host_list[0]
     host_name = ha_host_list[0].hostname
-    print "Deactivate " + host_name
+    print("Deactivate " + host_name)
     host_down.deactivate()
     host_down = wait_for_condition(client,
                                    host_down,
@@ -234,7 +234,7 @@ def test_global_service_with_inactive_host(
     assert len(container_list) == get_service_instance_count(client, service)
 
     # Activate the host that is in deactivated state
-    print "Activate " + host_name
+    print("Activate " + host_name)
     host_down.activate()
     host_down = wait_for_condition(client,
                                    host_down,
@@ -280,11 +280,11 @@ def host_down_with_lb_services(client, lb_port, host_down_count,
 
     for host in down_hosts:
         host_name = host.hostname
-        print "power down- " + host_name
-        print ha_droplets[0]
+        print("power down- " + host_name)
+        print(ha_droplets[0])
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_off")
 
-    print "Waiting for the hosts to go to disconnected state"
+    print("Waiting for the hosts to go to disconnected state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "disconnected",
                                   HOST_ACTIVE_DISCONN_TIMEOUT)
@@ -299,10 +299,10 @@ def host_down_with_lb_services(client, lb_port, host_down_count,
     # Power on hosts that were powered off
     for host in down_hosts:
         host_name = host.hostname
-        print "power on- " + host_name
+        print("power on- " + host_name)
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_on")
 
-    print "Waiting for the hosts to go to active state"
+    print("Waiting for the hosts to go to active state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "active",
                                   HOST_DISCONN_ACTIVE_TIMEOUT)
@@ -349,11 +349,11 @@ def host_down_with_healthcheck_services(client, host_down_count,
     # Power Down hosts where service instances are running
     for host in down_hosts:
         host_name = host.hostname
-        print "power down- " + host_name
-        print ha_droplets[0]
+        print("power down- " + host_name)
+        print(ha_droplets[0])
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_off")
 
-    print "Waiting for the hosts to go to disconnected state"
+    print("Waiting for the hosts to go to disconnected state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "disconnected",
                                   HOST_ACTIVE_DISCONN_TIMEOUT)
@@ -369,7 +369,7 @@ def host_down_with_healthcheck_services(client, host_down_count,
         for con in down_instances:
             container_name = con.name
             containers = client.list_container(name=container_name,
-                                               removed_null=True)
+                                               removed_null=True).data
             assert len(containers) == 1
             container = containers[0]
             assert container.primaryIpAddress == con.primaryIpAddress
@@ -379,10 +379,10 @@ def host_down_with_healthcheck_services(client, host_down_count,
     delete_all(client, [env])
     for host in down_hosts:
         host_name = host.hostname
-        print "power on- " + host_name
+        print("power on- " + host_name)
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_on")
 
-    print "Waiting for the hosts to go to active state"
+    print("Waiting for the hosts to go to active state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "active",
                                   HOST_DISCONN_ACTIVE_TIMEOUT)
@@ -426,11 +426,11 @@ def host_down_with_services(client, host_down_count,
 
     for host in down_hosts:
         host_name = host.hostname
-        print "power down- " + host_name
-        print ha_droplets[0]
+        print("power down- " + host_name)
+        print(ha_droplets[0])
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_off")
 
-    print "Waiting for the hosts to go to disconnected state"
+    print("Waiting for the hosts to go to disconnected state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "disconnected",
                                   HOST_DISCONN_ACTIVE_TIMEOUT)
@@ -450,10 +450,10 @@ def host_down_with_services(client, host_down_count,
 
     for host in down_hosts:
         host_name = host.hostname
-        print "power on- " + host_name
+        print("power on- " + host_name)
         action_on_digital_ocean_machine(ha_droplets[0][host_name], "power_on")
 
-    print "Waiting for the hosts to go to active state"
+    print("Waiting for the hosts to go to active state")
     for host in down_hosts:
         wait_for_host_agent_state(client, host, "active",
                                   HOST_DISCONN_ACTIVE_TIMEOUT)
@@ -473,11 +473,11 @@ def get_containers_on_host_for_service(client, host, service):
     instance_list = []
     hosts = client.list_host(
         kind='docker', removed_null=True, state='active', uuid=host.uuid,
-        include="instances")
+        include="instances").data
     assert len(hosts) == 1
     for instance in hosts[0].instances:
         containers = client.list_container(
-            state='running', uuid=instance.uuid, include="services")
+            state='running', uuid=instance.uuid, include="services").data
         assert len(containers) <= 1
         if (len(containers) == 1 and
                 containers[0].createIndex is not None and
@@ -537,20 +537,20 @@ def check_for_service_reconcile(client, service, unhealthy_con_list,
 
 
 def check_hosts_state(client, timeout=300):
-    print "Check if host state is active"
+    print("Check if host state is active")
     start = time.time()
     disconn_host = 1
     while disconn_host != 0:
         time.sleep(.5)
         hosts = client.list_host(
-            kind='docker', removed_null=True, agentState="disconnected")
+            kind='docker', removed_null=True, agentState="disconnected").data
         disconn_host = len(hosts)
         if time.time() - start > timeout:
             raise Exception(
                 'Timed out waiting for all hosts to be active in the setup')
     # Give some time for hosts that just got to"Active" state to settle down
     time.sleep(30)
-    print "Host is Active"
+    print("Host is Active")
 
 
 def env_with_lb_service_with_health_check_enabled_targets(client,

@@ -67,8 +67,8 @@ def services_with_shared_vol(client, volume_driver):
         get_container_host_ip(container_list[1])
 
     volumes = client.list_volume(removed_null=True,
-                                 name=volume_name)
-    print volumes
+                                 name=volume_name).data
+    print(volumes)
     assert len(volumes) == 1
     assert volumes[0].state == "active"
 
@@ -112,8 +112,8 @@ def services_with_shared_vol_scaleup(client, volume_driver):
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
-                                 name=volume_name)
-    print volumes
+                                 name=volume_name).data
+    print(volumes)
     assert len(volumes) == 1
     assert volumes[0].state == "active"
     assert get_container_host_ip(container_list[0]) != \
@@ -185,8 +185,8 @@ def multiple_services_with_same_shared_vol(client, volume_driver):
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
-                                 name=volume_name)
-    print volumes
+                                 name=volume_name).data
+    print(volumes)
     assert len(volumes) == 1
     assert volumes[0].state == "active"
 
@@ -261,7 +261,7 @@ def delete_volume_after_service_deletes(client, volume_driver):
     assert len(container_list) == service.scale
 
     volumes = client.list_volume(removed_null=True,
-                                 name=volume_name)
+                                 name=volume_name).data
     assert len(volumes) == 1
     volume = volumes[0]
 
@@ -453,7 +453,7 @@ def assert_volume_is_active(client, name):
 def get_volume_by_name(client, name):
     volumes = client.list_volume(
         removed_null=True,
-        name=name)
+        name=name).data
     assert len(volumes) == 1
     return volumes[0]
 
@@ -491,7 +491,7 @@ def check_for_nfs_driver(client):
 
 
 def get_nfs_driver_service(client):
-    env = client.list_stack(name="nfs")
+    env = client.list_stack(name="nfs").data
     if len(env) == 1:
         return get_service_by_name(client, env[0], "nfs-driver")
     return None

@@ -77,7 +77,7 @@ def create_env_and_svc_activate_launch_config(
 
 def test_services_docker_options(client, socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
 
     con_host = hosts[0]
 
@@ -180,7 +180,7 @@ def test_services_docker_options(client, socat_containers):
 
 def test_services_docker_options_2(client, socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     cpu_shares = 400
     ulimit = {"hard": 1024, "name": "cpu", "soft": 1024}
     ulimit_inspect = {"Hard": 1024, "Name": "cpu", "Soft": 1024}
@@ -315,7 +315,7 @@ def test_services_docker_options_2(client, socat_containers):
 def test_services_port_and_link_options(client,
                                         socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
 
     host = hosts[0]
     link_host = hosts[1]
@@ -347,7 +347,7 @@ def test_services_port_and_link_options(client,
     service = client.wait_success(service, 300)
 
     container_name = get_container_name(env, service, 1)
-    containers = client.list_container(name=container_name, state="running")
+    containers = client.list_container(name=container_name, state="running").data
     assert len(containers) == 1
     con = containers[0]
 
@@ -389,15 +389,15 @@ def test_services_random_expose_port(client):
     env = env.activateservices()
     service = client.wait_success(service, 300)
 
-    port = service.launchConfig["ports"][0]
+    port = service.launchConfig.ports[0]
     exposedPort1 = int(port[0:port.index(":")])
     assert exposedPort1 in range(49153, 65535)
 
-    port = service.launchConfig["ports"][1]
+    port = service.launchConfig.ports.data[1]
     exposedPort2 = int(port[0:port.index(":")])
     assert exposedPort2 in range(49153, 65535)
 
-    print service.publicEndpoints
+    print(service.publicEndpoints)
     validate_exposed_port(client, service, [exposedPort1, exposedPort2])
 
     delete_all(client, [env])
@@ -408,7 +408,7 @@ def test_services_random_expose_port_exhaustrange(
 
     # Set random port range to 6 ports and exhaust 5 of them by creating a
     # service that has 5 random ports exposed
-    project = admin_client.list_project(name=PROJECT_NAME)[0]
+    project = admin_client.list_project(name=PROJECT_NAME).data[0]
     project = admin_client.update(
         project, servicesPortRange={"startPort": 65500, "endPort": 65505})
     project = wait_success(client, project)
@@ -430,7 +430,7 @@ def test_services_random_expose_port_exhaustrange(
                        "publicEndpoints is " + str(x.publicEndpoints))
     exposedPorts = []
     for i in range(0, 5):
-        port = service.launchConfig["ports"][0]
+        port = service.launchConfig.ports[0]
         exposedPort = int(port[0:port.index(":")])
         exposedPorts.append(exposedPort)
         assert exposedPort in range(65500, 65506)
@@ -496,7 +496,7 @@ def test_services_random_expose_port_exhaustrange(
 
     exposedPorts = []
     for i in range(0, 2):
-        port = service1.launchConfig["ports"][0]
+        port = service1.launchConfig.ports.data[0]
         exposedPort = int(port[0:port.index(":")])
         exposedPorts.append(exposedPort)
         assert exposedPort in range(65500, 65506)
@@ -799,7 +799,7 @@ def test_services_hostname_override_1(client, socat_containers):
 
     container_list = get_service_container_list(client, service)
     assert len(container_list) == service.scale
-    print container_list
+    print(container_list)
     for c in container_list:
         docker_client = get_docker_client(c.hosts[0])
         inspect = docker_client.inspect_container(c.externalId)
@@ -1065,7 +1065,7 @@ def test_service_with_healthcheck_container_unhealthy_retainip(
     # Unhealthy container
 
     containers = client.list_container(name=con_name,
-                                       removed_null=True)
+                                       removed_null=True).data
     assert len(containers) == 1
     container = containers[0]
     assert container.state == 'running'
@@ -1388,7 +1388,7 @@ def test_service_with_healthcheck_container_tcp_unhealthy(
     container_list = get_service_container_list(client, service)
     con = container_list[1]
     con_host = client.by_id('host', con.hosts[0].id)
-    hostIpAddress = con_host.ipAddresses()[0].address
+    hostIpAddress = con_host.ipAddresses().data[0].address
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -1486,7 +1486,7 @@ def test_service_retain_ip(client):
 
     container_name = get_container_name(env, service, "1")
     containers = client.list_container(name=container_name,
-                                       removed_null=True)
+                                       removed_null=True).data
     assert len(containers) == 1
     container = containers[0]
     ipAddress = container.primaryIpAddress
@@ -1498,7 +1498,7 @@ def test_service_retain_ip(client):
 
     container_name = get_container_name(env, service, 1)
     containers = client.list_container(name=container_name,
-                                       removed_null=True)
+                                       removed_null=True).data
     assert len(containers) == 1
     container = containers[0]
     assert container.state == 'running'
@@ -1667,7 +1667,7 @@ def check_service_activate_stop_instance_scale(client,
     for i in stop_instance_index:
         container_name = get_container_name(env, service, str(i))
         containers = client.list_container(name=container_name,
-                                           include="hosts")
+                                           include="hosts").data
         assert len(containers) == 1
         container = containers[0]
         stop_container_from_host(client, container)
@@ -1714,7 +1714,7 @@ def check_service_activate_delete_instance_scale(client,
     for i in delete_instance_index:
         container_name = get_container_name(env, service, str(i))
         container_name = get_container_name(env, service, str(i))
-        containers = client.list_container(name=container_name)
+        containers = client.list_container(name=container_name).data
         assert len(containers) == 1
         container = containers[0]
         container = client.wait_success(client.delete(container))
@@ -1744,7 +1744,7 @@ def check_service_activate_delete_instance_scale(client,
 
 def _validate_add_service_link(service, client, scale):
     service_maps = client. \
-        list_serviceExposeMap(serviceId=service.id)
+        list_serviceExposeMap(serviceId=service.id).data
     assert len(service_maps) == scale
     service_map = service_maps[0]
     wait_for_condition(
@@ -1765,7 +1765,7 @@ def check_stopped_container_in_service(client, service):
             externalId=container.externalId,
             include="hosts",
             removed_null=True)
-        docker_client = get_docker_client(containers[0].hosts[0])
+        docker_client = get_docker_client(containers[0].hosts[0].data)
         inspect = docker_client.inspect_container(container.externalId)
         logger.info("Checked for container stopped - " + container.name)
         assert inspect["State"]["Running"] is False
@@ -1773,7 +1773,7 @@ def check_stopped_container_in_service(client, service):
 
 def check_container_removed_from_service(client, service,
                                          removed_container_list):
-    instance_maps = client.list_serviceExposeMap(serviceId=service.id)
+    instance_maps = client.list_serviceExposeMap(serviceId=service.id).data
     assert len(instance_maps) == service.scale
 
     for container in removed_container_list:
@@ -1783,7 +1783,7 @@ def check_container_removed_from_service(client, service,
             lambda x: 'State is: ' + x.state)
         if container.state == "removed":
             containers = client.list_container(name=container.name,
-                                               include="hosts")
+                                               include="hosts").data
             assert len(containers) == 1
             docker_client = get_docker_client(containers[0].hosts[0])
             inspect = docker_client.inspect_container(container.externalId)
@@ -1812,7 +1812,7 @@ def check_for_deleted_service(client, env, service):
 
 def check_service_map(client, service, instance, state):
     instance_service_map = client.\
-        list_serviceExposeMap(serviceId=service.id, instanceId=instance.id)
+        list_serviceExposeMap(serviceId=service.id, instanceId=instance.id).data
     assert len(instance_service_map) == 1
     assert instance_service_map[0].state == state
 

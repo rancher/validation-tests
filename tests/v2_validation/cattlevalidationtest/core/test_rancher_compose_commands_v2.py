@@ -393,7 +393,7 @@ def test_rancher_compose_services_security(client,
         containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
-            removed_null=True)
+            removed_null=True).data
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)
@@ -434,7 +434,7 @@ def test_rancher_compose_services_log_driver(client,
         containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
-            removed_null=True)
+            removed_null=True).data
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running" + con.name)
@@ -477,7 +477,7 @@ def test_rancher_compose_services_network(client,
         containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
-            removed_null=True)
+            removed_null=True).data
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)
@@ -517,7 +517,7 @@ def test_rancher_compose_services_volume(client,
         containers = client.list_container(
             externalId=con.externalId,
             include="hosts",
-            removed_null=True)
+            removed_null=True).data
         docker_client = get_docker_client(containers[0].hosts[0])
         inspect = docker_client.inspect_container(con.externalId)
         logger.info("Checked for containers running " + con.name)

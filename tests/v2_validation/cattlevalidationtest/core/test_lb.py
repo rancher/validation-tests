@@ -16,7 +16,7 @@ if_lb_containers = pytest.mark.skipif(
 @pytest.fixture(scope='session', autouse=True)
 def lb_targets(request, client):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 1, "Need at least 2 hosts for executing Lb test cases"
 
     for n in range(0, 2):
@@ -147,7 +147,7 @@ def create_lb_with_one_listener_one_host_two_targets(client,
 
 @if_lb_containers
 def test_lb_with_targets(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -164,7 +164,7 @@ def test_lb_with_targets(client):
 @if_lb_containers
 def test_lb_add_host_target_in_parallel(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -212,7 +212,7 @@ def test_lb_add_host_target_in_parallel(client):
 
 @if_lb_containers
 def test_lb_add_target(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -251,7 +251,7 @@ def test_lb_add_target(client):
 
 @if_lb_containers
 def test_lb_remove_target(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -303,7 +303,7 @@ def test_lb_remove_target(client):
 
 @if_lb_containers
 def test_lb_add_listener(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -342,7 +342,7 @@ def test_lb_add_listener(client):
 
 @if_lb_containers
 def test_lb_remove_listener(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -394,7 +394,7 @@ def test_lb_remove_listener(client):
 
 @if_lb_containers
 def test_lb_add_host(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 1
 
     host = hosts[0]
@@ -422,7 +422,7 @@ def test_lb_add_host(client):
 
 @if_lb_containers
 def test_lb_remove_host(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 1
 
     host = hosts[0]
@@ -473,7 +473,7 @@ def test_lb_remove_host(client):
 @if_lb_containers
 def test_lb_container_lifecycle_stop_start(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
 
     host = hosts[0]
@@ -511,7 +511,7 @@ def test_lb_container_lifecycle_stop_start(client):
 @if_lb_containers
 def test_lb_container_lifecycle_restart(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "9091"
@@ -539,7 +539,7 @@ def test_lb_container_lifecycle_restart(client):
 @pytest.mark.skipif(True, reason='not implemented yet')
 def test_lb_container_lifecycle_delete_restore(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "9092"
@@ -578,7 +578,7 @@ def test_lb_container_lifecycle_delete_restore(client):
 @if_lb_containers
 def test_lb_container_lifecycle_delete_purge(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "9093"
@@ -601,7 +601,7 @@ def test_lb_container_lifecycle_delete_purge(client):
     check_round_robin_access(con_hostname, host, port)
 
     target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
-                                                 instanceId=con1.id)
+                                                 instanceId=con1.id).data
 
     assert len(target_maps) == 1
     target_map = target_maps[0]
@@ -616,7 +616,7 @@ def test_lb_container_lifecycle_delete_purge(client):
 
 @if_lb_containers
 def test_lb_add_target_in_different_host(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 1
     host = hosts[0]
     host2 = hosts[1]
@@ -652,7 +652,7 @@ def test_lb_add_target_in_different_host(client):
 
 @if_lb_containers
 def test_lb_config_shared_by_2_lb_instances(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 1
     host = hosts[0]
     host2 = hosts[1]
@@ -676,7 +676,7 @@ def test_lb_config_shared_by_2_lb_instances(client):
 
 @if_lb_containers
 def test_modify_lb_config_shared_by_2_lb_instances(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 1
     host1 = hosts[0]
     host2 = hosts[1]
@@ -744,7 +744,7 @@ def test_modify_lb_config_shared_by_2_lb_instances(client):
 
 @if_lb_containers
 def test_reuse_port_after_lb_deletion(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "9000"
@@ -786,7 +786,7 @@ def test_reuse_port_after_lb_deletion(client):
 
 @if_lb_containers
 def test_lb_for_container_with_port_mapping(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -837,7 +837,7 @@ def test_lb_for_container_with_port_mapping(client):
 
 @if_lb_containers
 def test_lb_with_lb_cookie(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "8095"
@@ -869,7 +869,7 @@ def test_lb_with_lb_cookie(client):
 @if_lb_containers
 def test_lb_with_app_cookie(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "8096"
@@ -903,7 +903,7 @@ def test_lb_with_app_cookie(client):
 @if_lb_containers
 def test_lb_with_health_check_with_uri(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "8097"
@@ -947,7 +947,7 @@ def test_lb_with_health_check_with_uri(client):
 @if_lb_containers
 def test_lb_with_health_check_without_uri(client):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "8098"
@@ -990,7 +990,7 @@ def test_lb_with_health_check_without_uri(client):
 
 @if_lb_containers
 def test_lb_with_source(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     host = hosts[0]
     port = "8101"
@@ -1015,7 +1015,7 @@ def check_round_robin_access(container_names, host, port):
     con_hostname = container_names[:]
     con_hostname_ordered = []
 
-    url = "http://" + host.ipAddresses()[0].address +\
+    url = "http://" + host.ipAddresses().data[0].address +\
           ":" + port + "/name.html"
 
     logger.info(url)
@@ -1046,7 +1046,7 @@ def check_round_robin_access(container_names, host, port):
 @if_lb_containers
 def check_no_access(host, port):
     try:
-        url = "http://" + host.ipAddresses()[0].address + ":" +\
+        url = "http://" + host.ipAddresses().data[0].address + ":" +\
               port + "/name.html"
         requests.get(url)
         assert False
@@ -1056,7 +1056,7 @@ def check_no_access(host, port):
 
 @if_lb_containers
 def check_access(host, port, expected_response):
-    url = "http://" + host.ipAddresses()[0].address + ":" +\
+    url = "http://" + host.ipAddresses().data[0].address + ":" +\
           port + "/name.html"
     r = requests.get(url)
     response = r.text.strip("\n")
@@ -1070,7 +1070,7 @@ def check_for_appcookie_policy(container_names, host, port, cookie_name):
     wait_until_lb_is_active(host, port)
 
     con_hostname = container_names[:]
-    url = "http://" + host.ipAddresses()[0].address + \
+    url = "http://" + host.ipAddresses().data[0].address + \
           ":" + port + "/name.html"
     headers = {"Cookie": cookie_name + "=test123"}
 
@@ -1092,7 +1092,7 @@ def check_for_appcookie_policy(container_names, host, port, cookie_name):
 def check_for_lbcookie_policy(container_names, host, port):
     wait_until_lb_is_active(host, port)
     con_hostname = container_names[:]
-    url = "http://" + host.ipAddresses()[0].address + \
+    url = "http://" + host.ipAddresses().data[0].address + \
           ":" + port + "/name.html"
 
     session = requests.Session()
@@ -1115,7 +1115,7 @@ def check_for_stickiness(container_names, host, port):
     wait_until_lb_is_active(host, port)
 
     con_hostname = container_names[:]
-    url = "http://" + host.ipAddresses()[0].address + \
+    url = "http://" + host.ipAddresses().data[0].address + \
           ":" + port + "/name.html"
 
     r = requests.get(url)
@@ -1134,7 +1134,7 @@ def check_for_stickiness(container_names, host, port):
 
 def validate_add_target(client, container, lb):
     target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
-                                                 instanceId=container.id)
+                                                 instanceId=container.id).data
     assert len(target_maps) == 1
     target_map = target_maps[0]
     wait_for_condition(
@@ -1145,7 +1145,7 @@ def validate_add_target(client, container, lb):
 
 def validate_remove_target(client, container, lb):
     target_maps = client.list_loadBalancerTarget(loadBalancerId=lb.id,
-                                                 instanceId=container.id)
+                                                 instanceId=container.id).data
     assert len(target_maps) == 1
     target_map = target_maps[0]
     wait_for_condition(
@@ -1157,7 +1157,7 @@ def validate_remove_target(client, container, lb):
 def validate_add_listener(client, listener, lb_config):
     lb_config_maps = client.\
         list_loadBalancerConfigListenerMap(loadBalancerListenerId=listener.id,
-                                           loadBalancerConfigId=lb_config.id)
+                                           loadBalancerConfigId=lb_config.id).data
     assert len(lb_config_maps) == 1
     config_map = lb_config_maps[0]
     wait_for_condition(
@@ -1169,7 +1169,7 @@ def validate_add_listener(client, listener, lb_config):
 def validate_remove_listener(client, listener, lb_config):
     lb_config_maps = client.\
         list_loadBalancerConfigListenerMap(loadBalancerListenerId=listener.id,
-                                           loadBalancerConfigId=lb_config.id)
+                                           loadBalancerConfigId=lb_config.id).data
     assert len(lb_config_maps) == 1
     config_map = lb_config_maps[0]
     wait_for_condition(
@@ -1181,7 +1181,7 @@ def validate_remove_listener(client, listener, lb_config):
 def validate_add_host(client, host, lb):
     host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
                                                 hostId=host.id,
-                                                removed_null=True)
+                                                removed_null=True).data
     assert len(host_maps) == 1
     host_map = host_maps[0]
     wait_for_condition(
@@ -1192,7 +1192,7 @@ def validate_add_host(client, host, lb):
 
 def validate_remove_host(client, host, lb):
     host_maps = client.list_loadBalancerHostMap(loadBalancerId=lb.id,
-                                                hostId=host.id)
+                                                hostId=host.id).data
     assert len(host_maps) == 1
     host_map = host_maps[0]
     wait_for_condition(
@@ -1205,7 +1205,7 @@ def wait_until_lb_is_active(host, port, timeout=45):
     start = time.time()
     while check_for_no_access(host, port):
         time.sleep(.5)
-        print "No access yet"
+        print("No access yet")
         if time.time() - start > timeout:
             raise Exception('Timed out waiting for LB to become active')
     return
@@ -1213,7 +1213,7 @@ def wait_until_lb_is_active(host, port, timeout=45):
 
 def check_for_no_access(host, port):
     try:
-        url = "http://" + host.ipAddresses()[0].address + ":" +\
+        url = "http://" + host.ipAddresses().data[0].address + ":" +\
               port + "/name.html"
         requests.get(url)
         return False

@@ -328,7 +328,7 @@ def test_dns_consumed_services_stop_start_instance(client,
         dns.name)
 
     container_name = get_container_name(env, consumed_service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -358,7 +358,7 @@ def test_dns_consumed_services_restart_instance(client):
         client, service, [consumed_service, consumed_service1], port,
         dns.name)
     container_name = get_container_name(env, consumed_service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -389,7 +389,7 @@ def test_dns_consumed_services_delete_instance(client):
 
     container_name = get_container_name(env, consumed_service, 1)
 
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -674,7 +674,7 @@ def test_dns_services_stop_start_instance(client,
         dns.name)
 
     container_name = get_container_name(env, service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 
@@ -705,7 +705,7 @@ def test_dns_services_restart_instance(client):
         dns.name)
 
     container_name = get_container_name(env, service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 
@@ -736,7 +736,7 @@ def test_dns_service_restore_instance(client):
         dns.name)
 
     container_name = get_container_name(env, service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 

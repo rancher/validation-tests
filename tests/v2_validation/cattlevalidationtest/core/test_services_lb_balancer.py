@@ -367,7 +367,7 @@ def test_lb_services_stop_start_instance(
     # Stop instance
     container_name = \
         env.name + FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + "2"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
     stop_container_from_host(client, container)
@@ -396,7 +396,7 @@ def test_lb_services_delete_purge_instance(
     # Delete instance
     container_name = \
         env.name + FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
     container = client.wait_success(client.delete(container))
@@ -426,7 +426,7 @@ def test_lb_services_restart_instance(
     # restart instance
     container_name = \
         env.name + FIELD_SEPARATOR + service.name + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
     container = client.wait_success(container.restart(), 120)
@@ -565,7 +565,7 @@ def test_lb_services_add_remove_servicelinks_service(
     assert service1.state == "active"
 
     # Add another target to the LB service
-    port_rules = lb_service.lbConfig["portRules"]
+    port_rules = lb_service.lbConfig.portRules
     port_rule = {"serviceId": service1.id,
                  "sourcePort": port,
                  "targetPort": "80",
@@ -575,7 +575,7 @@ def test_lb_services_add_remove_servicelinks_service(
 
     lb_config = {"portRules": port_rules}
 
-    print "port rules:" + str(port_rules)
+    print("port rules:" + str(port_rules))
     lb_service = client.update(lb_service, lbConfig=lb_config)
     lb_service = client.wait_success(lb_service, 120)
 
@@ -835,7 +835,7 @@ def test_lbservice_internal(client, socat_containers):
     port = "19017"
     con_port = "9018"
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
 
     lb_scale = 1
@@ -846,7 +846,7 @@ def test_lbservice_internal(client, socat_containers):
         client, service_scale, lb_scale, port, internal=True)
 
     # Deploy container in same network to test accessibility of internal LB
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -878,7 +878,7 @@ def test_multiple_lbservice_internal_same_host_port(
     port = "19019"
     con_port = "19020"
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
 
     lb_scale = len(hosts)
@@ -889,7 +889,7 @@ def test_multiple_lbservice_internal_same_host_port(
         client, service_scale, lb_scale, port, internal=True)
 
     # Deploy container in same network to test accessibility of internal LB
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
 
@@ -1172,7 +1172,7 @@ def test_lb_with_container_unhealthy_container(
         lambda x: 'State is: ' + x.healthState)
     new_containers = client.list_container(name=con.name,
                                            state="running",
-                                           healthState="healthy")
+                                           healthState="healthy").data
     assert len(new_containers) == 1
     validate_lb_with_sa_con_targets(client,
                                     [cons[1], new_containers[0]],
