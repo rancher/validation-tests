@@ -160,7 +160,7 @@ def test_dns_discovery_consumed_services_stop_start_instance(
     validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -188,7 +188,7 @@ def test_dns_discovery_consumed_services_restart_instance(
     validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -213,7 +213,7 @@ def test_dns_discovery_consumed_services_delete_instance(client):
     validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, consumed_service, 1)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -332,7 +332,7 @@ def test_dns_discovery_services_stop_start_instance(client,
                             )
 
     container_name = get_container_name(env, consumed_service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 
@@ -360,7 +360,7 @@ def test_dns_discovery_services_restart_instance(client):
     validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 
@@ -388,7 +388,7 @@ def test_dns_discovery_services_delete_instance(client):
     validate_linked_service(client, service, [consumed_service], port)
 
     container_name = get_container_name(env, service, 2)
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     service_instance = containers[0]
 
@@ -844,26 +844,26 @@ def validate_for_container_dns_resolution(
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.ipAddresses().data[0].address, username="root",
                     password="root", port=int(sshport))
 
         # Validate container name resolution
         cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + \
               dns_name + ":80/name.html;cat result.txt"
         logger.info(cmd)
-        print cmd
+        print(cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         response = stdout.readlines()
         assert len(response) == 1
         resp = response[0].strip("\n")
         logger.info(resp)
-        print resp
+        print(resp)
         assert resp in (container.externalId[:12])
 
         # Validate DNS resolution using dig
         cmd = "dig " + dns_name + " +short"
         logger.info(cmd)
-        print cmd
+        print(cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
 
         response = stdout.readlines()
@@ -871,6 +871,6 @@ def validate_for_container_dns_resolution(
         assert len(response) == 1
         resp = response[0].strip("\n")
         logger.info(resp)
-        print resp
+        print(resp)
         assert resp == container.primaryIpAddress
     return

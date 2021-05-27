@@ -1,3 +1,4 @@
+from tests.v2_validation.cattlevalidationtest.core.common_fixtures import DEFAULT_TIMEOUT
 from common_fixtures import *  # NOQA
 import websocket as ws
 from test_container import assert_execute, assert_stats, assert_ip_inject
@@ -10,7 +11,7 @@ NATIVE_TEST_IMAGE = 'cattle/test-agent'
 
 @pytest.fixture(scope='module')
 def host(client):
-    hosts = client.list_host(kind='docker', removed_null=True, state='active')
+    hosts = client.list_host(kind='docker', removed_null=True, state='active').data
     assert len(hosts) >= 1
     host = hosts[0]
     return host
@@ -27,7 +28,7 @@ def pull_images(client, socat_containers):
 @pytest.fixture(scope='module', autouse=True)
 def native_cleanup(client, request):
     def fin():
-        containers = client.list_container()
+        containers = client.list_container().data
         for c in containers:
             try:
                 if c.name.startswith('native-'):
@@ -103,7 +104,7 @@ def test_native_net_container(socat_containers, client, native_name,
                                                  docker_client,
                                                  native_name)
     common_network_asserts(container, docker_container, 'container')
-    assert container['networkContainerId'] == target_container.id
+    assert container.get('networkContainerId') == target_container.id
 
 
 def test_native_lifecycyle(socat_containers, client, native_name, pull_images):
@@ -155,7 +156,7 @@ def wait_for_state(client, expected_state, c_id):
         c = client.by_id_container(c_id)
         return c.state == expected_state
 
-    wait_for(stopped_check,
+    wait_for(stopped_check, DEFAULT_TIMEOUT,
              'Timeout waiting for container to stop. Id: [%s]' % c_id)
 
 
@@ -313,11 +314,11 @@ def common_network_asserts(rancher_container, docker_container,
 
 def wait_on_rancher_container(client, name, timeout=None):
     def check():
-        containers = client.list_container(name=name)
+        containers = client.list_container(name=name).data
         return len(containers) > 0 and containers[0].state != 'requested'
 
     wait_for(check, timeout_message=CONTAINER_APPEAR_TIMEOUT_MSG % name)
-    r_containers = client.list_container(name=name)
+    r_containers = client.list_container(name=name).data
     assert len(r_containers) == 1
     container = r_containers[0]
 

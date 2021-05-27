@@ -72,7 +72,7 @@ def test_rancher_compose_service(client,
                                       scale)
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -90,7 +90,7 @@ def test_rancher_compose_service(client,
     dns_search.append(RANCHER_DNS_SEARCH)
 
     for c in container_list:
-        print c
+        print(c)
         docker_client = get_docker_client(c.hosts[0])
         inspect = docker_client.inspect_container(c.externalId)
 
@@ -123,7 +123,7 @@ def test_rancher_compose_service(client,
 def test_rancher_compose_service_option_2(client,
                                           rancher_cli_container,
                                           socat_containers):
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     cpu_shares = 400
     ulimit = {"hard": 1024, "name": "cpu", "soft": 1024}
     ulimit_inspect = {"Hard": 1024, "Name": "cpu", "Soft": 1024}
@@ -204,7 +204,7 @@ def test_rancher_compose_service_option_2(client,
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -269,7 +269,7 @@ def test_rancher_compose_service_option_2(client,
 def test_rancher_compose_services_port_and_link_options(
         client, rancher_cli_container, socat_containers):
 
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
 
     host = hosts[0]
     link_host = hosts[1]
@@ -299,7 +299,7 @@ def test_rancher_compose_services_port_and_link_options(
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -307,7 +307,7 @@ def test_rancher_compose_services_port_and_link_options(
         client, rancher_env.id, service)
 
     container_name = get_container_name(rancher_env, rancher_service, 1)
-    containers = client.list_container(name=container_name, state="running")
+    containers = client.list_container(name=container_name, state="running").data
     assert len(containers) == 1
     con = containers[0]
 
@@ -341,7 +341,7 @@ def test_rancher_compose_lbservice(client,
     service = activate_svc(client, service)
     service1 = activate_svc(client, service1)
     # Set LB targets
-    port_rules = lb_service.lbConfig["portRules"]
+    port_rules = lb_service.lbConfig.portRules
     protocol = "http"
     target_port = "80"
     service_id = service1.id
@@ -354,7 +354,7 @@ def test_rancher_compose_lbservice(client,
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -380,7 +380,7 @@ def test_rancher_compose_lbservice_internal(client,
     con_port = "7912"
 
     # Deploy container in same network to test accessibility of internal LB
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     assert len(hosts) > 0
     host = hosts[0]
     client_con = client.create_container(
@@ -409,7 +409,7 @@ def test_rancher_compose_lbservice_internal(client,
     service = activate_svc(client, service)
     service1 = activate_svc(client, service1)
     # Set LB targets
-    port_rules = lb_service.lbConfig["portRules"]
+    port_rules = lb_service.lbConfig.portRules
     protocol = "http"
     target_port = "80"
     service_id = service1.id
@@ -422,7 +422,7 @@ def test_rancher_compose_lbservice_internal(client,
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -469,7 +469,7 @@ def test_rancher_compose_service_links(client,
 #   Launch env using docker compose
 
     launch_rancher_compose(client, env)
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -519,7 +519,7 @@ def test_rancher_compose_external_services(client,
 #   Launch env using docker compose
 
     launch_rancher_compose(client, env)
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -607,7 +607,7 @@ def test_rancher_compose_lbservice_host_routing(client,
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -684,7 +684,7 @@ def test_rancher_compose_lbservice_multiple_port(client,
 
     launch_rancher_compose(client, env)
 
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -724,7 +724,7 @@ def test_rancher_compose_external_services_hostname(client,
 #   Launch env using docker compose
 
     launch_rancher_compose(client, env)
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -766,7 +766,7 @@ def rancher_compose_dns_services(client, port,
 
     # Launch dns env using docker compose
     launch_rancher_compose(client, env)
-    rancher_envs = client.list_stack(name=env.name+"rancher")
+    rancher_envs = client.list_stack(name=env.name+"rancher").data
     assert len(rancher_envs) == 1
     rancher_env = rancher_envs[0]
 
@@ -824,10 +824,10 @@ def rancher_compose_dns_services(client, port,
 def get_rancher_compose_service(client, rancher_env_id, service):
     rancher_services = client.list_service(name=service.name,
                                            stackId=rancher_env_id,
-                                           removed_null=True)
+                                           removed_null=True).data
     assert len(rancher_services) == 1
     rancher_service = rancher_services[0]
-    print service.kind
+    print(service.kind)
     if service.kind != 'externalService' and service.kind != 'dnsService':
         assert rancher_service.scale == service.scale
     rancher_service = client.wait_success(rancher_service, 120)

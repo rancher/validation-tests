@@ -335,10 +335,10 @@ def test_multiple_level_volume_mount_delete_services_1(client,
 
     # Delete container from consumed_service2
     container_name = consumed_service2 + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
-    print container_name
+    print(container_name)
 
     consumed1_container = get_side_kick_container(
         client, container, service, consumed_service1)
@@ -351,23 +351,23 @@ def test_multiple_level_volume_mount_delete_services_1(client,
     assert container.state == 'removed'
 
     # Wait for both the consuming containers to be removed
-    print consumed1_container.name + " - " + consumed1_container.state
+    print(consumed1_container.name + " - " + consumed1_container.state)
     wait_for_condition(
         client, consumed1_container,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
     consumed1_container = client.reload(consumed1_container)
     assert consumed1_container.state == "removed"
-    print consumed1_container.name + " - " + consumed1_container.state
+    print(consumed1_container.name + " - " + consumed1_container.state)
 
-    print primary_container.name + " - " + primary_container.state
+    print(primary_container.name + " - " + primary_container.state)
     wait_for_condition(
         client, primary_container,
         lambda x: x.state == "removed",
         lambda x: 'State is: ' + x.state)
     primary_container = client.reload(primary_container)
     assert primary_container.state == "removed"
-    print primary_container.name + " - " + primary_container.state
+    print(primary_container.name + " - " + primary_container.state)
 
     wait_state(client, service, "active")
 
@@ -399,18 +399,18 @@ def test_multiple_level_volume_mount_delete_services_2(client,
 
     # Delete container from consumed_service1
     container_name = consumed_service1 + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
-    print container_name
+    print(container_name)
 
     consumed2_container = get_side_kick_container(
         client, container, service, consumed_service2)
-    print consumed2_container.name
+    print(consumed2_container.name)
 
     primary_container = get_side_kick_container(
         client, container, service, service_name)
-    print primary_container.name
+    print(primary_container.name)
 
     # Delete instance
     container = client.wait_success(client.delete(container))
@@ -431,7 +431,7 @@ def test_multiple_level_volume_mount_delete_services_2(client,
     # but the consumed container of the deleted instance continues to be in
     # running state
     consumed2_container = client.reload(consumed2_container)
-    print consumed2_container.state
+    print(consumed2_container.state)
     assert consumed2_container.state == "running"
 
     delete_all(client, [env])
@@ -498,7 +498,7 @@ def test_volume_mount_consumed_services_stop_start_instance(
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "2"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -520,7 +520,7 @@ def test_volume_mount_consumed_services_restart_instance(
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "2"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -543,14 +543,14 @@ def test_volume_mount_consumed_services_delete_instance(
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
-    print container_name
+    print(container_name)
 
     primary_container = get_side_kick_container(
         client, container, service, service_name)
-    print primary_container.name
+    print(primary_container.name)
 
     # Delete instance
     container = client.wait_success(client.delete(container))
@@ -603,7 +603,7 @@ def test_volume_mount_services_stop_start_instance(
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = get_container_name(env, service, "2")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -626,7 +626,7 @@ def test_volume_mount_services_restart_instance(client,
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = get_container_name(env, service, "2")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -649,14 +649,14 @@ def test_volume_mount_services_delete_instance(
         env_with_2_svc_and_volume_mount(client, service_scale)
 
     container_name = get_container_name(env, service, "1")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
-    print container_name
+    print(container_name)
     consumed_container = get_side_kick_container(
         client, container, service, consumed_service_name)
-    print consumed_container.name
+    print(consumed_container.name)
 
     # Delete instance
     container = client.wait_success(client.delete(container))
@@ -669,7 +669,7 @@ def test_volume_mount_services_delete_instance(
 
     # Check that the consumed container is not recreated
     consumed_container = client.reload(consumed_container)
-    print consumed_container.state
+    print(consumed_container.state)
     assert consumed_container.state == "running"
 
     delete_all(client, [env])
@@ -730,7 +730,7 @@ def get_service_container_name_list(client, service, name):
 
 def validate_volume_mount(
         client, primary_service, service, consumed_services):
-    print "Validating service - " + service
+    print("Validating service - " + service)
 
     containers = get_service_containers_with_name(client,
                                                   primary_service,
@@ -742,7 +742,7 @@ def validate_volume_mount(
     volumes_from_list = []
 
     for consumed_service_name in consumed_services:
-        print "Validating Consumed Services: " + consumed_service_name
+        print("Validating Consumed Services: " + consumed_service_name)
         mounted_containers = get_service_container_name_list(
             client, primary_service, consumed_service_name)
         assert len(mounted_containers) == primary_service.scale
@@ -751,8 +751,8 @@ def validate_volume_mount(
             mounted_container_names.append(mounted_container)
         consolidated_container_list.append(mounted_containers)
 
-    print "All container lists" + str(consolidated_container_list)
-    print "All containers" + str(mounted_container_names)
+    print("All container lists" + str(consolidated_container_list))
+    print("All containers" + str(mounted_container_names))
 
     # For every container in the service , make sure that there is 1
     # mounted container volume from each of the consumed service
@@ -761,7 +761,7 @@ def validate_volume_mount(
         docker_client = get_docker_client(host)
         inspect = docker_client.inspect_container(con.externalId)
         volumeFrom = inspect["HostConfig"]["VolumesFrom"]
-        print con.name + "->" + str(volumeFrom)
+        print(con.name + "->" + str(volumeFrom))
         assert volumeFrom is not None
         assert len(volumeFrom) == len(consumed_services)
 

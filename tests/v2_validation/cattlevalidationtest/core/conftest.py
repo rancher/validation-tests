@@ -27,7 +27,7 @@ def cleanup():
     # re.compile('test[0-9]{1,6}_test[0-9]{1,6}_[0-9]*')
 
     to_delete_env = []
-    for i in rancher_client.list_stack(state='active'):
+    for i in rancher_client.list_stack(state='active').data:
         try:
             if env_name_format.match(i.name):
                 to_delete_env.append(i)
@@ -36,7 +36,7 @@ def cleanup():
     delete_all(rancher_client, to_delete_env)
 
     to_delete = []
-    for i in rancher_client.list_instance(state='running'):
+    for i in rancher_client.list_instance(state='running').data:
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
@@ -54,7 +54,7 @@ def cleanup():
     delete_all(rancher_client, to_delete)
 
     to_delete = []
-    for i in rancher_client.list_instance(state='stopped'):
+    for i in rancher_client.list_instance(state='stopped').data:
         try:
             if i.name is not None:
                 if instance_name_format.match(i.name) or \
@@ -68,11 +68,11 @@ def cleanup():
     delete_all(rancher_client, to_delete)
 
     # Delete all apiKeys created by test runs
-    account = rancher_client.list_project(uuid="adminProject")[0]
+    account = rancher_client.list_project(uuid="adminProject").data[0]
     for cred in account.credentials():
         if cred.kind == 'apiKey' and \
                 instance_name_format.match(cred.publicValue) \
                 and cred.state == "active":
-            print cred.id
+            print(cred.id)
             cred = rancher_client.wait_success(cred.deactivate())
             rancher_client.delete(cred)

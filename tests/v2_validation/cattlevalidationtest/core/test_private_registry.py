@@ -32,10 +32,10 @@ if_docker_creds_available = pytest.mark.skipif(
     multiThreaded, reason='Not all Docker credentials are avaialable' +
                           'or tests are run in parallel')
 
-print quay_creds.values()
-print dockerhub_creds.values()
-print None in quay_creds.values()
-print "" in dockerhub_creds.values()
+print(quay_creds.values())
+print(dockerhub_creds.values())
+print(None in quay_creds.values())
+print("" in dockerhub_creds.values())
 
 
 def create_registry(client, registry_creds):

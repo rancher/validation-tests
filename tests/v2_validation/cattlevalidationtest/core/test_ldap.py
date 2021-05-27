@@ -37,7 +37,7 @@ def create_ldap_client(username=os.getenv('LDAP_USER1', 'devUserA'),
     client.reload_schema()
     assert client.valid()
 
-    identities = client.list_identity()
+    identities = client.list_identity().data
     assert len(identities) > 0
     is_ldap_user = False
     for identity in identities:
@@ -173,7 +173,7 @@ def test_turn_on_ldap_ui(admin_client):
 def test_ldap_search_get_user(admin_client, ldap_config):
     search_user = os.getenv('LDAP_USER1', 'devUserA')
     search_user_name = os.getenv('LDAP_USER_NAME', 'Dev A. User')
-    user = admin_client.list_identity(name=search_user_name)[0]
+    user = admin_client.list_identity(name=search_user_name).data[0]
     assert user.name == search_user_name
     assert user.login == search_user
     user_copy = admin_client.by_id('identity', user.id)
@@ -187,7 +187,7 @@ def test_ldap_search_get_user(admin_client, ldap_config):
 @if_ldap
 def test_ldap_search_get_group(admin_client, ldap_config):
     search_group = os.getenv('LDAP_GROUP', 'qualityAssurance')
-    group = admin_client.list_identity(name=search_group)[0]
+    group = admin_client.list_identity(name=search_group).data[0]
     group_copy = admin_client.by_id('identity', group.id)
     assert group.name == group_copy.name
     assert group.id == group_copy.id
@@ -262,7 +262,7 @@ def test_ldap_project_members(ldap_config):
     user2_identity = get_authed_token(username=username,
                                       password=password)['userIdentity']
     group = os.getenv('LDAP_GROUP', 'qualityAssurance')
-    group = user1_client.list_identity(name=group)[0]
+    group = user1_client.list_identity(name=group).data[0]
     project = user1_client.create_project(members=[
         idToMember(user1_identity, 'owner'),
         idToMember(user2_identity, 'member')

@@ -10,7 +10,7 @@ def test_sibling_pinging(client, one_per_host):
     hostnames = set()
 
     for i in instances:
-        port = i.ports_link()[0]
+        port = i.ports_link().data[0]
 
         host = port.publicIpAddress().address
         port = port.publicPort
@@ -48,7 +48,7 @@ def test_dynamic_port(client, test_name):
                                 imageUuid=TEST_IMAGE_UUID)
     c = client.wait_success(c)
 
-    ports = c.ports_link()
+    ports = c.ports_link().data
     assert len(ports) == 1
 
     port = ports[0]
@@ -70,7 +70,7 @@ def test_dynamic_port(client, test_name):
 
 def test_linking(client, admin_client, test_name):
 
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 2
 
     random_val = random_str()
@@ -111,7 +111,7 @@ def test_linking(client, admin_client, test_name):
 
     link_server2 = client.wait_success(link_server2)
 
-    link = link_client.instanceLinks()[0]
+    link = link_client.instanceLinks().data[0]
     link = client.update(link, targetInstanceId=link_server2.id)
     client.wait_success(link)
 
@@ -224,7 +224,7 @@ def test_create_container_with_stack(client):
 @if_container_refactoring
 def test_create_container_without_stack(client):
     con = create_sa_container(client)
-    default_env = client.list_stack(name="Default")
+    default_env = client.list_stack(name="Default").data
     assert len(default_env) == 1
     assert con.stackId == default_env[0].id
     delete_all(client, [con])
@@ -233,7 +233,7 @@ def test_create_container_without_stack(client):
 @if_container_refactoring
 def test_create_container_with_healthcheck_on(client):
     con = create_sa_container(client, healthcheck=True)
-    default_env = client.list_stack(name="Default")
+    default_env = client.list_stack(name="Default").data
     assert len(default_env) == 1
     assert con.stackId == default_env[0].id
     delete_all(client, [con])
@@ -260,7 +260,7 @@ def test_container_with_healthcheck_becoming_unhealthy(client):
         lambda x: 'State is: ' + x.healthState)
     new_containers = client.list_container(name=con.name,
                                            state="running",
-                                           healthState="healthy")
+                                           healthState="healthy").data
     assert len(new_containers) == 1
     delete_all(client, [con])
 
@@ -296,7 +296,7 @@ def test_create_container_with_sidekick_with_ports(client):
 
 
 def test_set_up():
-    print "Start cleanup"
+    print("Start cleanup")
 
 
 def assert_stats(container):

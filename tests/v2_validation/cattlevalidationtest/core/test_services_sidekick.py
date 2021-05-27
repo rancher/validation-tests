@@ -442,7 +442,7 @@ def test_sidekick_consumed_services_stop_start_instance(client,
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "2"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -464,7 +464,7 @@ def test_sidekick_consumed_services_restart_instance(client):
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "2"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -487,14 +487,14 @@ def test_sidekick_consumed_services_delete_instance(client):
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = consumed_service_name + FIELD_SEPARATOR + "1"
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
-    print container_name
+    print(container_name)
     primary_container = get_side_kick_container(
         client, container, service, service_name)
-    print primary_container.name
+    print(primary_container.name)
 
     # Delete instance
     container = client.wait_success(client.delete(container))
@@ -508,7 +508,7 @@ def test_sidekick_consumed_services_delete_instance(client):
 
     # Check that the consumed container is not recreated
     primary_container = client.reload(primary_container)
-    print primary_container.state
+    print(primary_container.state)
     assert primary_container.state == "running"
 
     delete_all(client, [env])
@@ -548,7 +548,7 @@ def test_sidekick_services_stop_start_instance(client, socat_containers):
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = get_container_name(env, service, "2")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -571,7 +571,7 @@ def test_sidekick_services_restart_instance(client):
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = get_container_name(env, service, "2")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
@@ -593,14 +593,14 @@ def test_sidekick_services_delete_instance(client):
         env_with_sidekick(client, service_scale, exposed_port)
 
     container_name = get_container_name(env, service, "1")
-    containers = client.list_container(name=container_name)
+    containers = client.list_container(name=container_name).data
     assert len(containers) == 1
     container = containers[0]
 
-    print container_name
+    print(container_name)
     consumed_container = get_side_kick_container(
         client, container, service, consumed_service_name)
-    print consumed_container.name
+    print(consumed_container.name)
 
     # Delete instance
     container = client.wait_success(client.delete(container))
@@ -614,7 +614,7 @@ def test_sidekick_services_delete_instance(client):
 
     # Check that the consumed container is not recreated
     consumed_container = client.reload(consumed_container)
-    print consumed_container.state
+    print(consumed_container.state)
     assert consumed_container.state == "running"
 
     delete_all(client, [env])
@@ -711,13 +711,13 @@ def test_sidekick_lbactivation_after_linking(client, socat_containers):
 
 def validate_sidekick(client, primary_service, service_name,
                       consumed_service_name, exposed_port=None, dnsname=None):
-    print "Validating service - " + service_name
+    print("Validating service - " + service_name)
     containers = get_service_containers_with_name(client,
                                                   primary_service,
                                                   service_name)
     assert len(containers) == primary_service.scale
 
-    print "Validating Consumed Services: " + consumed_service_name
+    print("Validating Consumed Services: " + consumed_service_name)
     consumed_containers = get_service_containers_with_name(
         client, primary_service, consumed_service_name)
     assert len(consumed_containers) == primary_service.scale
@@ -728,12 +728,12 @@ def validate_sidekick(client, primary_service, service_name,
     # primary service container
     for con in containers:
         pri_host = con.hosts[0].id
-        label = con.labels["io.rancher.service.deployment.unit"]
-        print con.name + " - " + label + " - " + pri_host
+        label = con.labels.get("io.rancher.service.deployment.unit")
+        print(con.name + " - " + label + " - " + pri_host)
         secondary_con = get_service_container_with_label(
             client, primary_service, consumed_service_name, label)
         sec_host = secondary_con.hosts[0].id
-        print secondary_con.name + " - " + label + " - " + sec_host
+        print(secondary_con.name + " - " + label + " - " + sec_host)
         assert sec_host == pri_host
 
     if exposed_port is not None and dnsname is not None:
@@ -754,41 +754,41 @@ def validate_dns(client, service_containers, consumed_service,
         expected_dns_list = []
         expected_link_response = []
         dns_response = []
-        print "Validating DNS for " + dnsname + " - container -" \
-              + service_con.name
+        print("Validating DNS for " + dnsname + " - container -" \
+              + service_con.name)
 
         for con in consumed_service:
             expected_dns_list.append(con.primaryIpAddress)
             expected_link_response.append(con.externalId[:12])
 
-        print "Expected dig response List" + str(expected_dns_list)
-        print "Expected wget response List" + str(expected_link_response)
+        print("Expected dig response List" + str(expected_dns_list))
+        print("Expected wget response List" + str(expected_link_response))
 
         # Validate port mapping
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host.ipAddresses()[0].address, username="root",
+        ssh.connect(host.ipAddresses().data[0].address, username="root",
                     password="root", port=int(exposed_port))
 
         # Validate link containers
         cmd = "wget -O result.txt --timeout=20 --tries=1 http://" + dnsname + \
               ":80/name.html;cat result.txt"
-        print cmd
+        print(cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
 
         response = stdout.readlines()
         assert len(response) == 1
         resp = response[0].strip("\n")
-        print "Actual wget Response" + str(resp)
+        print("Actual wget Response" + str(resp))
         assert resp in (expected_link_response)
 
         # Validate DNS resolution using dig
         cmd = "dig " + dnsname + " +short"
-        print cmd
+        print(cmd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
 
         response = stdout.readlines()
-        print "Actual dig Response" + str(response)
+        print("Actual dig Response" + str(response))
         assert len(response) == len(expected_dns_list)
 
         for resp in response:

@@ -49,7 +49,7 @@ def test_ebs_volume_read_write_data(client):
 
     assert check_for_ebs_driver(client)
     volume_name = "ebs_" + random_str()
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -115,7 +115,7 @@ def test_ebs_volume_move_same_host(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "1000"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -178,7 +178,7 @@ def test_ebs_volume_move_diff_hosts(client):
 
     assert check_for_ebs_driver(client)
     volume_name = "ebs_" + random_str()
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     path = "/test"
     port = "1001"
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
@@ -245,7 +245,7 @@ def test_ebs_volume_restart_service_instance(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "1002"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -297,7 +297,7 @@ def test_ebs_volume_activate_deactivate_service(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "1003"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -361,7 +361,7 @@ def test_ebs_volume_delete_instance(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "1004"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -439,11 +439,11 @@ def test_ebs_service_with_two_new_volumes(client, rancher_cli_container):
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
 
     write_data(container, int(port1), path1, filename, content)
 
@@ -466,7 +466,7 @@ def test_ebs_service_with_two_new_volumes(client, rancher_cli_container):
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -492,7 +492,7 @@ def test_ebs_stack_scope_volume(client, rancher_cli_container):
         client, stack_name, "test1", EBS_SUBDIR, "dc_stack_scope.yml")
 
     stack, service = get_env_service_by_name(client, stack_name, "test1")
-    print service
+    print(service)
 
     # Confirm service is active and the containers are running
     assert service.state == "active"
@@ -505,11 +505,11 @@ def test_ebs_stack_scope_volume(client, rancher_cli_container):
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
 
     write_data(container, int(port), path, filename, content)
 
@@ -523,7 +523,7 @@ def test_ebs_stack_scope_volume(client, rancher_cli_container):
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -562,11 +562,11 @@ def test_ebs_container_scope_volume(client, rancher_cli_container):
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     write_data(container, int(port), path, filename, content)
 
     file_content = \
@@ -580,7 +580,7 @@ def test_ebs_container_scope_volume(client, rancher_cli_container):
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -635,11 +635,11 @@ def test_ebs_container_scope_volume_delete_instance(client,
 
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
 
     file_content = \
         read_data(container, int(port), path, filename)
@@ -651,7 +651,7 @@ def test_ebs_container_scope_volume_delete_instance(client,
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -693,11 +693,11 @@ def test_ebs_container_scope_volume_restart_instance(client,
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     write_data(container, int(port), path, filename, content)
 
     # Restart container instance
@@ -717,7 +717,7 @@ def test_ebs_container_scope_volume_restart_instance(client,
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -758,11 +758,11 @@ def test_ebs_container_scope_volume_upgrade(client,
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     write_data(container, int(port), path, filename, content)
 
     # Upgrade stack
@@ -794,7 +794,7 @@ def test_ebs_container_scope_volume_upgrade(client,
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -837,11 +837,11 @@ def test_ebs_container_scope_volume_upgrade_rollback(client,
     container = container_list[0]
     # Get the volume Id
     volumedict = container.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     write_data(container, int(port), path, filename, content)
 
     # Upgrade stack
@@ -877,7 +877,7 @@ def test_ebs_container_scope_volume_upgrade_rollback(client,
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -922,11 +922,11 @@ def test_ebs_volume_primary(client, rancher_cli_container):
 
     # Get the volume Id
     volumedict = container1.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     # Write data to the primary and read from the sidekick container
     write_data(container1, int(port1), path, filename, content)
 
@@ -941,7 +941,7 @@ def test_ebs_volume_primary(client, rancher_cli_container):
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -986,11 +986,11 @@ def test_ebs_volume_sidekick(client, rancher_cli_container):
 
     # Get the volume Id
     volumedict = container1.dataVolumeMounts
-    print "The volume ID is:"
+    print("The volume ID is:")
     for key, value in volumedict.items():
-        print key, value
+        print(key, value)
     volumeId = value
-    print volumeId
+    print(volumeId)
     # Write data to the sidekick and read from the primary container
     write_data(container2, int(port2), path, filename, content)
 
@@ -1004,7 +1004,7 @@ def test_ebs_volume_sidekick(client, rancher_cli_container):
     remove_command = "volume rm " + volumeId
     cli_remove_response = execute_rancher_cli(client, stack_name,
                                               remove_command)
-    print cli_remove_response
+    print(cli_remove_response)
     # Verify volume is removed
     if volumeId in cli_remove_response:
         assert True
@@ -1021,7 +1021,7 @@ def test_ebs_volume_restart_driver_container(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "7016"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -1046,7 +1046,7 @@ def test_ebs_volume_restart_driver_container(client):
     write_data(container_list[0], int(port), path, filename, content)
 
     # Restart EBS driver container
-    env = client.list_stack(name="ebs")
+    env = client.list_stack(name="ebs").data
     if len(env) == 1:
         service = get_service_by_name(client, env[0],
                                       "ebs-driver")
@@ -1073,7 +1073,7 @@ def test_ebs_volume_stop_driver_container(client):
     volume_name = "ebs_" + random_str()
     path = "/test"
     port = "7017"
-    hosts = client.list_host(kind='docker', removed_null=True, state="active")
+    hosts = client.list_host(kind='docker', removed_null=True, state="active").data
     volume = client.create_volume({"type": "volume", "driver": "rancher-ebs",
                                    "name": volume_name,
                                    "driverOpts": {"size": "1"}})
@@ -1098,7 +1098,7 @@ def test_ebs_volume_stop_driver_container(client):
     write_data(container_list[0], int(port), path, filename, content)
 
     # Stop EBS driver instance
-    env = client.list_stack(name="ebs")
+    env = client.list_stack(name="ebs").data
     if len(env) == 1:
         service = get_service_by_name(client, env[0],
                                       "ebs-driver")
@@ -1116,7 +1116,7 @@ def test_ebs_volume_stop_driver_container(client):
 
 def check_for_ebs_driver(client):
     ebs_driver = False
-    env = client.list_stack(name="ebs")
+    env = client.list_stack(name="ebs").data
     if len(env) == 1:
         service = get_service_by_name(client, env[0],
                                       "ebs-driver")

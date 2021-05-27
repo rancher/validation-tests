@@ -1,5 +1,5 @@
 from common_fixtures import *  # NOQA
-from urllib2 import urlopen
+from urllib.request import urlopen
 import os
 
 quay_creds = {}

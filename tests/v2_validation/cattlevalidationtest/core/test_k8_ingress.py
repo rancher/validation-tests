@@ -44,9 +44,9 @@ def test_k8s_ingress_1(kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    print podnames
-    print lbips
-    print lbips[0]
+    print(podnames)
+    print(lbips)
+    print(lbips[0])
 
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
@@ -94,8 +94,8 @@ def test_k8s_ingress_2(kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    print podnames
-    print lbips[0]
+    print(podnames)
+    print(lbips[0])
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
     # Delete ingress
@@ -195,8 +195,8 @@ def test_k8s_ingress_4(kube_hosts):
     podnames2, lbips2 = create_service_ingress(ingresses2, services2,
                                                port2, namespace)
 
-    print podnames1
-    print podnames2
+    print(podnames1)
+    print(podnames2)
 
     check_round_robin_access_lb_ip(podnames1[0], lbips1[0], port1,
                                    path="/name.html")
@@ -283,8 +283,8 @@ def test_k8s_ingress_6(kube_hosts):
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
 
-    print lb_ip[0]
-    print pod1_names
+    print(lb_ip[0])
+    print(pod1_names)
     check_round_robin_access_lb_ip(pod1_names, lb_ip[0], port,
                                    path="/name.html")
     # Delete ingress
@@ -331,7 +331,7 @@ def test_k8s_ingress_7(kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    print lbips[0]
+    print(lbips[0])
 
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/service3.html")
@@ -474,9 +474,9 @@ def test_k8s_ingress_10(kube_hosts):
     # Create services, ingress and validate
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace, ing_scale=2)
-    print lbips
-    print lbips[0]
-    print lbips[1]
+    print(lbips)
+    print(lbips[0])
+    print(lbips[1])
     time.sleep(15)
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    path="/name.html")
@@ -522,9 +522,9 @@ def test_k8s_ingress_11(kube_hosts):
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
-    print "The ips are:\n"
-    print lb_ip[0]
-    print pod1_names
+    print("The ips are:\n")
+    print(lb_ip[0])
+    print(pod1_names)
 
     check_round_robin_access_lb_ip(pod1_names, lb_ip[0], port,
                                    path="/name.html")
@@ -541,23 +541,23 @@ def test_k8s_ingress_11(kube_hosts):
     # for the Ingress. We are getting the updated IP if the old IP doesn't
     # become active with the new port number within 90s
     lb_ip_updated = lb_ip
-    print lb_ip_updated[0]
+    print(lb_ip_updated[0])
     try:
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
-        print "Same IP"
+        print("Same IP")
     except:
         lb_ip_updated = wait_for_ingress_to_become_active(ingress_name,
                                                           namespace,
                                                           ing_scale=1)
-        print "New IP"
-        print lb_ip_updated[0]
+        print("New IP")
+        print(lb_ip_updated[0])
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
 
     # Validate Ingress rules
     pod1_names = get_pod_names_for_selector(selector1, namespace, scale=2)
 
-    print lb_ip_updated[0]
-    print pod1_names
+    print(lb_ip_updated[0])
+    print(pod1_names)
     check_round_robin_access_lb_ip(pod1_names, lb_ip_updated[0], port_new,
                                    path="/name.html")
     # Delete ingress
@@ -674,8 +674,8 @@ def test_k8s_ingress_13(kube_hosts):
     # Validate Ingress rules
     pod_new_names = get_pod_names_for_selector(selector1, namespace, scale=3)
 
-    print lbips[0][0]
-    print pod_new_names
+    print(lbips[0][0])
+    print(pod_new_names)
     check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
                                    path="/name.html")
     # Delete ingress
@@ -734,8 +734,8 @@ def test_k8s_ingress_14(kube_hosts):
     pod_new_names = get_pod_names_for_selector(service1["selector"],
                                                namespace, scale=1)
 
-    print lbips[0][0]
-    print pod_new_names
+    print(lbips[0][0])
+    print(pod_new_names)
     check_round_robin_access_lb_ip(pod_new_names, lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
@@ -802,8 +802,8 @@ def test_k8s_ingress_15(kube_hosts):
     # Validate Ingress rules
     pod2_names = get_pod_names_for_selector(selector2, namespace, scale=2)
 
-    print lbips[0]
-    print pod2_names
+    print(lbips[0])
+    print(pod2_names)
     check_round_robin_access_lb_ip(pod2_names, lbips[0], port,
                                    hostheader="foo.bar.com",
                                    path="/name.html")
@@ -867,23 +867,23 @@ def test_k8s_ingress_16(kube_hosts):
         "replace ing --namespace="+namespace,
         expected_result, file_name=ingress_file_name_new)
     lb_ip_updated = lbips
-    print "Lb IP"
-    print lb_ip_updated
+    print("Lb IP")
+    print(lb_ip_updated)
     try:
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
-        print "Same IP"
+        print("Same IP")
     except:
         lb_ip_updated = wait_for_ingress_to_become_active(ingress_name,
                                                           namespace,
                                                           ing_scale=1)
-        print "New IP"
-        print lb_ip_updated[0]
+        print("New IP")
+        print(lb_ip_updated[0])
         wait_until_lb_ip_is_active(lb_ip_updated[0], port_new, timeout=90)
 
     # Validate Ingress rules
     pod2_names = get_pod_names_for_selector(selector2, namespace, scale=2)
 
-    print pod2_names
+    print(pod2_names)
     check_round_robin_access_lb_ip(pod2_names, lb_ip_updated[0], port_new,
                                    hostheader="foo.bar.com",
                                    path="/service3.html")
@@ -982,9 +982,9 @@ def test_k8s_ingress_18(kube_hosts):
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace)
 
-    print podnames
-    print lbips
-    print lbips[0]
+    print(podnames)
+    print(lbips)
+    print(lbips[0])
 
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",
@@ -1054,13 +1054,13 @@ def test_k8s_ingress_19(kube_hosts):
     # Pods for service3
     podnameslist = get_pod_names_for_selector(service3["selector"],
                                               namespace2, scale=2)
-    print podnameslist
+    print(podnameslist)
     # Pods for service1 and service2
     podnames, lbips = create_service_ingress(ingresses, services1,
                                              port, namespace1)
-    print podnames
-    print lbips
-    print lbips[0][0]
+    print(podnames)
+    print(lbips)
+    print(lbips[0][0])
 
     # Validate the ingress
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
@@ -1122,10 +1122,10 @@ def test_k8s_ingress_20(kube_hosts):
     # Create services, ingress and validate
     podnames, lbips = create_service_ingress(ingresses, services,
                                              port, namespace, scale=2)
-    print "The list of pods:"
-    print podnames[0]
-    print podnames[1]
-    print podnames[2]
+    print("The list of pods:")
+    print(podnames[0])
+    print(podnames[1])
+    print(podnames[2])
 
     # Validate the ingress
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
@@ -1206,7 +1206,7 @@ def test_k8s_ingress_21(kube_hosts):
     # Validate Ingress rules
     pod2_names = get_pod_names_for_selector(selector2, namespace, scale=2)
 
-    print pod2_names
+    print(pod2_names)
     check_round_robin_access_lb_ip(pod2_names, lbips[0], port,
                                    path="/service3.html")
     # Delete ingress
@@ -1256,7 +1256,7 @@ def test_k8s_ingress_22(kube_hosts):
     response_list = json_resp["items"]
     hostips = []
     for items in response_list:
-        print items
+        print(items)
         host_dict = items['status']
         ip = host_dict['addresses'][0]['address']
         hostips.append(ip)
@@ -1265,10 +1265,10 @@ def test_k8s_ingress_22(kube_hosts):
     ingress_response = execute_kubectl_cmds(
         "get ingress " + ingress_name + " -o json --namespace=" + namespace)
     ingress = json.loads(ingress_response)
-    print ingress
+    print(ingress)
     if "ingress" in ingress["status"]["loadBalancer"]:
         for item in ingress["status"]["loadBalancer"]["ingress"]:
-            print item["ip"]
+            print(item["ip"])
             lb_ips.append(item["ip"])
 
     # Verify the number of IPs from ingress
@@ -1313,15 +1313,15 @@ def test_k8s_ingress_23(kube_hosts, client):
     ingresses.append(ingress)
 
     # Add labels to the hosts as host=host1, host=host2, host=host3
-    hostlist = client.list_host(state="active")
+    hostlist = client.list_host(state="active").data
     i = 0
     for host in hostlist:
         i = i + 1
         labelkey = "host" + str(i)
-        print labelkey
+        print(labelkey)
         host.labels.update({"host": labelkey})
-        print "The labels after update are: "
-        print host.labels
+        print("The labels after update are: ")
+        print(host.labels)
         host = client.update(host, labels=host.labels, hostname=host.hostname)
         client.wait_success(host, 300)
 
@@ -1337,21 +1337,21 @@ def test_k8s_ingress_23(kube_hosts, client):
     stackname = "kubernetes-ingress-lbs"
     stack, ingresslbservice = get_env_service_by_name(client, stackname,
                                                       ingresslbservicename)
-    print ingresslbservice
+    print(ingresslbservice)
     ingressservicetest = client.list_service(name=ingresslbservice.name,
                                              include="instances",
                                              uuid=ingresslbservice.uuid,
-                                             state="active")
+                                             state="active").data
     # Verfify that the ingress service has the label set correctly
     servicedata = ingressservicetest.data
     servicedatadict = servicedata[0]
-    print "Service data dictionary"
-    print servicedatadict
+    print("Service data dictionary")
+    print(servicedatadict)
     labels = servicedatadict.launchConfig["labels"]
     assert labels["io.rancher.scheduler.affinity:host_label"] == "host=host1"
 
-    print "The length of ingressservicetest is:"
-    print len(ingressservicetest)
+    print("The length of ingressservicetest is:")
+    print(len(ingressservicetest))
     assert len(ingressservicetest) == 1
     instanceslist = ingressservicetest[0].instances
 
@@ -1362,16 +1362,16 @@ def test_k8s_ingress_23(kube_hosts, client):
         if host.id == ingress_hostid:
             hostlabelsdict = host.labels
             if 'host' in hostlabelsdict:
-                print hostlabelsdict['host']
+                print(hostlabelsdict['host'])
                 assert hostlabelsdict['host'] == 'host1'
 
     # Remove the labels on the hosts
     for host in hostlist:
-        print host.labels
+        print(host.labels)
         if 'host' in host.labels:
             del host.labels['host']
-        print "The labels after delete are: "
-        print host.labels
+        print("The labels after delete are: ")
+        print(host.labels)
         host = client.update(host, labels=host.labels, hostname=host.hostname)
         client.wait_success(host, 300)
 
@@ -1431,8 +1431,8 @@ def test_k8s_ingress_24(kube_hosts):
 
     # Verify the ingress scale is 2
     assert len(lbips) == 2
-    print lbips[0]
-    print lbips[1]
+    print(lbips[0])
+    print(lbips[1])
 
     check_round_robin_access_lb_ip(podnames[0], lbips[0], port,
                                    hostheader="foo.bar.com",

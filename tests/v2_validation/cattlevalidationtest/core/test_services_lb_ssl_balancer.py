@@ -289,8 +289,10 @@ def test_lb_ssl_edit_add_cert(
     default_domain_cert_id = get_cert(default_domain).id
 
     lb_config = lb_service.lbConfig
-    lb_config["defaultCertificateId"] = default_domain_cert_id
-    lb_config["certificateIds"] = [new_cert.id]
+    # lb_config["defaultCertificateId"] = default_domain_cert_id
+    # lb_config["certificateIds"] = [new_cert.id]
+    setattr(lb_config, "defaultCertificateId", default_domain_cert_id)
+    setattr(lb_config, "certificateIds", new_cert.id)
     lb_service = client.update(lb_service, lbConfig=lb_config)
 
     lb_service = client.wait_success(lb_service, 120)
@@ -589,7 +591,7 @@ def test_lb_sni(
     assert service1.state == "inactive"
     service1 = activate_svc(client, service1)
 
-    port_rules = lb_service.lbConfig["portRules"]
+    port_rules = lb_service.lbConfig.portRules
     port_rule = {"hostname": "test1.com",
                  "serviceId": service.id,
                  "sourcePort": port,
@@ -649,7 +651,7 @@ def test_lb_tcp_ssl_pass_through(
     assert service1.state == "inactive"
     service1 = activate_svc(client, service1)
 
-    port_rules = lb_service.lbConfig["portRules"]
+    port_rules = lb_service.lbConfig.portRules
     port_rule = {"serviceId": service.id,
                  "sourcePort": port,
                  "targetPort": "443",

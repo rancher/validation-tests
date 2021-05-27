@@ -33,8 +33,8 @@ def test_webhook_scaleup(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # Execute Webhook and verify that the scale is incremented by
     # the amount specified
@@ -81,8 +81,8 @@ def test_webhook_scaleup_beyond_max(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # Execute Webhook
     wh_resp = requests.post(webhook_url)
@@ -97,7 +97,7 @@ def test_webhook_scaleup_beyond_max(client):
     service = client.reload(service)
     assert service.scale == 3
     json_resp = json.loads(wh_resp.content)
-    print json_resp
+    print(json_resp)
 
     expected_response = "Error Cannot scale above provided max " \
                         "scale value in executing driver for scaleService"
@@ -141,8 +141,8 @@ def test_webhook_scaleup_beyond_max_1(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # Execute webhook and ensure the scale cannot be
     # incremented beyond max scale
@@ -151,8 +151,8 @@ def test_webhook_scaleup_beyond_max_1(client):
     service = client.reload(service)
     assert service.scale == 2
     json_resp = json.loads(wh_resp.content)
-    print "Json response is"
-    print json_resp
+    print("Json response is")
+    print(json_resp)
 
     expected_response = "Error Cannot scale above provided max " \
                         "scale value in executing driver for scaleService"
@@ -207,8 +207,8 @@ def test_webhook_scaledown(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is" + repr(webhook_url)
-    print "Id is" + repr(webhook_id)
+    print("Webhook is" + repr(webhook_url))
+    print("Id is" + repr(webhook_id))
 
     # Execute Webhook and ensure the scale is decremented
     # by the amount specified
@@ -258,8 +258,8 @@ def test_webhook_scaledown_below_min(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is" + repr(webhook_url)
-    print "Id is" + repr(webhook_id)
+    print("Webhook is" + repr(webhook_url))
+    print("Id is" + repr(webhook_id))
 
     # Execute Webhook
     wh_resp = requests.post(webhook_url)
@@ -274,7 +274,7 @@ def test_webhook_scaledown_below_min(client):
     service = client.reload(service)
     assert service.scale == 1
     json_resp = json.loads(wh_resp.content)
-    print json_resp
+    print(json_resp)
 
     expected_response = "Error Cannot scale below provided min " \
                         "scale value in executing driver for scaleService"
@@ -322,8 +322,8 @@ def test_webhook_scaledown_below_min_1(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is" + repr(webhook_url)
-    print "Id is" + repr(webhook_id)
+    print("Webhook is" + repr(webhook_url))
+    print("Id is" + repr(webhook_id))
 
     # Execute Webhook and ensure scale cannot be
     # decremented below the min value
@@ -332,7 +332,7 @@ def test_webhook_scaledown_below_min_1(client):
     service = client.reload(service)
     assert service.scale == 4
     json_resp = json.loads(wh_resp.content)
-    print json_resp
+    print(json_resp)
 
     expected_response = "Error Cannot scale below provided min " \
                         "scale value in executing driver for scaleService"
@@ -383,8 +383,8 @@ def test_webhook_invalid_scale_action(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print "JSON response is:"
-    print json_resp
+    print("JSON response is:")
+    print(json_resp)
     expected_response = "Invalid action updown"
     assert json_resp['message'] == expected_response
 
@@ -416,8 +416,8 @@ def test_webhook_invalid_service_id(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print "JSON response is:"
-    print json_resp
+    print("JSON response is:")
+    print(json_resp)
     expected_response = "Invalid service 1s1000a"
     assert json_resp['message'] == expected_response
 
@@ -450,7 +450,7 @@ def test_webhook_scaleup_invalid_zero_amount(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
+    print(resp)
 
     expected_message = "Invalid amount: 0"
     assert resp['message'] == expected_message
@@ -485,7 +485,7 @@ def test_webhook_scaleup_invalid_negative_amount(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
+    print(resp)
 
     expected_message = "Invalid amount: -1"
     assert resp['message'] == expected_message
@@ -520,8 +520,8 @@ def test_webhook_scaleup_invalid_zero_min(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
-    print resp['message']
+    print(resp)
+    print(resp['message'])
 
     expected_message = "Minimum scale not provided/invalid"
     assert resp['message'] == expected_message
@@ -556,7 +556,7 @@ def test_webhook_scaleup_invalid_negative_min(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
+    print(resp)
 
     expected_message = "Minimum scale not provided/invalid"
     assert resp['message'] == expected_message
@@ -591,8 +591,8 @@ def test_webhook_scaleup_invalid_zero_max(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
-    print resp['message']
+    print(resp)
+    print(resp['message'])
 
     expected_message = "Maximum scale not provided/invalid"
     assert resp['message'] == expected_message
@@ -627,8 +627,8 @@ def test_webhook_scaleup_invalid_negative_max(client):
     assert r.status_code == 400
     assert r.url is not None
     resp = json.loads(r.content)
-    print resp
-    print resp['message']
+    print(resp)
+    print(resp['message'])
     expected_message = "Maximum scale not provided/invalid"
     assert resp['message'] == expected_message
 
@@ -667,13 +667,13 @@ def test_webhook_duplicatename(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print json_resp
+    print(json_resp)
     expected_message = "Cannot have duplicate webhook name, webhook " \
                        + data["name"] + " already exists"
     assert json_resp['message'] == expected_message
@@ -718,7 +718,7 @@ def test_webhook_external_service(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print json_resp
+    print(json_resp)
     expected_message = "Can only create webhooks for Services. " \
                        "The supplied service is of type externalService"
     assert json_resp['message'] == expected_message
@@ -757,7 +757,7 @@ def test_webhook_global_service(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print json_resp
+    print(json_resp)
     expected_message = "Cannot create webhook for global service " + service.id
     assert json_resp['message'] == expected_message
 
@@ -804,7 +804,7 @@ def test_webhook_service_no_image(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print json_resp
+    print(json_resp)
     expected_message = "Cannot create webhook for service " \
                        "with no image " + service.id
     assert json_resp['message'] == expected_message
@@ -845,12 +845,12 @@ def test_webhook_missing_projectid(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # Remove the project id (last three characters) from the URL
     webhook_url = webhook_url[:-3]
-    print webhook_url
+    print(webhook_url)
 
     # Execute webhook with missing project Id and verify that it gives
     # an "Invalid" error message
@@ -858,8 +858,8 @@ def test_webhook_missing_projectid(client):
     assert wh_resp.status_code == 400
 
     json_resp = json.loads(wh_resp.content)
-    print "JSON Response is"
-    print json_resp
+    print("JSON Response is")
+    print(json_resp)
     expected_keyword = "Invalid"
     jsonstrresponse = str(json_resp['message'])
     if jsonstrresponse.find(expected_keyword) == -1:
@@ -904,32 +904,32 @@ def test_webhook_invalid_projectid(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     webhook_url_split = webhook_url.split("projectId=")
-    print webhook_url_split
+    print(webhook_url_split)
     projectId = webhook_url_split[1]
-    print projectId
+    print(projectId)
     invalid_projectId = "1e1000"
-    print webhook_url
+    print(webhook_url)
 
     # Use the invalid project id "1e1000" in the URL
     webhook_url_with_invalid_projectId = webhook_url_split[0] + \
         "projectId=" + invalid_projectId
-    print "Webhook URL with invalid project id:"
-    print webhook_url_with_invalid_projectId
+    print("Webhook URL with invalid project id:")
+    print(webhook_url_with_invalid_projectId)
 
     # Execute webhook with invalid project Id and
     # verify that it gives an error message
     wh_resp = requests.post(webhook_url_with_invalid_projectId)
-    print "Response is : "
-    print wh_resp
+    print("Response is : ")
+    print(wh_resp)
     assert wh_resp.status_code == 500
 
     json_resp = json.loads(wh_resp.content)
-    print "JSON Response is"
-    print json_resp
+    print("JSON Response is")
+    print(json_resp)
     expected_keyword = "Error"
     jsonstrresponse = str(json_resp['message'])
     if jsonstrresponse.find(expected_keyword) == -1:
@@ -974,32 +974,32 @@ def test_webhook_invalid_token(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     webhook_url_split = webhook_url.split("key=")
     key = webhook_url_split[1]
     # Create invalid key by removing first 3 characters of the key
     modified_key = key[3:]
-    print "Modified key"
-    print modified_key
-    print webhook_url
+    print("Modified key")
+    print(modified_key)
+    print(webhook_url)
 
     # Use the invalid key in the URL
     webhook_url_with_invalid_token = webhook_url_split[0] + "key=" \
         + modified_key
-    print "Webhook URL with Invalid token:"
-    print webhook_url_with_invalid_token
+    print("Webhook URL with Invalid token:")
+    print(webhook_url_with_invalid_token)
 
     # Execute webhook with invalid key/token and verify that it gives
     # an error message
     wh_resp = requests.post(webhook_url_with_invalid_token)
-    print wh_resp
+    print(wh_resp)
     assert wh_resp.status_code == 403
 
     json_resp = json.loads(wh_resp.content)
-    print "JSON Response is"
-    print json_resp
+    print("JSON Response is")
+    print(json_resp)
     expected_keyword = "revoked"
     jsonstrresponse = str(json_resp['message'])
     if jsonstrresponse.find(expected_keyword) == -1:
@@ -1044,8 +1044,8 @@ def test_webhook_execute_deleted_webhook(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # Execute Webhook and verify that the scale is incremented by
     # the amount specified
@@ -1062,8 +1062,8 @@ def test_webhook_execute_deleted_webhook(client):
     assert wh_resp.status_code == 403
 
     json_resp = json.loads(wh_resp.content)
-    print "JSON Response is"
-    print json_resp
+    print("JSON Response is")
+    print(json_resp)
 
     expected_message = "Requested webhook has been revoked"
     jsonstrresponse = str(json_resp['message'])
@@ -1099,8 +1099,8 @@ def test_webhook_invalid_driver(client):
     resp = create_webhook(env.accountId, data)
     assert resp.status_code == 400
     json_resp = json.loads(resp.content)
-    print "JSON response is:"
-    print json_resp
+    print("JSON response is:")
+    print(json_resp)
     expected_response = "Invalid driver " + data['driver']
     assert json_resp['message'] == expected_response
 
@@ -1139,8 +1139,8 @@ def test_webhook_list_single_webhook(client):
     webhook_url = json_resp["url"]
     webhook_id = json_resp["id"]
 
-    print "Webhook is " + repr(webhook_url)
-    print "Id is " + repr(webhook_id)
+    print("Webhook is " + repr(webhook_url))
+    print("Id is " + repr(webhook_id))
 
     # List the webhook by id and ensure we get the correct response
     resp = list_webhook(env.accountId, webhook_id=webhook_id)

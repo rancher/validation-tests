@@ -46,14 +46,14 @@ def create_stacks(client, stack_name1, stack_name2,
                   portsuffixnum):
 
     # Create pre-upgrade stack
-    print "**** In Create Stacks ****"
+    print("**** In Create Stacks ****")
 
-    print "PORT SUFFIX NUM"
+    print("PORT SUFFIX NUM")
 
-    print portsuffixnum
+    print(portsuffixnum)
 
     lb_image_setting = get_lb_image_version(client)
-    print lb_image_setting
+    print(lb_image_setting)
 
     dc_config_file1 = "dc_first_stack.yml"
     rc_config_file1 = "rc_first_stack.yml"
@@ -61,12 +61,12 @@ def create_stacks(client, stack_name1, stack_name2,
     dc_config1 = dc_config1.replace("$portsuffixnum", portsuffixnum)
     dc_config1 = dc_config1.replace("$lbimage", lb_image_setting)
 
-    print dc_config1
+    print(dc_config1)
 
     rc_config1 = readDataFile(UPGRADE_SUBDIR, rc_config_file1)
     rc_config1 = rc_config1.replace("$portsuffixnum", portsuffixnum)
 
-    print rc_config1
+    print(rc_config1)
     create_stack_with_service_from_config(client, stack_name1, dc_config1,
                                           rc_config1)
 
@@ -77,7 +77,7 @@ def create_stacks(client, stack_name1, stack_name2,
     dc_config2 = dc_config2.replace("$lbimage", lb_image_setting)
     dc_config2 = dc_config2.replace("$portsuffixnum", portsuffixnum)
 
-    print dc_config2
+    print(dc_config2)
 
     rc_config2 = readDataFile(UPGRADE_SUBDIR, rc_config_file2)
     rc_config2 = rc_config2.replace("$stack", stack_name1)
@@ -92,19 +92,19 @@ def validate_stacks(client, stackname,
 
     stack1 = stackname + "-1"
     stack2 = stackname + "-2"
-    print "In validate stacks"
+    print("In validate stacks")
 
     # Validate the containers/lbs in the stack
 
     stack, service1 = get_env_service_by_name(client, stack1, "service1")
-    assert service1['state'] == "active"
+    assert service1.state == "active"
     assert service1.scale == 2
 
     # Validate LB Service
 
     stack, lbservice = get_env_service_by_name(client, stack1, "mylb")
 
-    assert lbservice['state'] == "active"
+    assert lbservice.state == "active"
     assert lbservice.scale == 1
 
     mylbport = "300" + str(portsuffixnum)
@@ -115,7 +115,7 @@ def validate_stacks(client, stackname,
 
     stack, healthservice = get_env_service_by_name(client, stack1,
                                                    "healthservice")
-    assert service1['state'] == "active"
+    assert service1.state == "active"
     assert healthservice.scale == 1
     assert healthservice.healthState == "healthy"
 
@@ -135,7 +135,7 @@ def validate_stacks(client, stackname,
         lambda x: x.healthState == 'healthy',
         lambda x: 'State is: ' + x.healthState)
 
-    assert healthlbservice['state'] == "active"
+    assert healthlbservice.state == "active"
     assert healthlbservice.scale == 1
     assert healthlbservice.healthState == "healthy"
 
@@ -145,7 +145,7 @@ def validate_stacks(client, stackname,
     # Validate Global Health LB Service
     stack, globalhealthservice = get_env_service_by_name(client, stack1,
                                                          "globalhealthservice")
-    assert globalhealthservice['state'] == "active"
+    assert globalhealthservice.state == "active"
     assert globalhealthservice.healthState == "healthy"
     verify_service_is_global(client, globalhealthservice)
 
@@ -165,7 +165,7 @@ def validate_stacks(client, stackname,
         lambda x: x.healthState == 'healthy',
         lambda x: 'State is: ' + x.healthState)
 
-    assert globalhealthlbservice['state'] == "active"
+    assert globalhealthlbservice.state == "active"
     assert globalhealthlbservice.healthState == "healthy"
     verify_service_is_global(client,
                              globalhealthlbservice)
@@ -174,13 +174,13 @@ def validate_stacks(client, stackname,
                         globallbport, [globalhealthservice])
 
     stack, service2 = get_env_service_by_name(client, stack1, "service2")
-    assert service2['state'] == "active"
+    assert service2.state == "active"
     assert service2.scale == 2
 
     # Validate SSL LB service
 
     stack, ssllbservice = get_env_service_by_name(client, stack1, "ssllb")
-    assert ssllbservice['state'] == "active"
+    assert ssllbservice.state == "active"
     assert ssllbservice.scale == 1
 
     ssl_port = "40" + str(portsuffixnum)
@@ -188,10 +188,11 @@ def validate_stacks(client, stackname,
     port = ssl_port
     domain = dom_list[0]
     test_ssl_client_con = create_client_container_for_ssh(client, client_port)
-    print "***TEST CLIENT CONTAINER***"
-    print test_ssl_client_con["port"]
-    print test_ssl_client_con["host"]
-    print test_ssl_client_con["container"]
+    print("***TEST CLIENT CONTAINER***")
+    print(test_ssl_client_con)
+    print(test_ssl_client_con["port"])
+    print(test_ssl_client_con["host"])
+    print(test_ssl_client_con["container"])
     validate_lb_services_ssl(client, test_ssl_client_con,
                              stack, [service1, service2], ssllbservice,
                              port, ssl_port,
@@ -200,7 +201,7 @@ def validate_stacks(client, stackname,
     # Validate DNS Service
     stack, servicewithexposedports = get_env_service_by_name(
         client, stack1, "servicewithexposedports")
-    assert servicewithexposedports['state'] == "active"
+    assert servicewithexposedports.state == "active"
     assert servicewithexposedports.scale == 1
     exposedport = "400" + str(portsuffixnum)
     validate_dns_service(
@@ -222,7 +223,7 @@ def validate_stacks(client, stackname,
     # Validate Service with Link
     stack, servicewithlink = get_env_service_by_name(client,
                                                      stack1, "servicewithlink")
-    assert servicewithlink['state'] == "active"
+    assert servicewithlink.state == "active"
     assert servicewithlink.scale == 1
     servicelinkexposedport = "500" + str(portsuffixnum)
     validate_linked_service(client, servicewithlink,
@@ -234,7 +235,7 @@ def validate_stacks(client, stackname,
 
     stack, newstacklbservice = get_env_service_by_name(client, stack2,
                                                        "newstacklb")
-    assert newstacklbservice['state'] == "active"
+    assert newstacklbservice.state == "active"
     assert newstacklbservice.scale == 1
 
     newstacklbport = "600" + str(portsuffixnum)
@@ -245,12 +246,12 @@ def validate_stacks(client, stackname,
     # pointing to a service in the first Stack]
     stack, newstackservice1 = get_env_service_by_name(client, stack2,
                                                       "newstackservice1")
-    assert newstackservice1['state'] == "active"
+    assert newstackservice1.state == "active"
     assert newstackservice1.scale == 1
 
     stack, newstackservicewithlink = get_env_service_by_name(
         client, stack2, "newstackservicewithlink")
-    assert newstackservicewithlink['state'] == "active"
+    assert newstackservicewithlink.state == "active"
     assert newstackservicewithlink.scale == 1
 
     newstacklinkedserviceport = "700" + str(portsuffixnum)
@@ -274,18 +275,18 @@ def post_upgrade(client):
     post_upgrade_stack2 = post_upgrade_stack_name+"-2"
     pre_upgrade_stack1 = pre_upgrade_stack_name + "-1"
     pre_upgrade_stack2 = pre_upgrade_stack_name + "-2"
-    print "***Validate Pre Stacks in Post UPGRADE ****"
+    print("***Validate Pre Stacks in Post UPGRADE ****")
     validate_stacks(client, pre_upgrade_stack_name,
                     preportsuffixnum, socat_containers)
-    print "***Modify Pre Stacks in Post UPGRADE ****"
+    print("***Modify Pre Stacks in Post UPGRADE ****")
     modify_preupgradestack_verify(client,
                                   pre_upgrade_stack1, pre_upgrade_stack2)
 
-    print "****Create new Stacks in Post UPGRADE ****"
+    print("****Create new Stacks in Post UPGRADE ****")
     create_stacks(client, post_upgrade_stack1,
                   post_upgrade_stack2, postportsuffixnum)
 
-    print "****Validate new Stacks in Post UPGRADE ****"
+    print("****Validate new Stacks in Post UPGRADE ****")
     validate_stacks(client, post_upgrade_stack_name,
                     postportsuffixnum, socat_containers)
 
@@ -311,7 +312,7 @@ def modify_preupgradestack_verify(client,
     # Increment LB scale and validate
     lbservice = client.update(lbservice, name=lbservice.name, scale=2)
     lbservice = client.wait_success(lbservice, 300)
-    assert lbservice['state'] == "active"
+    assert lbservice.state == "active"
     lbservice.scale == 2
     validate_lb_service(client, lbservice,
                         mylbport, [service1])
@@ -360,7 +361,7 @@ def modify_preupgradestack_verify(client,
     newstacklbservice = client.update(newstacklbservice,
                                       name=newstacklbservice.name, scale=2)
     newstacklbservice = client.wait_success(newstacklbservice, 300)
-    assert newstacklbservice['state'] == "active"
+    assert newstacklbservice.state == "active"
     newstacklbservice.scale == 2
 
     newstacklbport = "600" + str(preportsuffixnum)
@@ -372,7 +373,7 @@ def modify_preupgradestack_verify(client,
     stack, newstackservicewithlink = get_env_service_by_name(
         client, pre_upgrade_stack2, "newstackservicewithlink")
 
-    assert newstackservicewithlink['state'] == "active"
+    assert newstackservicewithlink.state == "active"
     assert newstackservicewithlink.scale == 1
 
     newstacklinkedserviceport = "700" + str(preportsuffixnum)
@@ -386,7 +387,7 @@ def test_pre_upgrade():
     client = \
         get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
     create_socat_containers(client)
-    print "***PRE UPGRADE TEST***"
+    print("***PRE UPGRADE TEST***")
     pre_upgrade(client)
 
 
@@ -395,7 +396,7 @@ def test_post_upgrade():
     client = \
         get_client_for_auth_enabled_setup(ACCESS_KEY, SECRET_KEY, PROJECT_ID)
     client = client
-    print "***POST UPGRADE TEST***"
+    print("***POST UPGRADE TEST***")
     create_socat_containers(client)
     post_upgrade(client)
 
@@ -415,16 +416,16 @@ def verify_service_is_global(client, service):
     globalservicetest = client.list_service(name=service.name,
                                             include="instances",
                                             uuid=service.uuid,
-                                            state="active")
-    print globalservicetest
-    print "The length of globalservicetest is:"
-    print len(globalservicetest)
+                                            state="active").data
+    print(globalservicetest)
+    print("The length of globalservicetest is:")
+    print(len(globalservicetest))
     assert len(globalservicetest) == 1
     instanceslist = globalservicetest[0].instances
-    print "Instances list"
-    print instanceslist
-    hostlist = client.list_host(state="active")
-    print hostlist
+    print("Instances list")
+    print(instanceslist)
+    hostlist = client.list_host(state="active").data
+    print(hostlist)
     hostidlist = []
     for host in hostlist:
         hostidlist.append(host.id)
@@ -432,9 +433,9 @@ def verify_service_is_global(client, service):
     # Verify that the number of containers of the global service
     # is equal to the number of hosts
     assert len(instanceslist) == len(hostlist)
-    print "Host id list"
-    print hostidlist
+    print("Host id list")
+    print(hostidlist)
     # Verify that there is one instance per host
     for instance in instanceslist:
-        assert instance['hostId'] in hostidlist
-        hostidlist.remove(instance['hostId'])
+        assert instance.hostId in hostidlist
+        hostidlist.remove(instance.hostId)

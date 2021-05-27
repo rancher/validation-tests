@@ -59,10 +59,10 @@ def create_env_for_network_policy(request, client, socat_containers):
 
 
 def populate_env_details(client):
-    env = client.list_stack(name="test1")
+    env = client.list_stack(name="test1").data
     assert len(env) == 1
     env1 = env[0]
-    env = client.list_stack(name="test2")
+    env = client.list_stack(name="test2").data
     assert len(env) == 1
     env2 = env[0]
 
@@ -763,7 +763,7 @@ def scale_service(service, client, final_scale):
 
 
 def set_network_policy(client, defaultPolicyAction="allow", policy=None):
-    networks = client.list_network(name='ipsec')
+    networks = client.list_network(name='ipsec').data
     assert len(networks) == 1
     network = networks[0]
     network = client.update(
@@ -775,7 +775,7 @@ def set_network_policy(client, defaultPolicyAction="allow", policy=None):
 
 def check_for_network_policy_manager(client):
     np_manager = False
-    env = client.list_stack(name="network-policy-manager")
+    env = client.list_stack(name="network-policy-manager").data
     if len(env) == 1:
         service = get_service_by_name(client, env[0],
                                       "network-policy-manager")
@@ -785,7 +785,7 @@ def check_for_network_policy_manager(client):
 
 
 def create_standalone_containers(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     cons = []
     cons_with_label = []
     for host in hosts:

@@ -1734,7 +1734,7 @@ def test_lbservice_edit_add_multiple_port_rules(
                             lb_service, port, [services[0]],
                             "www.abc.com", "/service2.html")
         for j in range(0, i):
-            print "Validation after adding " + str(i) + " ports"
+            print("Validation after adding " + str(i) + " ports")
             validate_lb_service(client,
                                 lb_service, port+str(j), [services[0]],
                                 "www.abc.com"+str(j), "/name.html")

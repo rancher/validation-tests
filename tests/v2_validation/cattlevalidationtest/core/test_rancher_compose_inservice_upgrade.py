@@ -37,9 +37,9 @@ def test_rancher_compose_inservice_upgrade_confirm(client,
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
     # Check for default settings
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 2
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 1000
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 2
+    assert service.upgrade.inServiceStrategy.intervalMillis == 1000
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Confirm upgrade
     service = confirm_upgrade_stack(
@@ -72,9 +72,9 @@ def test_rancher_compose_inservice_upgrade_rollback(client,
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
 
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 3
+    assert service.upgrade.inServiceStrategy.intervalMillis == 500
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Rollback upgrade
 
@@ -106,9 +106,9 @@ def test_rancher_compose_inservice_upgrade_delete(client,
 
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 1
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 750
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 1
+    assert service.upgrade.inServiceStrategy.intervalMillis == 750
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Delete stack
     launch_rancher_cli_from_file(
@@ -1052,7 +1052,7 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
     for i in range(1, 6):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1067,9 +1067,9 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
     # Check for default settings
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 2
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 1000
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 2
+    assert service.upgrade.inServiceStrategy.intervalMillis == 1000
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Confirm upgrade
     service = confirm_upgrade_stack(
@@ -1083,7 +1083,7 @@ def test_rancher_compose_inservice_upgrade_confirm_retainip(
     for i in range(1, 6):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         assert containerips_before_upgrade[container_name+"ip"] \
             == containers[0].primaryIpAddress
@@ -1114,7 +1114,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     for i in range(1, 6):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1127,7 +1127,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     for i in range(1, 6):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1143,9 +1143,9 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
 
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 3
+    assert service.upgrade.inServiceStrategy.intervalMillis == 500
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Rollback upgrade
     service = rollback_upgrade_stack(
@@ -1159,7 +1159,7 @@ def test_rancher_compose_inservice_upgrade_rollback_retainip(
     for i in range(1, 6):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         assert containerips_before_upgrade[container_name+"ip"] \
             == containers[0].primaryIpAddress
@@ -1188,7 +1188,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
     for i in range(1, 3):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1204,9 +1204,9 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
     # Check for default settings
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 2
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 1000
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 2
+    assert service.upgrade.inServiceStrategy.intervalMillis == 1000
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Confirm upgrade
     service = confirm_upgrade_stack(
@@ -1220,7 +1220,7 @@ def test_rancher_compose_inservice_upgrade_set_retainip_during_upgrade(
     for i in range(1, 3):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         assert containerips_before_upgrade[container_name+"ip"] \
             == containers[0].primaryIpAddress
@@ -1252,7 +1252,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
     for i in range(1, 3):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1265,7 +1265,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
     for i in range(1, 3):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         containerips_before_upgrade[container_name+"ip"] = \
             containers[0].primaryIpAddress
@@ -1294,7 +1294,7 @@ def test_rancher_compose_inservice_upgrade_retainip_during_upgrade_rollback(
     for i in range(1, 3):
         container_name = get_container_name(stack, service, str(i))
         containers = client.list_container(name=container_name,
-                                           removed_null=True)
+                                           removed_null=True).data
         assert len(containers) == 1
         assert containerips_before_upgrade[container_name+"ip"] \
             == containers[0].primaryIpAddress
@@ -1656,9 +1656,9 @@ def test_rancher_compose_upgrade_with_ports_rollback(
     check_config_for_service(client, service, {"test1": "value1"}, 0)
     check_config_for_service(client, service, {"test1": "value2"}, 1)
 
-    assert service.upgrade["inServiceStrategy"]["batchSize"] == 3
-    assert service.upgrade["inServiceStrategy"]["intervalMillis"] == 500
-    assert service.upgrade["inServiceStrategy"]["startFirst"] is False
+    assert service.upgrade.inServiceStrategy.batchSize == 3
+    assert service.upgrade.inServiceStrategy.intervalMillis == 500
+    assert service.upgrade.inServiceStrategy.startFirst is False
 
     # Rollback upgrade
     service = rollback_upgrade_stack(
@@ -1739,24 +1739,24 @@ def check_config_for_service_sidekick(client, service, service_name,
     assert len(containers) == service.scale
     for con in containers:
         for key in labels.keys():
-            assert con.labels[key] == labels[key]
+            assert con.labels.get(key) == labels.get(key)
         if managed == 1:
             assert con.state == "running"
         else:
             assert con.state == "stopped"
-    print service
+    print(service)
     if managed:
         for key in labels.keys():
             if primary:
-                service_labels = service.launchConfig["labels"]
+                service_labels = service.launchConfig.labels
             else:
                 sk_name = service_name.split("-")[-1]
-                print sk_name
+                print(sk_name)
                 sl_configs = service.secondaryLaunchConfigs
                 for sl_config in sl_configs:
-                    if sl_config["name"] == sk_name:
-                        service_labels = sl_config["labels"]
-            assert service_labels[key] == labels[key]
+                    if sl_config.name == sk_name:
+                        service_labels = sl_config.labels
+            assert service_labels.get(key) == labels.get(key)
 
 
 def check_container_state(client, containers, state):

@@ -123,7 +123,7 @@ def test_digital_ocean_machine_parallel(client):
             assert host.state == 'active'
 
         for host in hosts:
-            host_ip = host.ipAddresses()[0].address
+            host_ip = host.ipAddresses().data[0].address
             host = client.wait_success(host.deactivate())
             assert host.state == "inactive"
             host = client.wait_success(client.delete(host))
@@ -195,7 +195,7 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
     # Check that the droplet that is being created in Digital Ocean has the
     # correct configurations
 
-    droplet = check_host_in_digital_ocean(host.ipAddresses()[0].address)
+    droplet = check_host_in_digital_ocean(host.ipAddresses().data[0].address)
 
     if labels is not None:
         for label in host.hostLabels():
@@ -213,7 +213,7 @@ def digital_ocean_machine_life_cycle(client, configs, expected_values,
     assert droplet["region"]["slug"] == expected_values["region"]
 
     # Remove the host
-    host_ip = host.ipAddresses()[0].address
+    host_ip = host.ipAddresses().data[0].address
     host = client.wait_success(host.deactivate())
     assert host.state == "inactive"
     host = client.wait_success(client.delete(host))
@@ -297,12 +297,12 @@ def action_on_digital_ocean_machine(dropletId, action):
         headers = {'Authorization': "Bearer " + access_key,
                    "Content-Type": "application/json"}
         data = {'type': action}
-        print url
+        print(url)
         r = requests.post(url, data=json.dumps(data), headers=headers)
     except Exception:
         error_msg = "Error encountered when trying to " \
                     + action+" machine - " + str(dropletId)
-        print error_msg
+        print(error_msg)
         logger.error(msg=error_msg)
         logger.error(msg=traceback.format_exc())
     finally:

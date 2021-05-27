@@ -381,14 +381,14 @@ def test_amazon_ec2machine_parallel(client):
             machine = client.wait_success(machine, timeout=DEFAULT_TIMEOUT)
             assert machine.state == 'active'
             machine = wait_for_host(client, machine)
-            host = machine.hosts()[0]
+            host = machine.hosts().data[0]
             assert host.state == 'active'
 
         for machine in machines:
             machine = client.wait_success(machine.remove())
             assert machine.state == 'removed'
 
-            host = machine.hosts()[0]
+            host = machine.hosts().data[0]
             host = wait_for_condition(client, host,
                                       lambda x: x.state == 'removed',
                                       lambda x: 'State is: ' + x.state)
@@ -411,7 +411,7 @@ def amazon_ec2_machine_lifecycle(ec2_region, client, configs, expected_values):
     # Wait until host shows up with some physicalHostId
     machine = wait_for_host(client, machine)
 
-    hosts = machine.hosts()
+    hosts = machine.hosts().data
     assert len(hosts) == 1
     host = hosts[0]
     assert host.state == 'active'
@@ -421,7 +421,7 @@ def amazon_ec2_machine_lifecycle(ec2_region, client, configs, expected_values):
     # correct configurations
 
     ec2_instance = check_host_in_amazon(ec2_region,
-                                        host.ipAddresses()[0].address)
+                                        host.ipAddresses().data[0].address)
 
     instance_root_size = str(get_instance_volume_size(ec2_region,
                                                       ec2_instance))
@@ -460,7 +460,7 @@ def wait_for_host(client, machine, timeout=DEFAULT_TIMEOUT):
                                  str(len(x.hosts())),
                        DEFAULT_TIMEOUT)
 
-    host = machine.hosts()[0]
+    host = machine.hosts().data[0]
 
     host = wait_for_condition(client,
                               host,
@@ -500,12 +500,12 @@ def wait_for_host_to_destroy_in_amazon(ec2_region, name, timeout=180):
     start = time.time()
     time_elapsed = 0
     host = check_host_in_amazon(ec2_region, name=name)
-    print host.state
+    print(host.state)
 
     while host.state != "terminated":
         time.sleep(2)
         host = check_host_in_amazon(ec2_region, name=name)
-        print host.state
+        print(host.state)
         time_elapsed = time.time() - start
         if time_elapsed > timeout:
             time_elapsed_msg = "Timeout waiting for host to be destroyed in " \

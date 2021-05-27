@@ -4,7 +4,7 @@ import pytest
 
 
 def get_logs(client):
-    hosts = client.list_host(kind='docker', removed_null=True)
+    hosts = client.list_host(kind='docker', removed_null=True).data
     assert len(hosts) > 0
     in_log = random_str()
     cmd = '/bin/bash -c "echo {}; sleep 2"'.format(in_log)

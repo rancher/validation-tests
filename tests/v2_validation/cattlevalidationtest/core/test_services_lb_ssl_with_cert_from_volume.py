@@ -49,12 +49,12 @@ def test_cert_container(client, request):
     service_cons = client.list_service(
         uuid=services["testclient"].uuid,
         include="instances",
-        )
+        ).data
     assert len(service_cons) == 1
     assert len(service_cons[0].instances) == 1
     con_info = client.list_container(
         uuid=service_cons[0].instances[0].uuid,
-        include="hosts")
+        include="hosts").data
     assert len(con_info) == 1
     test_cert_con["con"] = con_info[0]
     test_cert_con["host"] = con_info[0].hosts[0].agentIpAddress
@@ -129,7 +129,7 @@ def upload_initial_certs(cert_list, default_cert=None):
     cmd += "cd /certs/default.com;"
     if default_cert is not None:
         cmd += cmd_for_cert_creation(default_cert)
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     logger.info(response)
@@ -148,7 +148,7 @@ def upload_additional_certs(cert_list=None, default_cert=None):
     if default_cert is not None:
         cmd = "cd /certs/default.com;"
         cmd += cmd_for_cert_creation(default_cert)
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     logger.info(response)
@@ -170,7 +170,7 @@ def edit_existing_certs(existing_cert, modified_cert, is_default_cert=False):
         cmd = "cd /certs/mycerts/" + existing_cert + ";"
     cmd += 'echo "' + cert + '" > ' + cert_file + ";"
     cmd += 'echo "' + key + '" > ' + key_file + ";"
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     logger.info(response)
@@ -189,7 +189,7 @@ def delete_existing_certs(cert_list=None, default_cert=None):
     if default_cert is not None:
         cmd = "cd /certs/default.com;"
         cmd += "rm -rf " + default_cert + ";"
-    print cmd
+    print(cmd)
     stdin, stdout, stderr = ssh.exec_command(cmd)
     response = stdout.readlines()
     logger.info(response)
